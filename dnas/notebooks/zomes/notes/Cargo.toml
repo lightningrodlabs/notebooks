@@ -1,0 +1,22 @@
+[package]
+edition = "2018"
+name = "notes"
+version = "0.0.1"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "notes"
+
+[dependencies]
+serde = "1"
+derive_more = "0"
+chrono = {version = "0.4", features = ["serde"]}
+
+hdk = "0.0.109"
+holo_hash = { version = "0.0.8", features = ["encoding"] }
+
+[dev-dependencies]
+futures = {version = "0.3.1", default-features = false}
+holochain = {version = "0.0.109", default-features = false, features = ["test_utils"]}
+tokio = {version = "1.3", features = ["full"]}
+fixt = "0.0.6"

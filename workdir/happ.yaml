@@ -1,0 +1,28 @@
+---
+manifest_version: "1"
+name: notebooks
+description: ~
+slots:
+
+  - id: notebooks
+    provisioning:
+      strategy: create
+      deferred: false
+    dna:
+      bundled: "../dnas/notebooks/workdir/notebooks.dna"
+      properties: ~
+      uuid: ~
+      version: ~
+      clone_limit: 0
+
+  - id: syn
+    provisioning:
+      strategy: create
+      deferred: true
+    dna:
+      bundled: "../dnas/syn/workdir/syn.dna"
+      properties: ~
+      uuid: ~
+      version: ~
+      clone_limit: 0
+
