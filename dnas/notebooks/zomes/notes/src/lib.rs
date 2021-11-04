@@ -54,7 +54,6 @@ pub fn get_all_notes(_: ()) -> ExternResult<BTreeMap<EntryHashB64, Note>> {
     let links = get_links(path.hash()?, None)?;
 
     let get_inputs = links
-        .into_inner()
         .into_iter()
         .map(|link| GetInput::new(link.target.into(), GetOptions::default()))
         .collect();

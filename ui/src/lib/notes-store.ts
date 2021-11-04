@@ -1,6 +1,12 @@
 import { CellClient } from '@holochain-open-dev/cell-client';
-import { Dictionary } from '@holochain-open-dev/core-types';
-import { Writable, writable } from 'svelte/store';
+import {
+  AgentPubKeyB64,
+  Dictionary,
+  serializeHash,
+} from '@holochain-open-dev/core-types';
+import { derived, Writable, writable } from 'svelte/store';
+import { pickBy } from 'lodash-es';
+
 import { NotesService } from './notes-service';
 import { Note } from './types';
 
@@ -9,7 +15,19 @@ export class NotesStore {
 
   #notesByEntryHash: Writable<Dictionary<Note>> = writable({});
 
-  constructor(cellClient: CellClient, zomeName: string = 'notes') {
+  notesCreatedByMe = derived(this.#notesByEntryHash, notes =>
+    pickBy(notes, (value, key) => value.creator === this.myAgentPubKey)
+  );
+
+  notesCreatedByOthers = derived(this.#notesByEntryHash, notes =>
+    pickBy(notes, (value, key) => value.creator !== this.myAgentPubKey)
+  );
+
+  get myAgentPubKey(): AgentPubKeyB64 {
+    return serializeHash(this.cellClient.cellId[1]);
+  }
+
+  constructor(protected cellClient: CellClient, zomeName: string = 'notes') {
     this.service = new NotesService(cellClient, zomeName);
   }
 

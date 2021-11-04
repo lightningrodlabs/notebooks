@@ -2,8 +2,7 @@
 manifest_version: "1"
 name: notebooks
 description: ~
-slots:
-
+roles:
   - id: notebooks
     provisioning:
       strategy: create
@@ -25,4 +24,3 @@ slots:
       uuid: ~
       version: ~
       clone_limit: 0
-
