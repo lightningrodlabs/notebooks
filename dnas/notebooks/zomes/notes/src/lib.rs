@@ -11,7 +11,7 @@ pub struct Note {
     // anyone can recreate the Note Dna
     pub creator: AgentPubKeyB64,
     pub timestamp: Timestamp,
-
+    
     // Restulting Dna hash to check that we are accessing the right thing
     pub syn_dna_hash: DnaHashB64,
 }
@@ -21,17 +21,17 @@ entry_defs![Note::entry_def(), Path::entry_def()];
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateNoteInput {
     pub title: String,
+    pub timestamp: Timestamp,
     pub syn_dna_hash: DnaHashB64,
 }
 
 #[hdk_extern]
 pub fn create_new_note(input: CreateNoteInput) -> ExternResult<EntryHashB64> {
     let creator = agent_info()?.agent_latest_pubkey;
-    let timestamp = sys_time()?;
 
     let note = Note {
         creator: creator.into(),
-        timestamp,
+        timestamp: input.timestamp,
         syn_dna_hash: input.syn_dna_hash,
         title: input.title,
     };

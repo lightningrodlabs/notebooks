@@ -1,8 +1,9 @@
-use crate::fixt::DnaHashB64Fixturator;
 use ::fixt::prelude::*;
 use std::collections::BTreeMap;
+use std::time::SystemTime;
 
 use hdk::prelude::holo_hash::*;
+use hdk::prelude::DnaHashB64Fixturator;
 use holochain::test_utils::consistency_10s;
 use holochain::{conductor::config::ConductorConfig, sweettest::*};
 use notes::{CreateNoteInput, Note};
@@ -25,8 +26,11 @@ async fn create_and_get() {
     let alice_zome = alice.zome("notes");
     let bob_zome = bobbo.zome("notes");
 
+    let now = SystemTime::now();
+
     let create_note_input = CreateNoteInput {
         title: String::from("new note"),
+        timestamp: now,
         syn_dna_hash: fixt!(DnaHashB64),
     };
 

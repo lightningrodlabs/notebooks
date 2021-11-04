@@ -17,7 +17,7 @@ roles:
   - id: syn
     provisioning:
       strategy: create
-      deferred: true
+      deferred: false
     dna:
       bundled: "../dnas/syn/workdir/syn.dna"
       properties: ~
