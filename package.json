@@ -24,8 +24,5 @@
   },
   "engines": {
     "npm": ">=7.0.0"
-  },
-  "dependencies": {
-    "prism-markdown-element": "^1.0.9"
   }
 }
