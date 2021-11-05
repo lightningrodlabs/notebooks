@@ -6,4 +6,5 @@ properties: ~
 zomes: 
   - name: notes
     bundled: ../../../target/wasm32-unknown-unknown/release/notes.wasm
-
+  - name: profiles
+    bundled: ../../../target/wasm32-unknown-unknown/release/profiles.wasm

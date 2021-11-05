@@ -1,17 +1,27 @@
 import { LitElement, css, html } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { AppWebsocket } from '@holochain/conductor-api';
+import {
+  AdminWebsocket,
+  AppWebsocket,
+  InstalledCell,
+} from '@holochain/conductor-api';
 import { CellClient, HolochainClient } from '@holochain-open-dev/cell-client';
 import { EntryHashB64 } from '@holochain-open-dev/core-types';
 import {
   AgentAvatar,
   ProfilePrompt,
   ProfilesStore,
+  profilesStoreContext,
 } from '@holochain-open-dev/profiles';
 import { Context, ContextProvider } from '@lit-labs/context';
 import { StoreSubscriber } from 'lit-svelte-stores';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements';
-import { IconButton, TopAppBar } from '@scoped-elements/material-web';
+import {
+  CircularProgress,
+  Fab,
+  IconButton,
+  TopAppBar,
+} from '@scoped-elements/material-web';
 
 import { router } from './router';
 
@@ -19,6 +29,8 @@ import { MarkdownNote } from './lib/elements/markdown-note';
 import { sharedStyles } from './lib/shared-styles';
 import { NotesCreatedByMe } from './lib/elements/notes-created-by-me';
 import { NotesCreatedByOthers } from './lib/elements/notes-created-by-others';
+import { NotesStore } from './lib/notes-store';
+import { notesStoreContext } from './lib/context';
 
 export class NotebooksApp extends ScopedElementsMixin(LitElement) {
   @state()
@@ -27,6 +39,7 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
   _loading = true;
 
   _profilesStore!: ContextProvider<Context<ProfilesStore>>;
+  _notesStore!: ContextProvider<Context<NotesStore>>;
 
   _myProfile = new StoreSubscriber(
     this,
@@ -37,22 +50,40 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
     const appWebsocket = await AppWebsocket.connect(
       `ws://localhost:${process.env.HC_PORT}`
     );
+    const adminWebsocket = await AdminWebsocket.connect(
+      `ws://localhost:${process.env.ADMIN_PORT}`
+    );
 
     const appInfo = await appWebsocket.appInfo({
       installed_app_id: 'notebooks',
     });
 
-    const cellData = appInfo.cell_data[0];
+    const cellData = appInfo.cell_data.find(
+      c => c.role_id === 'notebooks'
+    ) as InstalledCell;
 
-    return new HolochainClient(appWebsocket, cellData);
+    const client = new HolochainClient(appWebsocket, cellData);
+
+    const profilesStore = new ProfilesStore(client);
+
+    this._profilesStore = new ContextProvider(
+      this,
+      profilesStoreContext,
+      profilesStore
+    );
+    this._notesStore = new ContextProvider(
+      this,
+      notesStoreContext,
+      new NotesStore(client, adminWebsocket)
+    );
   }
 
   async firstUpdated() {
     await this.connectToHolochain();
 
     router
-      .on('/game/:game', (params: any) => {
-        this._activeNoteHash = params.data.game;
+      .on('/note/:note', (params: any) => {
+        this._activeNoteHash = params.data.note;
       })
       .on('/', () => {
         this._activeNoteHash = undefined;
@@ -64,21 +95,46 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
   renderContent() {
     if (this._activeNoteHash)
       return html`<markdown-note
+        style="flex: 1;"
         .noteHash=${this._activeNoteHash}
       ></markdown-note>`;
 
     return html`
-      <div class="column">
-        <notes-created-by-me></notes-created-by-me>
-        <notes-created-by-others></notes-created-by-others>
+      <div class="column" style="flex: 1;">
+        <notes-created-by-me
+          style="flex: 1; margin: 16px;"
+          @note-selected=${(e: CustomEvent) =>
+            router.navigate(`/note/${e.detail.noteHash}`)}
+        ></notes-created-by-me>
+        <notes-created-by-others
+          @note-selected=${(e: CustomEvent) =>
+            router.navigate(`/note/${e.detail.noteHash}`)}
+          style="flex: 1; margin: 16px;"
+        ></notes-created-by-others>
+        ${this.renderNewNoteButton()}
       </div>
     `;
+  }
+
+  renderNewNoteButton() {
+    return html`<mwc-fab
+      extended
+      icon="add"
+      label="Create Note"
+      style="
+      margin: 16px;
+      position: absolute;
+      right: 0;
+      bottom: 0;
+    "
+      @click=${() => this._notesStore.value.createNote(Date.now().toString())}
+    ></mwc-fab>`;
   }
 
   renderMyProfile() {
     if (!this._myProfile.value) return html``;
     return html`
-      <div class="row center-content" slot="actionItems">
+      <div class="row" style="align-items: center;" slot="actionItems">
         <agent-avatar
           .agentPubKey=${this._profilesStore.value.myAgentPubKey}
         ></agent-avatar>
@@ -88,6 +144,13 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
   }
 
   render() {
+    if (this._loading)
+      return html`<div
+        style="flex: 1; height: 100%; align-items: center; justify-contents: center;"
+      >
+        <mwc-circular-progress indeterminate></mwc-circular-progress>
+      </div>`;
+
     return html`
       <mwc-top-app-bar style="flex: 1; display: flex;">
         ${this._activeNoteHash
@@ -119,6 +182,8 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
       'notes-created-by-me': NotesCreatedByMe,
       'notes-created-by-others': NotesCreatedByOthers,
       'mwc-icon-button': IconButton,
+      'mwc-circular-progress': CircularProgress,
+      'mwc-fab': Fab,
     };
   }
 
@@ -126,6 +191,7 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
     css`
       :host {
         display: flex;
+        flex: 1;
       }
     `,
     sharedStyles,

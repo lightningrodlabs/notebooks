@@ -16,14 +16,21 @@
         padding: 0;
         font-family: sans-serif;
         background-color: #ededed;
+        height: 100%;
+      }
+      body {
+        display: flex;
       }
     </style>
     <title>lit-element</title>
   </head>
 
   <body>
-    <holochain-app></holochain-app>
+    <notebooks-app></notebooks-app>
 
-    <script type="module" src="./out-tsc/holochain-app.js"></script>
+    <script type="module">
+      import { NotebooksApp } from './ui/out-tsc/notebooks-app.js';
+      customElements.define('notebooks-app', NotebooksApp);
+    </script>
   </body>
 </html>

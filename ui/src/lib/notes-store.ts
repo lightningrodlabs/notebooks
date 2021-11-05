@@ -8,7 +8,7 @@ import {
   serializeHash,
 } from '@holochain-open-dev/core-types';
 import { derived, get, Writable, writable } from 'svelte/store';
-import { pickBy } from 'lodash-es';
+import pickBy from 'lodash-es/pickBy';
 import { createSynStore, SynStore } from '@syn/store';
 import {
   AdminWebsocket,
@@ -63,12 +63,21 @@ export class NotesStore {
 
     const syn_dna_hash = await this.installNoteDna(creator, timestamp);
 
-    await this.service.createNote({
+    const entryHash = await this.service.createNote({
       title,
       syn_dna_hash,
+      timestamp,
     });
 
-    await this.fetchAllNotes();
+    this.#notesByEntryHash.update(notes => {
+      notes[entryHash] = {
+        title,
+        syn_dna_hash,
+        timestamp,
+        creator,
+      };
+      return notes;
+    });
   }
 
   async openNote(noteHash: EntryHashB64): Promise<NoteSynStore> {

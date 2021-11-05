@@ -8,6 +8,7 @@ export interface Note {
 }
 
 export interface CreateNoteInput {
+  timestamp: number;
   title: string;
   syn_dna_hash: DnaHashB64;
 }

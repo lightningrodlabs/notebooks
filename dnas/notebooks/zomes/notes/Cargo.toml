@@ -13,7 +13,7 @@ derive_more = "0"
 serde = "1"
 
 hdk = "0.0.114"
-holo_hash = {version = "0.0.12", features = ["encoding"]}
+holo_hash = {version = "0.0.12", features = ["test_utils", "encoding"]}
 
 [dev-dependencies]
 fixt = "0.0.6"

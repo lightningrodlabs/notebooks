@@ -1,5 +1,5 @@
 import { ScopedElementsMixin } from '@open-wc/scoped-elements';
-import { html, LitElement } from 'lit';
+import { css, html, LitElement } from 'lit';
 import { Card, Ripple } from '@scoped-elements/material-web';
 import { property, state } from 'lit/decorators.js';
 
@@ -15,29 +15,28 @@ export class NoteCollection extends ScopedElementsMixin(LitElement) {
 
   renderNote(hash: EntryHashB64, note: Note) {
     return html`
-      <mwc-ripple>
-        <mwc-card
-          @click=${() =>
-            this.dispatchEvent(
-              new CustomEvent('note-selected', {
-                bubbles: true,
-                composed: true,
-                detail: {
-                  noteHash: hash,
-                },
-              })
-            )}
-        >
-          <span>${note.title}</span>
-        </mwc-card>
-      </mwc-ripple>
+      <mwc-card
+        class="note"
+        @click=${() =>
+          this.dispatchEvent(
+            new CustomEvent('note-selected', {
+              bubbles: true,
+              composed: true,
+              detail: {
+                noteHash: hash,
+              },
+            })
+          )}
+      >
+        <span>${note.title}</span>
+      </mwc-card>
     `;
   }
 
   renderSkeleton() {
     return html`
       <div class="row">
-        ${Array(3).map(() => html`<sl-skeleton></sl-skeleton>`)}
+        ${Array(3).map(() => html`<sl-skeleton class="note"></sl-skeleton>`)}
       </div>
     `;
   }
@@ -46,7 +45,7 @@ export class NoteCollection extends ScopedElementsMixin(LitElement) {
     if (!this.notes) return this.renderSkeleton();
 
     return html`
-      <div class="row">
+      <div class="row" style="flex: 1;">
         ${sortByDescendantTimestamp(this.notes).map(([hash, note]) =>
           this.renderNote(hash, note)
         )}
@@ -62,5 +61,13 @@ export class NoteCollection extends ScopedElementsMixin(LitElement) {
     };
   }
 
-  static styles = [sharedStyles];
+  static styles = [
+    sharedStyles,
+    css`
+      .note {
+        height: 80px;
+        width: 80px;
+      }
+    `,
+  ];
 }

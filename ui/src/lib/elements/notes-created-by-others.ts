@@ -5,6 +5,7 @@ import { StoreSubscriber } from 'lit-svelte-stores';
 
 import { notesStoreContext } from '../context';
 import { NotesStore } from '../notes-store';
+import { sharedStyles } from '../shared-styles';
 import { NoteCollection } from './note-collection';
 
 export class NotesCreatedByOthers extends ScopedElementsMixin(LitElement) {
@@ -22,6 +23,7 @@ export class NotesCreatedByOthers extends ScopedElementsMixin(LitElement) {
 
   render() {
     return html`<note-collection
+      style="flex: 1;"
       .notes=${this._notesCreatedByOthers.value}
     ></note-collection>`;
   }
@@ -31,4 +33,6 @@ export class NotesCreatedByOthers extends ScopedElementsMixin(LitElement) {
       'note-collection': NoteCollection,
     };
   }
+  
+  static styles = sharedStyles;
 }
