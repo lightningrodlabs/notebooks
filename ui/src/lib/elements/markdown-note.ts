@@ -3,7 +3,7 @@ import { contextProvided, provide } from '@lit-labs/context';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements';
 import { html, LitElement, PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import { synContext, SynFolks, SynSessions } from '@syn/elements';
+import { SynContext, synContext, SynFolks, SynSessions } from '@syn/elements';
 import { SynTextEditor } from '@syn/text-editor';
 import { StoreSubscriber } from 'lit-svelte-stores';
 import { readable } from 'svelte/store';
@@ -13,6 +13,7 @@ import { notesStoreContext } from '../context';
 import { NotesStore, NoteSynStore } from '../notes-store';
 import { MarkdownRenderer } from '@scoped-elements/markdown-renderer';
 import { sharedStyles } from '../shared-styles';
+import { ProfilesStore, profilesStoreContext } from '@holochain-open-dev/profiles';
 export class MarkdownNote extends ScopedElementsMixin(LitElement) {
   @property()
   noteHash!: EntryHashB64;
@@ -33,12 +34,12 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
   );
 
   updated(changedValues: PropertyValues) {
-    console.log(this._activeSession)
     super.updated(changedValues);
 
     if (changedValues.has('noteHash') && this.noteHash) {
       this.connectSyn();
     }
+    console.log(this._activeSession.value)
   }
 
   async connectSyn() {
@@ -50,22 +51,20 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
   render() {
     if (!this._noteSynStore) return html`Loading...`;
     return html`
-      <div
-        class="row"
-        style="flex: 1;"
-        ${provide(synContext, this._noteSynStore)}
-      >
-        <syn-text-editor
-          style="flex: 1;"
-          @change-requested=${(e: CustomEvent) =>
-            this._activeSession.value?.requestChange([e.detail.delta])}
-        ></syn-text-editor>
-        <markdown-renderer
-          style="flex: 1;"
-          .markdown=${this._content.value}
-        ></markdown-renderer>
-        <syn-folks></syn-folks>
-      </div>
+      <syn-context .store=${this._noteSynStore}>
+        <div class="row" style="flex: 1;">
+          <syn-text-editor
+            style="flex: 1;"
+            @change-requested=${(e: CustomEvent) =>
+              this._activeSession.value?.requestChange([e.detail.delta])}
+          ></syn-text-editor>
+          <markdown-renderer
+            style="flex: 1;"
+            .markdown=${this._content.value}
+          ></markdown-renderer>
+          <syn-folks></syn-folks>
+        </div>
+      </syn-context>
     `;
   }
 
@@ -75,6 +74,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
       'syn-text-editor': SynTextEditor,
       'syn-sessions': SynSessions,
       'syn-folks': SynFolks,
+      'syn-context': SynContext,
     };
   }
 

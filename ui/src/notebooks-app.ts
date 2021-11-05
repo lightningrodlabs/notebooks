@@ -13,6 +13,7 @@ import {
   ProfilesStore,
   profilesStoreContext,
 } from '@holochain-open-dev/profiles';
+import { profilesStoreContext as profilesStoreContext2 } from '../../../syn/ui/libs/elements/node_modules/@holochain-open-dev/profiles';
 import { Context, ContextProvider } from '@lit-labs/context';
 import { StoreSubscriber } from 'lit-svelte-stores';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements';
@@ -71,6 +72,7 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
       profilesStoreContext,
       profilesStore
     );
+    new ContextProvider(this, profilesStoreContext2, profilesStore);
     this._notesStore = new ContextProvider(
       this,
       notesStoreContext,

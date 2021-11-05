@@ -17,7 +17,7 @@
     "@holochain/conductor-api": "github:holochain/holochain-conductor-api#update-to-113",
     "@lit-labs/context": "github:holochain-open-dev/context#build",
     "@open-wc/scoped-elements": "^2.0.1",
-    "@scoped-elements/markdown-renderer": "^0.0.1",
+    "@scoped-elements/markdown-renderer": "^0.0.2",
     "@scoped-elements/material-web": "^0.0.15",
     "@scoped-elements/shoelace": "^0.0.7",
     "@syn/elements": "file:../../syn/ui/libs/elements",

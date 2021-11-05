@@ -81,7 +81,12 @@ export class NotesStore {
   }
 
   async openNote(noteHash: EntryHashB64): Promise<NoteSynStore> {
-    const note = get(this.#notesByEntryHash)[noteHash];
+    let note = get(this.#notesByEntryHash)[noteHash];
+
+    if (!note) {
+      await this.fetchAllNotes();
+      note = get(this.#notesByEntryHash)[noteHash];
+    }
 
     const creator = note.creator;
     const timestamp = note.timestamp;
@@ -111,6 +116,14 @@ export class NotesStore {
       '',
       applyTextEditorDelta
     );
+
+    const sessions = await store.getAllSessions();
+console.log('session', sessions)
+    if (Object.keys(sessions).length === 0) {
+      await store.newSession();
+    } else {
+      await store.joinSession(Object.keys(sessions)[0]);
+    }
     return store;
   }
 
