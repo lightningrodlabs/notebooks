@@ -22,7 +22,7 @@ import {
   ProfilesStore,
   profilesStoreContext,
 } from '@holochain-open-dev/profiles';
-import { CircularProgress } from '@scoped-elements/material-web';
+import { Card, CircularProgress, Fab } from '@scoped-elements/material-web';
 import { getLatestCommit } from './utils';
 
 export class MarkdownNote extends ScopedElementsMixin(LitElement) {
@@ -45,6 +45,9 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
   );
   _allCommits = new StoreSubscriber(this, () => this._noteSynStore?.allCommits);
   _snapshots = new StoreSubscriber(this, () => this._noteSynStore?.snapshots);
+  _note = new StoreSubscriber(this, () =>
+    this._notesStore?.note(this.noteHash)
+  );
 
   @state()
   _fetchingSnapshot = false;
@@ -65,23 +68,19 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
 
     this._noteSynStore = await this._notesStore.openNote(this.noteHash);
 
-    const sessions = await this._noteSynStore.getAllSessions();
-
-    if (Object.keys(sessions).length > 0) {
-      await this._noteSynStore.joinSession(Object.keys(sessions)[0]);
-    } else {
-      await this._noteSynStore.fetchCommitHistory();
-      if (Object.keys(this._allCommits.value).length > 0) {
-        const [hash, _] = getLatestCommit(this._allCommits.value);
-        await this.fetchSnapshot(hash);
-      } else {
-        await this._noteSynStore.newSession();
-      }
+    await this._noteSynStore.fetchCommitHistory();
+    if (Object.keys(this._allCommits.value).length > 0) {
+      const [hash, _] = getLatestCommit(this._allCommits.value);
+      await this.fetchSnapshot(hash);
+    } else if (
+      this._note.value &&
+      this._note.value.creator === this._notesStore.myAgentPubKey
+    ) {
+      await this._noteSynStore.newSession();
     }
   }
 
   getMarkdownContent() {
-    if (this._content.value) return this._content.value;
     if (!this._selectedCommitHash) return undefined;
 
     const selectedCommit = this._allCommits.value[this._selectedCommitHash];
@@ -98,46 +97,96 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
     this._fetchingSnapshot = false;
   }
 
+  renderNotInSessionContent() {
+    return html`<div class="row" style="flex: 1;">
+      <div class="column" style="flex: 1;">
+        <syn-sessions style="flex: 1;"></syn-sessions>
+        <syn-commit-history
+          style="flex: 1;"
+          .selectedCommitHash=${this._selectedCommitHash}
+          @commit-selected=${(e: CustomEvent) =>
+            this.fetchSnapshot(e.detail.commitHash)}
+        ></syn-commit-history>
+      </div>
+      ${this._fetchingSnapshot
+        ? this.renderLoading()
+        : html`
+            <mwc-card style="flex: 1; margin: 16px;">
+              <markdown-renderer
+                style="flex: 1;"
+                .markdown=${this.getMarkdownContent()}
+              ></markdown-renderer>
+            </mwc-card>
+
+            <mwc-fab
+              extended
+              icon="edit"
+              label="Start Session"
+              style="
+                margin: 16px;
+                position: absolute;
+                right: 0;
+                bottom: 0;
+              "
+              @click=${() =>
+                this._noteSynStore?.newSession(this._selectedCommitHash)}
+            ></mwc-fab>
+          `}
+    </div> `;
+  }
+
+  renderInSessionContent() {
+    return html`<div class="row" style="flex: 1;">
+      <syn-folks></syn-folks>
+
+      <syn-text-editor
+        style="flex: 1;"
+        @changes-requested=${(e: CustomEvent) =>
+          this._activeSession.value?.requestChanges({
+            deltas: e.detail.deltas,
+            ephemeral: e.detail.ephemeral,
+          })}
+      ></syn-text-editor>
+
+      <mwc-card style="flex: 1; margin: 16px;">
+        <markdown-renderer
+          style="flex: 1;"
+          .markdown=${this._content.value}
+        ></markdown-renderer>
+      </mwc-card>
+      <mwc-fab
+        extended
+        icon="logout"
+        label="Leave Session"
+        style="
+                margin: 16px;
+                position: absolute;
+                right: 0;
+                bottom: 0;
+              "
+        @click=${() => this._activeSession.value?.leave()}
+      ></mwc-fab>
+    </div>`;
+  }
+
+  renderLoading() {
+    return html`
+      <div
+        class="row"
+        style="flex: 1; align-items: center; justify-contents: center"
+      >
+        <mwc-circular-progress indeterminate></mwc-circular-progress>
+      </div>
+    `;
+  }
+
   render() {
-    if (!this._noteSynStore) return html`Loading...`;
+    if (!this._noteSynStore) return this.renderLoading();
     return html`
       <syn-context .store=${this._noteSynStore}>
-        <div class="row" style="flex: 1;">
-          ${this._activeSession.value
-            ? html`
-                <syn-text-editor
-                  style="flex: 1;"
-                  @changes-requested=${(e: CustomEvent) =>
-                    this._activeSession.value?.requestChanges({
-                      deltas: e.detail.deltas,
-                    })}
-                ></syn-text-editor>
-              `
-            : html``}
-          ${this._fetchingSnapshot
-            ? html`
-                <div
-                  class="row"
-                  style="flex: 1; align-items: center; justify-contents: center"
-                >
-                  <mwc-circular-progress indeterminate></mwc-circular-progress>
-                </div>
-              `
-            : html`
-                <markdown-renderer
-                  style="flex: 1;"
-                  .markdown=${this.getMarkdownContent()}
-                ></markdown-renderer>
-              `}
-          <div class="column" style="width: 400px">
-            <syn-folks style="flex: 1;"></syn-folks>
-            <syn-commit-history
-              style="flex: 1;"
-              @commit-selected=${(e: CustomEvent) =>
-                this.fetchSnapshot(e.detail.commitHash)}
-            ></syn-commit-history>
-          </div>
-        </div>
+        ${this._activeSession.value
+          ? this.renderInSessionContent()
+          : this.renderNotInSessionContent()}
       </syn-context>
     `;
   }
@@ -151,6 +200,8 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
     return {
       'markdown-renderer': MarkdownRenderer,
       'mwc-circular-progress': CircularProgress,
+      'mwc-card': Card,
+      'mwc-fab': Fab,
       'syn-text-editor': SynTextEditor,
       'syn-sessions': SynSessions,
       'syn-folks': SynFolks,

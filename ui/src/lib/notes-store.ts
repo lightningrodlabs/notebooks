@@ -36,6 +36,10 @@ export class NotesStore {
     pickBy(notes, (value, key) => value.creator !== this.myAgentPubKey)
   );
 
+  note(noteHash: EntryHashB64) {
+    return derived(this.#notesByEntryHash, notes => notes[noteHash]);
+  }
+
   get myAgentPubKey(): AgentPubKeyB64 {
     return serializeHash(this.cellClient.cellId[1]);
   }

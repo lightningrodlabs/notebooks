@@ -164,7 +164,7 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
               ></mwc-icon-button>
             `
           : html``}
-        <div slot="title">Elemental Chess</div>
+        <div slot="title">Notebooks</div>
         <div class="fill row" style="width: 100vw; height: 100%;">
           <profile-prompt style="flex: 1;">
             ${this.renderContent()}
