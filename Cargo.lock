@@ -1544,7 +1544,7 @@ dependencies = [
 [[package]]
 name = "hc_zome_syn"
 version = "0.0.1"
-source = "git+https://github.com/holochain/syn?rev=2f57c2054d134427a1c7d7b58c0f10e5bc5fc904#2f57c2054d134427a1c7d7b58c0f10e5bc5fc904"
+source = "git+https://github.com/holochain/syn?rev=d5bf37457598540eed29e49161fa231cc19a8160#d5bf37457598540eed29e49161fa231cc19a8160"
 dependencies = [
  "chrono",
  "derive_more",

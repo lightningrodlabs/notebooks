@@ -9,7 +9,7 @@ import {
 } from '@holochain-open-dev/core-types';
 import { derived, get, Writable, writable } from 'svelte/store';
 import pickBy from 'lodash-es/pickBy';
-import { createSynStore, SynStore } from '@syn/store';
+import { SynStore } from '@syn/store';
 import {
   AdminWebsocket,
   AppWebsocket,
@@ -111,19 +111,12 @@ export class NotesStore {
       }
     );
 
-    const store: SynStore<string, TextEditorDelta> = createSynStore(
+    const store: SynStore<string, TextEditorDelta> = new SynStore(
       cellClient,
       '',
       applyTextEditorDelta
     );
 
-    const sessions = await store.getAllSessions();
-console.log('session', sessions)
-    if (Object.keys(sessions).length === 0) {
-      await store.newSession();
-    } else {
-      await store.joinSession(Object.keys(sessions)[0]);
-    }
     return store;
   }
 
