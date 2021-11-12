@@ -1,5 +1,5 @@
 import { LitElement, css, html } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, query, state } from 'lit/decorators.js';
 import {
   AdminWebsocket,
   AppWebsocket,
@@ -13,14 +13,17 @@ import {
   ProfilesStore,
   profilesStoreContext,
 } from '@holochain-open-dev/profiles';
-import { profilesStoreContext as profilesStoreContext2 } from '../../../syn/ui/libs/elements/node_modules/@holochain-open-dev/profiles';
+import { profilesStoreContext as profilesStoreContext2 } from '../../../syn/node_modules/@holochain-open-dev/profiles';
 import { Context, ContextProvider } from '@lit-labs/context';
 import { StoreSubscriber } from 'lit-svelte-stores';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements';
 import {
+  Button,
   CircularProgress,
+  Dialog,
   Fab,
   IconButton,
+  TextField,
   TopAppBar,
 } from '@scoped-elements/material-web';
 
@@ -118,19 +121,56 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
     `;
   }
 
+  get _newNoteDialog(): Dialog {
+    return this.shadowRoot?.getElementById('new-note-dialog') as Dialog;
+  }
+  @state()
+  _newNoteTitle: string | undefined;
+
   renderNewNoteButton() {
     return html`<mwc-fab
-      extended
-      icon="add"
-      label="Create Note"
-      style="
+        extended
+        icon="add"
+        label="Create Note"
+        style="
       margin: 16px;
       position: absolute;
       right: 0;
       bottom: 0;
     "
-      @click=${() => this._notesStore.value.createNote(Date.now().toString())}
-    ></mwc-fab>`;
+        @click=${() => this._newNoteDialog.show()}
+      ></mwc-fab>
+      <mwc-dialog
+        heading="Create Note"
+        id="new-note-dialog"
+        @closed=${() =>
+          ((this.shadowRoot?.getElementById('new-note-title') as any).value =
+            '')}
+      >
+        <mwc-textfield
+          label="Title"
+          id="new-note-title"
+          required
+          autoValidate
+          outlined
+          @input=${(e: CustomEvent) =>
+            (this._newNoteTitle = (e.target as any).value)}
+        ></mwc-textfield>
+
+        <mwc-button slot="secondaryAction" dialogAction="cancel">
+          Cancel
+        </mwc-button>
+
+        <mwc-button
+          slot="primaryAction"
+          dialogAction="create"
+          .disabled=${!this._newNoteTitle}
+          @click=${() =>
+            this._notesStore.value.createNote(this._newNoteTitle as string)}
+        >
+          Create
+        </mwc-button>
+      </mwc-dialog> `;
   }
 
   renderMyProfile() {
@@ -148,7 +188,8 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
   render() {
     if (this._loading)
       return html`<div
-        style="flex: 1; height: 100%; align-items: center; justify-contents: center;"
+        class="row"
+        style="flex: 1; height: 100%; align-items: center; justify-content: center;"
       >
         <mwc-circular-progress indeterminate></mwc-circular-progress>
       </div>`;
@@ -186,6 +227,9 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
       'mwc-icon-button': IconButton,
       'mwc-circular-progress': CircularProgress,
       'mwc-fab': Fab,
+      'mwc-dialog': Dialog,
+      'mwc-textfield': TextField,
+      'mwc-button': Button,
     };
   }
 

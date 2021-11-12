@@ -22,7 +22,12 @@ import {
   ProfilesStore,
   profilesStoreContext,
 } from '@holochain-open-dev/profiles';
-import { Card, CircularProgress, Fab } from '@scoped-elements/material-web';
+import {
+  Card,
+  CircularProgress,
+  Fab,
+  Snackbar,
+} from '@scoped-elements/material-web';
 import { getLatestCommit } from './utils';
 
 export class MarkdownNote extends ScopedElementsMixin(LitElement) {
@@ -38,6 +43,10 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
   _activeSession = new StoreSubscriber(
     this,
     () => this._noteSynStore?.activeSession
+  );
+  _lastCommitHash = new StoreSubscriber(
+    this,
+    () => this._activeSession.value?.lastCommitHash
   );
   _content = new StoreSubscriber(
     this,
@@ -60,7 +69,6 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
     if (changedValues.has('noteHash') && this.noteHash) {
       this.connectSyn();
     }
-    console.log(this._activeSession.value);
   }
 
   async connectSyn() {
@@ -68,15 +76,29 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
 
     this._noteSynStore = await this._notesStore.openNote(this.noteHash);
 
+    this._noteSynStore.activeSession.subscribe(activeSession => {
+      if (
+        activeSession &&
+        activeSession.session.scribe === this._noteSynStore?.myPubKey
+      ) {
+        window.onbeforeunload = function () {
+          return 'Are you sure you want to leave? Close the session before leaving to commit the changes.';
+        };
+      } else {
+        window.onbeforeunload = function () {};
+      }
+
+      activeSession?.onClose(() => {
+        (
+          this.shadowRoot?.getElementById('closed-session-message') as Snackbar
+        ).show();
+      });
+    });
+
     await this._noteSynStore.fetchCommitHistory();
     if (Object.keys(this._allCommits.value).length > 0) {
       const [hash, _] = getLatestCommit(this._allCommits.value);
       await this.fetchSnapshot(hash);
-    } else if (
-      this._note.value &&
-      this._note.value.creator === this._notesStore.myAgentPubKey
-    ) {
-      await this._noteSynStore.newSession();
     }
   }
 
@@ -100,9 +122,9 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
   renderNotInSessionContent() {
     return html`<div class="row" style="flex: 1;">
       <div class="column" style="flex: 1;">
-        <syn-sessions style="flex: 1;"></syn-sessions>
+        <syn-sessions style="flex: 1; margin: 16px;"></syn-sessions>
         <syn-commit-history
-          style="flex: 1;"
+          style="flex: 1; margin: 16px;"
           .selectedCommitHash=${this._selectedCommitHash}
           @commit-selected=${(e: CustomEvent) =>
             this.fetchSnapshot(e.detail.commitHash)}
@@ -111,11 +133,17 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
       ${this._fetchingSnapshot
         ? this.renderLoading()
         : html`
-            <mwc-card style="flex: 1; margin: 16px;">
-              <markdown-renderer
-                style="flex: 1;"
-                .markdown=${this.getMarkdownContent()}
-              ></markdown-renderer>
+            <mwc-card style="flex: 1;">
+              <div class="flex-scrollable-parent">
+                <div class="flex-scrollable-container">
+                  <div class="flex-scrollable-y" style="padding: 0 8px;">
+                    <markdown-renderer
+                      style="flex: 1;"
+                      .markdown=${this.getMarkdownContent()}
+                    ></markdown-renderer>
+                  </div>
+                </div>
+              </div>
             </mwc-card>
 
             <mwc-fab
@@ -137,7 +165,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
 
   renderInSessionContent() {
     return html`<div class="row" style="flex: 1;">
-      <syn-folks></syn-folks>
+      <syn-folks style="margin: 4px;"></syn-folks>
 
       <syn-text-editor
         style="flex: 1;"
@@ -148,25 +176,46 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
           })}
       ></syn-text-editor>
 
-      <mwc-card style="flex: 1; margin: 16px;">
-        <markdown-renderer
-          style="flex: 1;"
-          .markdown=${this._content.value}
-        ></markdown-renderer>
+      <mwc-card style="flex: 1; margin-left: 4px;">
+        <div class="flex-scrollable-parent">
+          <div class="flex-scrollable-container">
+            <div class="flex-scrollable-y" style="padding: 0 8px;">
+              <markdown-renderer
+                style="flex: 1; "
+                .markdown=${this._content.value}
+              ></markdown-renderer>
+            </div>
+          </div>
+        </div>
       </mwc-card>
+
       <mwc-fab
         extended
         icon="logout"
-        label="Leave Session"
+        .label=${this._noteSynStore?.myPubKey ===
+        this._activeSession.value?.session.scribe
+          ? 'Close Session'
+          : 'Leave Session'}
         style="
                 margin: 16px;
                 position: absolute;
                 right: 0;
                 bottom: 0;
               "
-        @click=${() => this._activeSession.value?.leave()}
+        @click=${async () => {
+          this._selectedCommitHash = this._lastCommitHash.value;
+          const result = await this._activeSession.value?.leave();
+          if (result && result.closingCommitHash) this._selectedCommitHash = result?.closingCommitHash;
+        }}
       ></mwc-fab>
     </div>`;
+  }
+
+  renderSessionClosedMessage() {
+    return html`<mwc-snackbar
+      id="closed-session-message"
+      labelText="Session was closed by the scribe"
+    ></mwc-snackbar>`;
   }
 
   renderLoading() {
@@ -188,6 +237,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
           ? this.renderInSessionContent()
           : this.renderNotInSessionContent()}
       </syn-context>
+      ${this.renderSessionClosedMessage()}
     `;
   }
 
@@ -202,6 +252,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
       'mwc-circular-progress': CircularProgress,
       'mwc-card': Card,
       'mwc-fab': Fab,
+      'mwc-snackbar': Snackbar,
       'syn-text-editor': SynTextEditor,
       'syn-sessions': SynSessions,
       'syn-folks': SynFolks,

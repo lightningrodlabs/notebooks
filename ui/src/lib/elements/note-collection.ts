@@ -7,7 +7,8 @@ import { sharedStyles } from '../shared-styles';
 import { Note } from '../types';
 import { Dictionary, EntryHashB64 } from '@holochain-open-dev/core-types';
 import { sortByDescendantTimestamp } from '../utils';
-import { SlSkeleton } from '@scoped-elements/shoelace';
+import { SlRelativeTime, SlSkeleton } from '@scoped-elements/shoelace';
+import { AgentAvatar } from '@holochain-open-dev/profiles';
 
 export class NoteCollection extends ScopedElementsMixin(LitElement) {
   @property()
@@ -28,14 +29,26 @@ export class NoteCollection extends ScopedElementsMixin(LitElement) {
             })
           )}
       >
-        <span>${note.title}</span>
+        <div class="column" style="flex: 1; margin: 16px;">
+          <span style="font-size: 18px;">${note.title}</span>
+          <div style="flex: 1"></div>
+          <div class="row" style="justify-content: center; align-items: center;">
+            <span class="placeholder" style="flex: 1;"
+              >Created
+              <sl-relative-time
+                .date=${new Date(note.timestamp / 1000)}
+              ></sl-relative-time
+            ></span>
+            <agent-avatar .agentPubKey=${note.creator}></agent-avatar>
+          </div>
+        </div>
       </mwc-card>
     `;
   }
 
   renderSkeleton() {
     return html`
-      <div class="row">
+      <div class="row" style="">
         ${Array(3).map(() => html`<sl-skeleton class="note"></sl-skeleton>`)}
       </div>
     `;
@@ -45,7 +58,7 @@ export class NoteCollection extends ScopedElementsMixin(LitElement) {
     if (!this.notes) return this.renderSkeleton();
 
     return html`
-      <div class="row" style="flex: 1;">
+      <div class="row" style="flex: 1; flex-wrap: wrap; padding: 16px;">
         ${sortByDescendantTimestamp(this.notes).map(([hash, note]) =>
           this.renderNote(hash, note)
         )}
@@ -58,6 +71,8 @@ export class NoteCollection extends ScopedElementsMixin(LitElement) {
       'mwc-card': Card,
       'mwc-ripple': Ripple,
       'sl-skeleton': SlSkeleton,
+      'sl-relative-time': SlRelativeTime,
+      'agent-avatar': AgentAvatar,
     };
   }
 
@@ -65,8 +80,9 @@ export class NoteCollection extends ScopedElementsMixin(LitElement) {
     sharedStyles,
     css`
       .note {
-        height: 80px;
-        width: 80px;
+        height: 125px;
+        width: 250px;
+        margin-right: 16px;
       }
     `,
   ];

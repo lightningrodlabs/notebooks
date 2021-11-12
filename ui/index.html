@@ -21,6 +21,11 @@
       body {
         display: flex;
       }
+
+      :root {
+        --mdc-theme-primary: #7B1FA2;
+        --mdc-theme-secondary: #FF5722;
+      }
     </style>
     <link
       href="https://fonts.googleapis.com/icon?family=Material+Icons"
@@ -31,7 +36,7 @@
   </head>
 
   <body>
-    <notebooks-app></notebooks-app>
+    <notebooks-app style="flex: 1;"></notebooks-app>
 
     <script type="module">
       import { NotebooksApp } from './ui/out-tsc/notebooks-app.js';

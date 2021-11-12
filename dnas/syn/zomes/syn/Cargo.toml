@@ -12,4 +12,4 @@ chrono = {version = "0.4", features = ["serde"]}
 derive_more = "0"
 serde = "1"
 
-hc_zome_syn = {git = "https://github.com/holochain/syn", rev = "d5bf37457598540eed29e49161fa231cc19a8160"}
+hc_zome_syn = {git = "https://github.com/holochain/syn", rev = "dd5804225d18fb8c9b7fbd3a7114c03fa1506379"}
