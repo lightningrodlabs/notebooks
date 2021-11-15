@@ -45,6 +45,11 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
   _profilesStore!: ContextProvider<Context<ProfilesStore>>;
   _notesStore!: ContextProvider<Context<NotesStore>>;
 
+  _activeNote = new StoreSubscriber(this, () =>
+    this._activeNoteHash
+      ? this._notesStore.value.note(this._activeNoteHash)
+      : undefined
+  );
   _myProfile = new StoreSubscriber(
     this,
     () => this._profilesStore?.value.myProfile
@@ -212,6 +217,11 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
     `;
   }
 
+  renderTitle() {
+    if (this._activeNote.value) return this._activeNote.value.title;
+    return 'Notebooks';
+  }
+
   render() {
     if (this._loading)
       return html`<div
@@ -224,7 +234,7 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
     return html`
       <mwc-top-app-bar style="flex: 1; display: flex;">
         ${this.renderBackButton()}
-        <div slot="title">Notebooks</div>
+        <div slot="title">${this.renderTitle()}</div>
         <div class="fill row" style="width: 100vw; height: 100%;">
           <profile-prompt style="flex: 1;">
             ${this.renderContent()}
