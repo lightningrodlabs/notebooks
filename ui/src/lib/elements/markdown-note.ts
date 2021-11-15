@@ -12,22 +12,18 @@ import {
 } from '@syn/elements';
 import { SynTextEditor } from '@syn/text-editor';
 import { StoreSubscriber } from 'lit-svelte-stores';
-import { readable } from 'svelte/store';
-
-import { notesStoreContext } from '../context';
-import { NotesStore, NoteSynStore } from '../notes-store';
 import { MarkdownRenderer } from '@scoped-elements/markdown-renderer';
-import { sharedStyles } from '../shared-styles';
-import {
-  ProfilesStore,
-  profilesStoreContext,
-} from '@holochain-open-dev/profiles';
 import {
   Card,
   CircularProgress,
   Fab,
   Snackbar,
 } from '@scoped-elements/material-web';
+
+import { notesStoreContext } from '../context';
+import { NotesStore, NoteSynStore } from '../notes-store';
+import { sharedStyles } from '../shared-styles';
+
 import { getLatestCommit } from './utils';
 
 export class MarkdownNote extends ScopedElementsMixin(LitElement) {
@@ -169,6 +165,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
 
       <syn-text-editor
         style="flex: 1;"
+        .synSlice=${this._activeSession.value}
         @changes-requested=${(e: CustomEvent) =>
           this._activeSession.value?.requestChanges({
             deltas: e.detail.deltas,
@@ -205,7 +202,8 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
         @click=${async () => {
           this._selectedCommitHash = this._lastCommitHash.value;
           const result = await this._activeSession.value?.leave();
-          if (result && result.closingCommitHash) this._selectedCommitHash = result?.closingCommitHash;
+          if (result && result.closingCommitHash)
+            this._selectedCommitHash = result?.closingCommitHash;
         }}
       ></mwc-fab>
     </div>`;

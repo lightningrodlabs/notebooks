@@ -50,6 +50,16 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
     () => this._profilesStore?.value.myProfile
   );
 
+  _openedSyn = new StoreSubscriber(this, () =>
+    this._activeNoteHash
+      ? this._notesStore?.value.noteSynStore(this._activeNoteHash)
+      : undefined
+  );
+  _activeSession = new StoreSubscriber(
+    this,
+    () => this._openedSyn.value?.activeSession
+  );
+
   async connectToHolochain() {
     const appWebsocket = await AppWebsocket.connect(
       `ws://localhost:${process.env.HC_PORT}`
@@ -185,6 +195,23 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
     `;
   }
 
+  renderBackButton() {
+    if (
+      !this._activeNoteHash ||
+      !this._activeSession ||
+      this._activeSession.value
+    )
+      return html``;
+
+    return html`
+      <mwc-icon-button
+        icon="arrow_back"
+        slot="navigationIcon"
+        @click=${() => router.navigate('/')}
+      ></mwc-icon-button>
+    `;
+  }
+
   render() {
     if (this._loading)
       return html`<div
@@ -196,15 +223,7 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
 
     return html`
       <mwc-top-app-bar style="flex: 1; display: flex;">
-        ${this._activeNoteHash
-          ? html`
-              <mwc-icon-button
-                icon="arrow_back"
-                slot="navigationIcon"
-                @click=${() => router.navigate('/')}
-              ></mwc-icon-button>
-            `
-          : html``}
+        ${this.renderBackButton()}
         <div slot="title">Notebooks</div>
         <div class="fill row" style="width: 100vw; height: 100%;">
           <profile-prompt style="flex: 1;">

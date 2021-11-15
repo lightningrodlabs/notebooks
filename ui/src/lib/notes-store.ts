@@ -16,17 +16,21 @@ import {
   InstalledAppInfo,
   InstalledCell,
 } from '@holochain/conductor-api';
-import { TextEditorDelta, applyTextEditorDelta } from '@syn/text-editor';
+import {
+  textEditorEngine,
+  TextEditorEngine,
+} from '@syn/text-editor';
 
 import { NotesService } from './notes-service';
 import { Note } from './types';
 
-export type NoteSynStore = SynStore<string, TextEditorDelta>;
+export type NoteSynStore = SynStore<TextEditorEngine>;
 
 export class NotesStore {
   service: NotesService;
 
   #notesByEntryHash: Writable<Dictionary<Note>> = writable({});
+  #openedNotes: Writable<Dictionary<NoteSynStore>> = writable({});
 
   notesCreatedByMe = derived(this.#notesByEntryHash, notes =>
     pickBy(notes, (value, key) => value.creator === this.myAgentPubKey)
@@ -38,6 +42,9 @@ export class NotesStore {
 
   note(noteHash: EntryHashB64) {
     return derived(this.#notesByEntryHash, notes => notes[noteHash]);
+  }
+  noteSynStore(noteHash: EntryHashB64) {
+    return derived(this.#openedNotes, notes => notes[noteHash]);
   }
 
   get myAgentPubKey(): AgentPubKeyB64 {
@@ -115,11 +122,15 @@ export class NotesStore {
       }
     );
 
-    const store: SynStore<string, TextEditorDelta> = new SynStore(
+    const store: SynStore<TextEditorEngine> = new SynStore(
       cellClient,
-      '',
-      applyTextEditorDelta
+      textEditorEngine
     );
+
+    this.#openedNotes.update(n => {
+      n[noteHash] = store;
+      return n;
+    });
 
     return store;
   }
