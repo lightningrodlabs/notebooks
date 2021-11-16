@@ -30,8 +30,6 @@ export default /** @type {import('@web/dev-server').DevServerConfig} */ ({
   appIndex: './index.html',
   clearTerminalOnReload: false,
 
-  rootDir: '../',
-
   plugins: [
     replace({
       'process.env.HC_PORT': JSON.stringify(process.env.HC_PORT),
