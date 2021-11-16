@@ -32,7 +32,10 @@ export class NoteCollection extends ScopedElementsMixin(LitElement) {
         <div class="column" style="flex: 1; margin: 16px;">
           <span style="font-size: 18px;">${note.title}</span>
           <div style="flex: 1"></div>
-          <div class="row" style="justify-content: center; align-items: center;">
+          <div
+            class="row"
+            style="justify-content: center; align-items: center;"
+          >
             <span class="placeholder" style="flex: 1;"
               >Created
               <sl-relative-time
@@ -58,10 +61,16 @@ export class NoteCollection extends ScopedElementsMixin(LitElement) {
     if (!this.notes) return this.renderSkeleton();
 
     return html`
-      <div class="row" style="flex: 1; flex-wrap: wrap; padding: 16px;">
-        ${sortByDescendantTimestamp(this.notes).map(([hash, note]) =>
-          this.renderNote(hash, note)
-        )}
+      <div class="flex-scrollable-parent">
+        <div class="flex-scrollable-container">
+          <div class="flex-scrollable-y">
+            <div class="row" style="flex: 1; flex-wrap: wrap; padding: 16px;">
+              ${sortByDescendantTimestamp(this.notes).map(([hash, note]) =>
+                this.renderNote(hash, note)
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -83,6 +92,7 @@ export class NoteCollection extends ScopedElementsMixin(LitElement) {
         height: 125px;
         width: 250px;
         margin-right: 16px;
+        margin-bottom: 16px;
       }
     `,
   ];
