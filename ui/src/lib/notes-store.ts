@@ -16,15 +16,12 @@ import {
   InstalledAppInfo,
   InstalledCell,
 } from '@holochain/conductor-api';
-import {
-  textEditorEngine,
-  TextEditorEngine,
-} from '@syn/text-editor';
+import { textEditorGrammar, TextEditorGrammar } from '@syn/text-editor';
 
 import { NotesService } from './notes-service';
 import { Note } from './types';
 
-export type NoteSynStore = SynStore<TextEditorEngine>;
+export type NoteSynStore = SynStore<TextEditorGrammar>;
 
 export class NotesStore {
   service: NotesService;
@@ -122,9 +119,9 @@ export class NotesStore {
       }
     );
 
-    const store: SynStore<TextEditorEngine> = new SynStore(
+    const store: SynStore<TextEditorGrammar> = new SynStore(
       cellClient,
-      textEditorEngine
+      textEditorGrammar
     );
 
     this.#openedNotes.update(n => {

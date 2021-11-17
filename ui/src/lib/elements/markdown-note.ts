@@ -44,9 +44,9 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
     this,
     () => this._activeSession.value?.lastCommitHash
   );
-  _content = new StoreSubscriber(
+  _state = new StoreSubscriber(
     this,
-    () => this._activeSession.value?.content
+    () => this._activeSession.value?.state
   );
   _allCommits = new StoreSubscriber(this, () => this._noteSynStore?.allCommits);
   _snapshots = new StoreSubscriber(this, () => this._noteSynStore?.snapshots);
@@ -84,7 +84,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
         window.onbeforeunload = function () {};
       }
 
-      activeSession?.onClose(() => {
+      activeSession?.on('session-closed', () => {
         (
           this.shadowRoot?.getElementById('closed-session-message') as Snackbar
         ).show();
@@ -102,7 +102,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
     if (!this._selectedCommitHash) return undefined;
 
     const selectedCommit = this._allCommits.value[this._selectedCommitHash];
-    return this._snapshots.value[selectedCommit.newContentHash];
+    return this._snapshots.value[selectedCommit.newContentHash].text;
   }
 
   async fetchSnapshot(commitHash: EntryHashB64) {
@@ -166,11 +166,6 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
       <syn-text-editor
         style="flex: 1;"
         .synSlice=${this._activeSession.value}
-        @changes-requested=${(e: CustomEvent) =>
-          this._activeSession.value?.requestChanges({
-            deltas: e.detail.deltas,
-            ephemeral: e.detail.ephemeral,
-          })}
       ></syn-text-editor>
 
       <mwc-card style="flex: 1; margin-left: 4px;">
@@ -179,7 +174,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
             <div class="flex-scrollable-y" style="padding: 0 8px;">
               <markdown-renderer
                 style="flex: 1; "
-                .markdown=${this._content.value}
+                .markdown=${this._state.value?.text}
               ></markdown-renderer>
             </div>
           </div>
