@@ -118,7 +118,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
   renderNotInSessionContent() {
     return html`<div class="row" style="flex: 1;">
       <div class="column" style="flex: 1;">
-        <syn-sessions style="flex: 1; margin: 16px;"></syn-sessions>
+        <syn-sessions style="flex: 1; margin: 16px; margin-bottom: 0;"></syn-sessions>
         <syn-commit-history
           style="flex: 1; margin: 16px;"
           .selectedCommitHash=${this._selectedCommitHash}
