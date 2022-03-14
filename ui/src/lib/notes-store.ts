@@ -1,4 +1,8 @@
-import { CellClient, HolochainClient } from '@holochain-open-dev/cell-client';
+import {
+  BaseClient,
+  CellClient,
+  HolochainClient,
+} from '@holochain-open-dev/cell-client';
 import {
   AgentPubKeyB64,
   deserializeHash,
@@ -16,7 +20,10 @@ import {
   InstalledAppInfo,
   InstalledCell,
 } from '@holochain/client';
-import { textEditorGrammar, TextEditorGrammar } from '@holochain-syn/text-editor';
+import {
+  textEditorGrammar,
+  TextEditorGrammar,
+} from '@holochain-syn/text-editor';
 
 import { NotesService } from './notes-service';
 import { Note } from './types';
@@ -47,15 +54,16 @@ export class NotesStore {
   }
 
   get myAgentPubKey(): AgentPubKeyB64 {
-    return serializeHash(this.cellClient.cellId[1]);
+    return serializeHash(this.notesCell.cell_id[1]);
   }
 
   constructor(
-    protected cellClient: CellClient,
+    protected client: BaseClient,
+    protected notesCell: InstalledCell,
     protected adminWebsocket: AdminWebsocket,
     zomeName: string = 'notes'
   ) {
-    this.service = new NotesService(cellClient, zomeName);
+    this.service = new NotesService(client.forCell(notesCell), zomeName);
   }
 
   async fetchAllNotes() {
@@ -71,18 +79,18 @@ export class NotesStore {
     const creator = this.myAgentPubKey;
     const timestamp = Date.now() * 1000;
 
-    const syn_dna_hash = await this.installNoteDna(creator, timestamp);
+    const synDnaHash = await this.installNoteDna(creator, timestamp);
 
     const entryHash = await this.service.createNote({
       title,
-      syn_dna_hash,
+      synDnaHash,
       timestamp,
     });
 
     this.#notesByEntryHash.update(notes => {
       notes[entryHash] = {
         title,
-        syn_dna_hash,
+        synDnaHash,
         timestamp,
         creator,
       };
@@ -103,23 +111,21 @@ export class NotesStore {
 
     if (!(await this.isNoteDnaInstalled(creator, timestamp))) {
       const resultingDnaHash = await this.installNoteDna(creator, timestamp);
-      if (resultingDnaHash !== note.syn_dna_hash) {
+      if (resultingDnaHash !== note.synDnaHash) {
         throw new Error(
           "Installed Dna hash doesn't actually match the expected one"
         );
       }
     }
 
-    const cellClient = new HolochainClient(
-      (this.cellClient as any).appWebsocket,
-      {
-        cell_id: [
-          deserializeHash(note.syn_dna_hash) as Buffer,
-          deserializeHash(this.myAgentPubKey) as Buffer,
-        ],
-        role_id: `syn-${creator}-${timestamp}`,
-      }
-    );
+    const cellData: InstalledCell = {
+      role_id: `syn-${creator}-${timestamp}`,
+      cell_id: [
+        deserializeHash(note.synDnaHash) as Buffer,
+        deserializeHash(this.myAgentPubKey) as Buffer,
+      ],
+    };
+    const cellClient = this.client.forCell(cellData);
 
     const store: SynStore<TextEditorGrammar> = new SynStore(
       cellClient,
@@ -135,10 +141,10 @@ export class NotesStore {
   }
 
   private async isNoteDnaInstalled(creator: AgentPubKeyB64, timestamp: number) {
-    const installed_app_id = `syn-${creator}-${timestamp}`;
+    const appId = `syn-${creator}-${timestamp}`;
     const activeApps = await this.adminWebsocket.listActiveApps();
 
-    return !!activeApps.find(app => app === installed_app_id);
+    return !!activeApps.find(app => app === appId);
   }
 
   private async installNoteDna(
@@ -146,7 +152,7 @@ export class NotesStore {
     timestamp: number
   ): Promise<DnaHashB64> {
     const appInfo = await (
-      (this.cellClient as any).appWebsocket as AppWebsocket
+      (this.client as any).appWebsocket as AppWebsocket
     ).appInfo({
       installed_app_id: 'notebooks',
     });

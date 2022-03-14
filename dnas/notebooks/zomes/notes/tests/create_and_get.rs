@@ -1,9 +1,10 @@
 use ::fixt::prelude::*;
 use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
-use crate::fixt::DnaHashB64Fixturator;
 
-use hdk::prelude::{holo_hash::*, Timestamp};
+use hdk::prelude::Timestamp;
+use crate::fixt::DnaHashB64Fixturator;
+use hdk::prelude::holo_hash::*;
 use holochain::test_utils::consistency_10s;
 use holochain::{conductor::config::ConductorConfig, sweettest::*};
 use notes::{CreateNoteInput, Note};

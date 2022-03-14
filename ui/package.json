@@ -13,18 +13,18 @@
   },
   "dependencies": {
     "@holochain-open-dev/cell-client": "^0.3.2",
+    "@holochain-open-dev/context": "^0.0.3",
     "@holochain-open-dev/core-types": "^0.2.0",
     "@holochain-open-dev/profiles": "^0.0.9",
+    "@holochain-syn/client": "^0.0.2",
+    "@holochain-syn/elements": "^0.0.3",
+    "@holochain-syn/store": "^0.0.3",
+    "@holochain-syn/text-editor": "^0.0.3",
     "@holochain/client": "^0.3.2",
-    "@holochain-open-dev/context": "^0.0.3",
     "@open-wc/scoped-elements": "^2.0.1",
     "@scoped-elements/markdown-renderer": "^0.0.3",
     "@scoped-elements/material-web": "^0.0.19",
     "@scoped-elements/shoelace": "0.0.8",
-    "@holochain-syn/elements": "^0.0.1",
-    "@holochain-syn/store": "^0.0.1",
-    "@holochain-syn/text-editor": "^0.0.1",
-    "@holochain-syn/zome-client": "^0.0.1",
     "lit": "^2.0.0",
     "lit-svelte-stores": "^0.1.4",
     "lodash-es": "^4.17.21",
@@ -41,6 +41,7 @@
     "@rollup/plugin-node-resolve": "^13.0.4",
     "@rollup/plugin-replace": "^3.0.0",
     "@types/commonmark": "^0.27.5",
+    "@types/cytoscape": "^3.19.4",
     "@types/lodash-es": "^4.17.5",
     "@types/prismjs": "^1.16.6",
     "@typescript-eslint/eslint-plugin": "^4.29.2",
@@ -76,18 +77,17 @@
       "@typescript-eslint"
     ],
     "rules": {
+      "prefer-destructuring": "off",
+      "camelcase": "off",
+      "no-empty-function": "off",
+      "no-param-reassign": "off",
+      "no-useless-constructor": "off",
+      "class-methods-use-this": "off",
+      "import/extensions": "off",
+      "no-return-assign": "off",
       "no-unused-vars": "off",
-      "@typescript-eslint/no-unused-vars": [
-        "error"
-      ],
-      "import/no-unresolved": "off",
-      "import/extensions": [
-        "error",
-        "always",
-        {
-          "ignorePackages": true
-        }
-      ]
+      "@typescript-eslint/no-unused-vars": "off",
+      "import/no-unresolved": "off"
     }
   },
   "prettier": {

@@ -4,6 +4,7 @@ use hdk::prelude::holo_hash::*;
 use hdk::prelude::*;
 
 #[hdk_entry(id = "note")]
+#[serde(rename_all = "camelCase")]
 pub struct Note {
     pub title: String,
 
@@ -11,14 +12,15 @@ pub struct Note {
     // anyone can recreate the Note Dna
     pub creator: AgentPubKeyB64,
     pub timestamp: Timestamp,
-    
-    // Restulting Dna hash to check that we are accessing the right thing
+
+    // Resulting Dna hash to check that we are accessing the right thing
     pub syn_dna_hash: DnaHashB64,
 }
 
-entry_defs![Note::entry_def(), Path::entry_def()];
+entry_defs![Note::entry_def(), PathEntry::entry_def()];
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateNoteInput {
     pub title: String,
     pub timestamp: Timestamp,

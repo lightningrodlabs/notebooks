@@ -1,11 +1,10 @@
 import { EntryHashB64 } from '@holochain-open-dev/core-types';
-import { contextProvided, provide } from '@holochain-open-dev/context';
+import { contextProvided } from '@holochain-open-dev/context';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements';
 import { html, LitElement, PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import {
   SynContext,
-  synContext,
   SynFolks,
   SynCommitHistory,
   SynSessions,
@@ -40,16 +39,18 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
     this,
     () => this._noteSynStore?.activeSession
   );
+
   _lastCommitHash = new StoreSubscriber(
     this,
     () => this._activeSession.value?.lastCommitHash
   );
-  _state = new StoreSubscriber(
-    this,
-    () => this._activeSession.value?.state
-  );
+
+  _state = new StoreSubscriber(this, () => this._activeSession.value?.state);
+
   _allCommits = new StoreSubscriber(this, () => this._noteSynStore?.allCommits);
+
   _snapshots = new StoreSubscriber(this, () => this._noteSynStore?.snapshots);
+
   _note = new StoreSubscriber(this, () =>
     this._notesStore?.note(this.noteHash)
   );
@@ -77,11 +78,10 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
         activeSession &&
         activeSession.session.scribe === this._noteSynStore?.myPubKey
       ) {
-        window.onbeforeunload = function () {
-          return 'Are you sure you want to leave? Close the session before leaving to commit the changes.';
-        };
+        window.onbeforeunload = () =>
+          'Are you sure you want to leave? Close the session before leaving to commit the changes.';
       } else {
-        window.onbeforeunload = function () {};
+        window.onbeforeunload = () => undefined;
       }
 
       activeSession?.on('session-closed', () => {
@@ -93,8 +93,8 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
 
     await this._noteSynStore.fetchCommitHistory();
     if (Object.keys(this._allCommits.value).length > 0) {
-      const [hash, _] = getLatestCommit(this._allCommits.value);
-      await this.fetchSnapshot(hash);
+      const latest = getLatestCommit(this._allCommits.value);
+      await this.fetchSnapshot(latest[0]);
     }
   }
 
@@ -118,7 +118,9 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
   renderNotInSessionContent() {
     return html`<div class="row" style="flex: 1;">
       <div class="column" style="flex: 1;">
-        <syn-sessions style="flex: 1; margin: 16px; margin-bottom: 0;"></syn-sessions>
+        <syn-sessions
+          style="flex: 1; margin: 16px; margin-bottom: 0;"
+        ></syn-sessions>
         <syn-commit-history
           style="flex: 1; margin: 16px;"
           .selectedCommitHash=${this._selectedCommitHash}

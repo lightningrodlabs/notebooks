@@ -4,11 +4,11 @@ export interface Note {
   title: string;
   creator: AgentPubKeyB64;
   timestamp: number;
-  syn_dna_hash: DnaHashB64;
+  synDnaHash: DnaHashB64;
 }
 
 export interface CreateNoteInput {
   timestamp: number;
   title: string;
-  syn_dna_hash: DnaHashB64;
+  synDnaHash: DnaHashB64;
 }

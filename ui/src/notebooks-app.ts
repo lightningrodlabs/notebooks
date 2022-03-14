@@ -1,11 +1,7 @@
 import { LitElement, css, html } from 'lit';
-import { customElement, query, state } from 'lit/decorators.js';
-import {
-  AdminWebsocket,
-  AppWebsocket,
-  InstalledCell,
-} from '@holochain/client';
-import { CellClient, HolochainClient } from '@holochain-open-dev/cell-client';
+import { state } from 'lit/decorators.js';
+import { AdminWebsocket } from '@holochain/client';
+import { HolochainClient } from '@holochain-open-dev/cell-client';
 import { EntryHashB64 } from '@holochain-open-dev/core-types';
 import {
   AgentAvatar,
@@ -13,7 +9,6 @@ import {
   ProfilesStore,
   profilesStoreContext,
 } from '@holochain-open-dev/profiles';
-import { profilesStoreContext as profilesStoreContext2 } from '../../../syn/node_modules/@holochain-open-dev/profiles';
 import { Context, ContextProvider } from '@holochain-open-dev/context';
 import { StoreSubscriber } from 'lit-svelte-stores';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements';
@@ -39,10 +34,12 @@ import { notesStoreContext } from './lib/context';
 export class NotebooksApp extends ScopedElementsMixin(LitElement) {
   @state()
   _activeNoteHash: EntryHashB64 | undefined;
+
   @state()
   _loading = true;
 
   _profilesStore!: ContextProvider<Context<ProfilesStore>>;
+
   _notesStore!: ContextProvider<Context<NotesStore>>;
 
   _activeNote = new StoreSubscriber(this, () =>
@@ -50,6 +47,7 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
       ? this._notesStore.value.note(this._activeNoteHash)
       : undefined
   );
+
   _myProfile = new StoreSubscriber(
     this,
     () => this._profilesStore?.value.myProfile
@@ -60,41 +58,36 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
       ? this._notesStore?.value.noteSynStore(this._activeNoteHash)
       : undefined
   );
+
   _activeSession = new StoreSubscriber(
     this,
     () => this._openedSyn.value?.activeSession
   );
 
   async connectToHolochain() {
-    const appWebsocket = await AppWebsocket.connect(
-      `ws://localhost:${process.env.HC_PORT}`
-    );
+    const url = `ws://localhost:${process.env.HC_PORT}`;
     const adminWebsocket = await AdminWebsocket.connect(
       `ws://localhost:${process.env.ADMIN_PORT}`
     );
 
-    const appInfo = await appWebsocket.appInfo({
-      installed_app_id: 'notebooks',
-    });
+    const client = await HolochainClient.connect(url, 'notebooks');
 
-    const cellData = appInfo.cell_data.find(
-      c => c.role_id === 'notebooks'
-    ) as InstalledCell;
+    const notebooksCell = client.cellDataByRoleId('notebooks')!;
 
-    const client = new HolochainClient(appWebsocket, cellData);
+    const cellClient = client.forCell(notebooksCell);
 
-    const profilesStore = new ProfilesStore(client);
+    const profilesStore = new ProfilesStore(cellClient);
 
     this._profilesStore = new ContextProvider(
       this,
       profilesStoreContext,
       profilesStore
     );
-    new ContextProvider(this, profilesStoreContext2, profilesStore);
+    
     this._notesStore = new ContextProvider(
       this,
       notesStoreContext,
-      new NotesStore(client, adminWebsocket)
+      new NotesStore(client, notebooksCell, adminWebsocket)
     );
   }
 
@@ -139,6 +132,7 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
   get _newNoteDialog(): Dialog {
     return this.shadowRoot?.getElementById('new-note-dialog') as Dialog;
   }
+
   @state()
   _newNoteTitle: string | undefined;
 
