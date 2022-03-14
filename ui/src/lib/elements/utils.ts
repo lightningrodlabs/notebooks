@@ -1,5 +1,5 @@
 import { Dictionary, EntryHashB64 } from '@holochain-open-dev/core-types';
-import { Commit } from '@syn/zome-client';
+import { Commit } from '@holochain-syn/zome-client';
 
 export function getLatestCommit(
   commits: Dictionary<Commit>

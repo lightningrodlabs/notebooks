@@ -9,14 +9,14 @@ import {
 } from '@holochain-open-dev/core-types';
 import { derived, get, Writable, writable } from 'svelte/store';
 import pickBy from 'lodash-es/pickBy';
-import { SynStore } from '@syn/store';
+import { SynStore } from '@holochain-syn/store';
 import {
   AdminWebsocket,
   AppWebsocket,
   InstalledAppInfo,
   InstalledCell,
-} from '@holochain/conductor-api';
-import { textEditorGrammar, TextEditorGrammar } from '@syn/text-editor';
+} from '@holochain/client';
+import { textEditorGrammar, TextEditorGrammar } from '@holochain-syn/text-editor';
 
 import { NotesService } from './notes-service';
 import { Note } from './types';
@@ -27,6 +27,7 @@ export class NotesStore {
   service: NotesService;
 
   #notesByEntryHash: Writable<Dictionary<Note>> = writable({});
+
   #openedNotes: Writable<Dictionary<NoteSynStore>> = writable({});
 
   notesCreatedByMe = derived(this.#notesByEntryHash, notes =>
@@ -40,6 +41,7 @@ export class NotesStore {
   note(noteHash: EntryHashB64) {
     return derived(this.#notesByEntryHash, notes => notes[noteHash]);
   }
+
   noteSynStore(noteHash: EntryHashB64) {
     return derived(this.#openedNotes, notes => notes[noteHash]);
   }

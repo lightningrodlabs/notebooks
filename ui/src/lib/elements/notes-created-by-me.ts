@@ -2,7 +2,7 @@ import {
   ProfilesStore,
   profilesStoreContext,
 } from '@holochain-open-dev/profiles';
-import { contextProvided } from '@lit-labs/context';
+import { contextProvided } from '@holochain-open-dev/context';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements';
 import { Button } from '@scoped-elements/material-web';
 import { css, html, LitElement } from 'lit';

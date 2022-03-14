@@ -4,7 +4,7 @@ import {
   AdminWebsocket,
   AppWebsocket,
   InstalledCell,
-} from '@holochain/conductor-api';
+} from '@holochain/client';
 import { CellClient, HolochainClient } from '@holochain-open-dev/cell-client';
 import { EntryHashB64 } from '@holochain-open-dev/core-types';
 import {
@@ -14,7 +14,7 @@ import {
   profilesStoreContext,
 } from '@holochain-open-dev/profiles';
 import { profilesStoreContext as profilesStoreContext2 } from '../../../syn/node_modules/@holochain-open-dev/profiles';
-import { Context, ContextProvider } from '@lit-labs/context';
+import { Context, ContextProvider } from '@holochain-open-dev/context';
 import { StoreSubscriber } from 'lit-svelte-stores';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements';
 import {
