@@ -1,6 +1,6 @@
 import { LitElement, css, html } from 'lit';
 import { state } from 'lit/decorators.js';
-import { AdminWebsocket } from '@holochain/client';
+import { AdminWebsocket, AppWebsocket, InstalledCell } from '@holochain/client';
 import { HolochainClient } from '@holochain-open-dev/cell-client';
 import { EntryHashB64 } from '@holochain-open-dev/core-types';
 import {
@@ -83,11 +83,21 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
       profilesStoreContext,
       profilesStore
     );
-    
+
+    const appInfo = await (
+      (client as any).appWebsocket as AppWebsocket
+    ).appInfo({
+      installed_app_id: 'notebooks',
+    });
+
+    const installedCells = appInfo.cell_data;
+    const cell = installedCells.find(c => c.role_id === 'syn') as InstalledCell;
+    const synDnaHash = cell.cell_id[0];
+
     this._notesStore = new ContextProvider(
       this,
       notesStoreContext,
-      new NotesStore(client, notebooksCell, adminWebsocket)
+      new NotesStore(client, adminWebsocket, notebooksCell, synDnaHash)
     );
   }
 

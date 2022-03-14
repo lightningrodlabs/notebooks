@@ -17,6 +17,7 @@ import { SynStore } from '@holochain-syn/store';
 import {
   AdminWebsocket,
   AppWebsocket,
+  DnaHash,
   InstalledAppInfo,
   InstalledCell,
 } from '@holochain/client';
@@ -59,8 +60,9 @@ export class NotesStore {
 
   constructor(
     protected client: BaseClient,
-    protected notesCell: InstalledCell,
     protected adminWebsocket: AdminWebsocket,
+    protected notesCell: InstalledCell,
+    protected synDnaHash: DnaHash, // This is a template DNA so we don't have a cell on app init
     zomeName: string = 'notes'
   ) {
     this.service = new NotesService(client.forCell(notesCell), zomeName);
@@ -151,19 +153,8 @@ export class NotesStore {
     creator: AgentPubKeyB64,
     timestamp: number
   ): Promise<DnaHashB64> {
-    const appInfo = await (
-      (this.client as any).appWebsocket as AppWebsocket
-    ).appInfo({
-      installed_app_id: 'notebooks',
-    });
-
-    const installedCells = appInfo.cell_data;
-    const cell = installedCells.find(c => c.role_id === 'syn') as InstalledCell;
-    const myAgentPubKey = serializeHash(installedCells[0].cell_id[1]);
-    const synDnaHash = serializeHash(cell.cell_id[0]);
-
     const newWeHash = await this.adminWebsocket.registerDna({
-      hash: deserializeHash(synDnaHash) as Buffer,
+      hash: this.synDnaHash,
       uid: '',
       properties: { creator, timestamp },
     });
@@ -171,7 +162,7 @@ export class NotesStore {
     const installed_app_id = `syn-${creator}-${timestamp}`;
     const newAppInfo: InstalledAppInfo = await this.adminWebsocket.installApp({
       installed_app_id,
-      agent_key: deserializeHash(myAgentPubKey) as Buffer,
+      agent_key: deserializeHash(this.myAgentPubKey),
       dnas: [
         {
           hash: newWeHash,
