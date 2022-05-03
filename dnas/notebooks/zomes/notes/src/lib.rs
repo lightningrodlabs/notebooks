@@ -44,7 +44,12 @@ pub fn create_new_note(input: CreateNoteInput) -> ExternResult<EntryHashB64> {
     let path = all_notes_path();
     path.ensure()?;
 
-    create_link(path.path_entry_hash()?, hash.clone(), ())?;
+    create_link(
+        path.path_entry_hash()?.into(),
+        hash.clone().into(),
+        HdkLinkType::Any,
+        (),
+    )?;
 
     Ok(EntryHashB64::from(hash))
 }
@@ -53,7 +58,7 @@ pub fn create_new_note(input: CreateNoteInput) -> ExternResult<EntryHashB64> {
 pub fn get_all_notes(_: ()) -> ExternResult<BTreeMap<EntryHashB64, Note>> {
     let path = all_notes_path();
 
-    let links = get_links(path.path_entry_hash()?, None)?;
+    let links = get_links(path.path_entry_hash()?.into(), None)?;
 
     let get_inputs = links
         .into_iter()
