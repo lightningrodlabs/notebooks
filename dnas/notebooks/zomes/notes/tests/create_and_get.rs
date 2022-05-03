@@ -1,9 +1,9 @@
-use ::fixt::prelude::*;
+use ::fixt::prelude::fixt;
 use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use hdk::prelude::Timestamp;
 use hdk::prelude::holo_hash::*;
+use hdk::prelude::Timestamp;
 use hdk::prelude::*;
 use holochain::test_utils::consistency_10s;
 use holochain::{conductor::config::ConductorConfig, sweettest::*};

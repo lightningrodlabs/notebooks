@@ -1154,23 +1154,6 @@ dependencies = [
 
 [[package]]
 name = "fixt"
-version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8813ec3c033e0b8b4b18b0a2a6eb6b5671caaa3f706419b8d7e1ec454de18446"
-dependencies = [
- "holochain_serialized_bytes",
- "lazy_static",
- "parking_lot 0.10.2",
- "paste",
- "rand 0.7.3",
- "rand_core 0.5.1",
- "serde",
- "strum",
- "strum_macros",
-]
-
-[[package]]
-name = "fixt"
 version = "0.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ece95a4d857c96cd21e2492c9f05faf32847f9b567fbedfbaf02c3ebc5693950"
@@ -1641,7 +1624,7 @@ dependencies = [
  "base64",
  "blake2b_simd 0.5.11",
  "derive_more",
- "fixt 0.0.10",
+ "fixt",
  "futures",
  "holochain_serialized_bytes",
  "kitsune_p2p_dht_arc",
@@ -1670,7 +1653,7 @@ dependencies = [
  "directories 2.0.2",
  "either",
  "fallible-iterator",
- "fixt 0.0.10",
+ "fixt",
  "futures",
  "ghost_actor 0.3.0-alpha.4",
  "hdk",
@@ -1745,7 +1728,7 @@ dependencies = [
  "derive_more",
  "either",
  "fallible-iterator",
- "fixt 0.0.10",
+ "fixt",
  "futures",
  "ghost_actor 0.3.0-alpha.4",
  "hdk",
@@ -1854,7 +1837,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7a3a3e767764f6de57454a36874440c27505127c0dfbd783a8c92a6666b50a3"
 dependencies = [
  "async-trait",
- "fixt 0.0.10",
+ "fixt",
  "futures",
  "ghost_actor 0.3.0-alpha.4",
  "holo_hash",
@@ -1918,7 +1901,7 @@ dependencies = [
  "either",
  "failure",
  "fallible-iterator",
- "fixt 0.0.10",
+ "fixt",
  "futures",
  "holo_hash",
  "holochain_serialized_bytes",
@@ -2018,7 +2001,7 @@ dependencies = [
  "derive_builder",
  "derive_more",
  "either",
- "fixt 0.0.10",
+ "fixt",
  "flate2",
  "futures",
  "holo_hash",
@@ -2165,7 +2148,7 @@ dependencies = [
  "arbitrary",
  "contrafact",
  "derive_builder",
- "fixt 0.0.10",
+ "fixt",
  "holo_hash",
  "holochain_integrity_types",
  "holochain_serialized_bytes",
@@ -2461,7 +2444,7 @@ dependencies = [
  "blake2b_simd 0.5.11",
  "bloomfilter",
  "derive_more",
- "fixt 0.0.10",
+ "fixt",
  "futures",
  "ghost_actor 0.3.0-alpha.4",
  "governor",
@@ -3141,7 +3124,7 @@ version = "0.0.1"
 dependencies = [
  "chrono",
  "derive_more",
- "fixt 0.0.6",
+ "fixt",
  "futures",
  "hdk",
  "holochain",
