@@ -1,0 +1,92 @@
+{
+  "name": "@lightningrodlabs/notebooks",
+  "description": "Webcomponent notebooks-lib following open-wc recommendations",
+  "license": "MIT",
+  "author": "notebooks-lib",
+  "version": "0.0.1",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "analyze": "cem analyze --litelement",
+    "build": "tsc && npm run analyze -- --exclude dist",
+    "build:watch": "tsc --watch --preserveWatchOutput",
+    "prepublish": "tsc && npm run analyze -- --exclude dist",
+    "lint": "eslint --ext .ts,.html . --ignore-path .gitignore && prettier \"**/*.ts\" --check --ignore-path .gitignore",
+    "format": "eslint --ext .ts,.html . --fix --ignore-path .gitignore && prettier \"**/*.ts\" --write --ignore-path .gitignore"
+  },
+  "dependencies": {
+    "@holochain-open-dev/cell-client": "^0.3.2",
+    "@lit-labs/context": "^0.1.1",
+    "@holochain-open-dev/core-types": "^0.2.0",
+    "@holochain-open-dev/profiles": "^0.1.1",
+    "@holochain-syn/client": "^0.0.2",
+    "@holochain-syn/elements": "^0.0.4",
+    "@holochain-syn/store": "^0.0.3",
+    "@holochain-syn/text-editor": "^0.0.5",
+    "@holochain/client": "^0.3.2",
+    "@open-wc/scoped-elements": "^2.0.1",
+    "@scoped-elements/markdown-renderer": "^0.0.3",
+    "@scoped-elements/material-web": "^0.0.19",
+    "@scoped-elements/shoelace": "0.0.8",
+    "lit": "^2.0.0",
+    "lit-svelte-stores": "^0.2.0",
+    "lodash-es": "^4.17.21",
+    "navigo": "^8.11.1",
+    "svelte": "^3.44.1"
+  },
+  "devDependencies": {
+    "@custom-elements-manifest/analyzer": "^0.4.17",
+    "@open-wc/eslint-config": "^4.3.0",
+    "@typescript-eslint/eslint-plugin": "^4.33.0",
+    "@typescript-eslint/parser": "^4.33.0",
+    "@web/dev-server": "^0.1.28",
+    "concurrently": "^5.3.0",
+    "eslint": "^7.32.0",
+    "eslint-config-prettier": "^8.3.0",
+    "husky": "^4.3.8",
+    "lint-staged": "^10.5.4",
+    "prettier": "^2.4.1",
+    "tslib": "^2.3.1",
+    "typescript": "^4.5.2"
+  },
+  "customElements": "custom-elements.json",
+  "eslintConfig": {
+    "parser": "@typescript-eslint/parser",
+    "extends": [
+      "@open-wc",
+      "prettier"
+    ],
+    "plugins": [
+      "@typescript-eslint"
+    ],
+    "rules": {
+      "no-unused-vars": "off",
+      "no-useless-constructors": "off",
+      "no-param-reassign": "off",
+      "class-methods-use-this": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "error"
+      ],
+      "import/no-unresolved": "off",
+      "import/extensions": "off"
+    }
+  },
+  "prettier": {
+    "singleQuote": true,
+    "arrowParens": "avoid"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  }
+}

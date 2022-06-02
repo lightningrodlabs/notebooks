@@ -1,0 +1,10 @@
+---
+manifest_version: "1"
+name: notebooks
+uuid: 00000000-0000-0000-0000-000000000000
+properties: ~
+zomes: 
+  - name: notes
+    bundled: ../../../../target/wasm32-unknown-unknown/release/notes.wasm
+  - name: profiles
+    bundled: ../../../../target/wasm32-unknown-unknown/release/profiles.wasm
