@@ -1,16 +1,17 @@
 import { LitElement, css, html } from 'lit';
-import { state } from 'lit/decorators.js';
+import { property, state } from 'lit/decorators.js';
 import { AdminWebsocket, AppWebsocket, InstalledCell } from '@holochain/client';
 import { HolochainClient } from '@holochain-open-dev/cell-client';
 import { EntryHashB64 } from '@holochain-open-dev/core-types';
 import {
   AgentAvatar,
+  Profile,
   ProfilePrompt,
   ProfilesStore,
   profilesStoreContext,
 } from '@holochain-open-dev/profiles';
-import { Context, ContextProvider } from '@holochain-open-dev/context';
-import { StoreSubscriber } from 'lit-svelte-stores';
+import { contextProvider, ContextProvider } from '@lit-labs/context';
+import { StoreSubscriber, TaskSubscriber } from 'lit-svelte-stores';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements';
 import {
   Button,
@@ -38,24 +39,25 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
   @state()
   _loading = true;
 
-  _profilesStore!: ContextProvider<Context<ProfilesStore>>;
+  @contextProvider({ context: profilesStoreContext })
+  @property()
+  _profilesStore!: ProfilesStore;
 
-  _notesStore!: ContextProvider<Context<NotesStore>>;
+  @contextProvider({ context: notesStoreContext })
+  @property()
+  _notesStore!: NotesStore;
 
   _activeNote = new StoreSubscriber(this, () =>
     this._activeNoteHash
-      ? this._notesStore.value.note(this._activeNoteHash)
+      ? this._notesStore.note(this._activeNoteHash)
       : undefined
   );
 
-  _myProfile = new StoreSubscriber(
-    this,
-    () => this._profilesStore?.value.myProfile
-  );
+  _myProfileTask!: TaskSubscriber<Profile | undefined>;
 
   _openedSyn = new StoreSubscriber(this, () =>
     this._activeNoteHash
-      ? this._notesStore?.value.noteSynStore(this._activeNoteHash)
+      ? this._notesStore?.noteSynStore(this._activeNoteHash)
       : undefined
   );
 
@@ -76,12 +78,10 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
 
     const cellClient = client.forCell(notebooksCell);
 
-    const profilesStore = new ProfilesStore(cellClient);
+    this._profilesStore = new ProfilesStore(cellClient);
 
-    this._profilesStore = new ContextProvider(
-      this,
-      profilesStoreContext,
-      profilesStore
+    this._myProfileTask = new TaskSubscriber(this, () =>
+      this._profilesStore.fetchMyProfile()
     );
 
     const appInfo = await (
@@ -94,10 +94,11 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
     const cell = installedCells.find(c => c.role_id === 'syn') as InstalledCell;
     const synDnaHash = cell.cell_id[0];
 
-    this._notesStore = new ContextProvider(
-      this,
-      notesStoreContext,
-      new NotesStore(client, adminWebsocket, notebooksCell, synDnaHash)
+    this._notesStore = new NotesStore(
+      client,
+      adminWebsocket,
+      notebooksCell,
+      synDnaHash
     );
   }
 
@@ -185,7 +186,7 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
           dialogAction="create"
           .disabled=${!this._newNoteTitle}
           @click=${() =>
-            this._notesStore.value.createNote(this._newNoteTitle as string)}
+            this._notesStore.createNote(this._newNoteTitle as string)}
         >
           Create
         </mwc-button>
@@ -193,15 +194,19 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
   }
 
   renderMyProfile() {
-    if (!this._myProfile.value) return html``;
-    return html`
-      <div class="row" style="align-items: center;" slot="actionItems">
+    return this._myProfileTask?.render({
+      pending: () => html``,
+      complete: profile => html` <div
+        class="row"
+        style="align-items: center;"
+        slot="actionItems"
+      >
         <agent-avatar
-          .agentPubKey=${this._profilesStore.value.myAgentPubKey}
+          .agentPubKey=${this._profilesStore.myAgentPubKey}
         ></agent-avatar>
-        <span style="margin: 0 16px;">${this._myProfile.value.nickname}</span>
-      </div>
-    `;
+        <span style="margin: 0 16px;">${profile?.nickname}</span>
+      </div>`,
+    });
   }
 
   renderBackButton() {

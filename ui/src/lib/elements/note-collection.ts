@@ -2,17 +2,17 @@ import { ScopedElementsMixin } from '@open-wc/scoped-elements';
 import { css, html, LitElement } from 'lit';
 import { Card, Ripple } from '@scoped-elements/material-web';
 import { property, state } from 'lit/decorators.js';
-
-import { sharedStyles } from '../shared-styles';
-import { Note } from '../types';
-import { Dictionary, EntryHashB64 } from '@holochain-open-dev/core-types';
-import { sortByDescendantTimestamp } from '../utils';
+import { EntryHashB64 } from '@holochain-open-dev/core-types';
 import { SlRelativeTime, SlSkeleton } from '@scoped-elements/shoelace';
 import { AgentAvatar } from '@holochain-open-dev/profiles';
 
+import { sharedStyles } from '../shared-styles';
+import { Note } from '../types';
+import { sortByDescendantTimestamp } from '../utils';
+
 export class NoteCollection extends ScopedElementsMixin(LitElement) {
   @property()
-  notes!: Dictionary<Note>;
+  notes!: Record<EntryHashB64, Note>;
 
   renderNote(hash: EntryHashB64, note: Note) {
     return html`

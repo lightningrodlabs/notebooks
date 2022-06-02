@@ -5,8 +5,8 @@
     "ui"
   ],
   "scripts": {
-    "start": "npm run build:happ && npm run start:agent",
-    "network": "npm run build:happ && concurrently-repeat \"npm run start:agent\"",
+    "start": "npm run network 2",
+    "network": "hc s clean && npm run build:happ && concurrently-repeat \"npm run start:agent\"",
     "start:agent": "cross-env HC_PORT=$(port) ADMIN_PORT=$(port) concurrently \"npm run playground\" \"npm run start:happ\" \"npm run start -w ui\"",
     "test": "npm run build:happ && CARGO_TARGET_DIR=target/tests cargo test",
     "start:happ": "RUST_LOG=warn hc s -f=$ADMIN_PORT generate ./workdir/notebooks.happ --run=$HC_PORT -a notebooks network mdns",

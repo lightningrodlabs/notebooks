@@ -1,6 +1,6 @@
-import { Context, createContext } from '@holochain-open-dev/context';
+import { createContext } from '@lit-labs/context';
 import { NotesStore } from './notes-store';
 
-export const notesStoreContext: Context<NotesStore> = createContext(
+export const notesStoreContext = createContext<NotesStore>(
   'notes-store-context'
 );

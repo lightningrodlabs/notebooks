@@ -19,7 +19,7 @@
     "@holochain-syn/client": "^0.0.2",
     "@holochain-syn/elements": "^0.0.4",
     "@holochain-syn/store": "^0.0.3",
-    "@holochain-syn/text-editor": "^0.0.4",
+    "@holochain-syn/text-editor": "^0.0.5",
     "@holochain/client": "^0.3.2",
     "@open-wc/scoped-elements": "^2.0.1",
     "@scoped-elements/markdown-renderer": "^0.0.3",
