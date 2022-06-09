@@ -10,7 +10,7 @@ import {
   ProfilesStore,
   profilesStoreContext,
 } from '@holochain-open-dev/profiles';
-import { contextProvider, ContextProvider } from '@lit-labs/context';
+import { contextProvider } from '@lit-labs/context';
 import { StoreSubscriber, TaskSubscriber } from 'lit-svelte-stores';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements';
 import {
@@ -23,33 +23,30 @@ import {
   TopAppBar,
 } from '@scoped-elements/material-web';
 
-import { router } from './router';
+import {
+  MarkdownNote,
+  sharedStyles,
+  NotesCreatedByMe,
+  NotesCreatedByOthers,
+  NotesStore,
+  notesStoreContext,
+} from '@lightningrodlabs/notebooks';
 
-import { MarkdownNote } from './lib/elements/markdown-note';
-import { sharedStyles } from './lib/shared-styles';
-import { NotesCreatedByMe } from './lib/elements/notes-created-by-me';
-import { NotesCreatedByOthers } from './lib/elements/notes-created-by-others';
-import { NotesStore } from './lib/notes-store';
-import { notesStoreContext } from './lib/context';
-
-export class NotebooksApp extends ScopedElementsMixin(LitElement) {
+export class NotebooksGame extends ScopedElementsMixin(LitElement) {
   @state()
   _activeNoteHash: EntryHashB64 | undefined;
 
-  @state()
-  _loading = true;
-
   @contextProvider({ context: profilesStoreContext })
   @property()
-  _profilesStore!: ProfilesStore;
+  profilesStore!: ProfilesStore;
 
   @contextProvider({ context: notesStoreContext })
   @property()
-  _notesStore!: NotesStore;
+  notesStore!: NotesStore;
 
   _activeNote = new StoreSubscriber(this, () =>
     this._activeNoteHash
-      ? this._notesStore.note(this._activeNoteHash)
+      ? this.notesStore.note(this._activeNoteHash)
       : undefined
   );
 
@@ -57,7 +54,7 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
 
   _openedSyn = new StoreSubscriber(this, () =>
     this._activeNoteHash
-      ? this._notesStore?.noteSynStore(this._activeNoteHash)
+      ? this.notesStore?.noteSynStore(this._activeNoteHash)
       : undefined
   );
 
@@ -65,56 +62,6 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
     this,
     () => this._openedSyn.value?.activeSession
   );
-
-  async connectToHolochain() {
-    const url = `ws://localhost:${process.env.HC_PORT}`;
-    const adminWebsocket = await AdminWebsocket.connect(
-      `ws://localhost:${process.env.ADMIN_PORT}`
-    );
-
-    const client = await HolochainClient.connect(url, 'notebooks');
-
-    const notebooksCell = client.cellDataByRoleId('notebooks')!;
-
-    const cellClient = client.forCell(notebooksCell);
-
-    this._profilesStore = new ProfilesStore(cellClient);
-
-    this._myProfileTask = new TaskSubscriber(this, () =>
-      this._profilesStore.fetchMyProfile()
-    );
-
-    const appInfo = await (
-      (client as any).appWebsocket as AppWebsocket
-    ).appInfo({
-      installed_app_id: 'notebooks',
-    });
-
-    const installedCells = appInfo.cell_data;
-    const cell = installedCells.find(c => c.role_id === 'syn') as InstalledCell;
-    const synDnaHash = cell.cell_id[0];
-
-    this._notesStore = new NotesStore(
-      client,
-      adminWebsocket,
-      notebooksCell,
-      synDnaHash
-    );
-  }
-
-  async firstUpdated() {
-    await this.connectToHolochain();
-
-    router
-      .on('/note/:note', (params: any) => {
-        this._activeNoteHash = params.data.note;
-      })
-      .on('/', () => {
-        this._activeNoteHash = undefined;
-      })
-      .resolve();
-    this._loading = false;
-  }
 
   renderContent() {
     if (this._activeNoteHash)
@@ -128,11 +75,11 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
         <notes-created-by-me
           style="flex: 1; margin: 16px;"
           @note-selected=${(e: CustomEvent) =>
-            router.navigate(`/note/${e.detail.noteHash}`)}
+            (this._activeNoteHash = e.detail.noteHash)}
         ></notes-created-by-me>
         <notes-created-by-others
           @note-selected=${(e: CustomEvent) =>
-            router.navigate(`/note/${e.detail.noteHash}`)}
+            (this._activeNoteHash = e.detail.noteHash)}
           style="flex: 1; margin: 16px;"
         ></notes-created-by-others>
         ${this.renderNewNoteButton()}
@@ -186,27 +133,11 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
           dialogAction="create"
           .disabled=${!this._newNoteTitle}
           @click=${() =>
-            this._notesStore.createNote(this._newNoteTitle as string)}
+            this.notesStore.createNote(this._newNoteTitle as string)}
         >
           Create
         </mwc-button>
       </mwc-dialog> `;
-  }
-
-  renderMyProfile() {
-    return this._myProfileTask?.render({
-      pending: () => html``,
-      complete: profile => html` <div
-        class="row"
-        style="align-items: center;"
-        slot="actionItems"
-      >
-        <agent-avatar
-          .agentPubKey=${this._profilesStore.myAgentPubKey}
-        ></agent-avatar>
-        <span style="margin: 0 16px;">${profile?.nickname}</span>
-      </div>`,
-    });
   }
 
   renderBackButton() {
@@ -221,44 +152,18 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
       <mwc-icon-button
         icon="arrow_back"
         slot="navigationIcon"
-        @click=${() => router.navigate('/')}
+        @click=${() => (this._activeNoteHash = undefined)}
       ></mwc-icon-button>
     `;
   }
 
-  renderTitle() {
-    if (this._activeNote.value) return this._activeNote.value.title;
-    return 'Notebooks';
-  }
-
   render() {
-    if (this._loading)
-      return html`<div
-        class="row"
-        style="flex: 1; height: 100%; align-items: center; justify-content: center;"
-      >
-        <mwc-circular-progress indeterminate></mwc-circular-progress>
-      </div>`;
-
-    return html`
-      <mwc-top-app-bar style="flex: 1; display: flex;">
-        ${this.renderBackButton()}
-        <div slot="title">${this.renderTitle()}</div>
-        <div class="fill row" style="width: 100vw; height: 100%;">
-          <profile-prompt style="flex: 1;">
-            ${this.renderContent()}
-          </profile-prompt>
-        </div>
-        ${this.renderMyProfile()}
-      </mwc-top-app-bar>
-    `;
+    return html` ${this.renderBackButton()} ${this.renderContent()} `;
   }
 
   static get scopedElements() {
     return {
-      'profile-prompt': ProfilePrompt,
       'agent-avatar': AgentAvatar,
-      'mwc-top-app-bar': TopAppBar,
       'markdown-note': MarkdownNote,
       'notes-created-by-me': NotesCreatedByMe,
       'notes-created-by-others': NotesCreatedByOthers,

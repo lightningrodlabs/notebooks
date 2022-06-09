@@ -18,14 +18,14 @@
     "format": "eslint --ext .ts,.html . --fix --ignore-path .gitignore && prettier \"**/*.ts\" --write --ignore-path .gitignore"
   },
   "dependencies": {
-    "@holochain-open-dev/cell-client": "^0.3.2",
+    "@holochain-open-dev/cell-client": "^0.4.0",
     "@lit-labs/context": "^0.1.1",
     "@holochain-open-dev/core-types": "^0.2.0",
-    "@holochain-open-dev/profiles": "^0.1.1",
-    "@holochain-syn/client": "^0.0.2",
-    "@holochain-syn/elements": "^0.0.4",
-    "@holochain-syn/store": "^0.0.3",
-    "@holochain-syn/text-editor": "^0.0.5",
+    "@holochain-open-dev/profiles": "^0.2.0",
+    "@holochain-syn/client": "^0.0.3",
+    "@holochain-syn/elements": "^0.0.5",
+    "@holochain-syn/store": "^0.0.4",
+    "@holochain-syn/text-editor": "^0.0.6",
     "@holochain/client": "^0.3.2",
     "@open-wc/scoped-elements": "^2.0.1",
     "@scoped-elements/markdown-renderer": "^0.0.3",
@@ -67,6 +67,7 @@
       "no-useless-constructors": "off",
       "no-param-reassign": "off",
       "class-methods-use-this": "off",
+      "no-useless-constructor": "off",
       "@typescript-eslint/no-unused-vars": [
         "error"
       ],

@@ -1,0 +1,18 @@
+{
+  "parser": "@typescript-eslint/parser",
+  "extends": ["@open-wc", "prettier"],
+  "plugins": ["@typescript-eslint"],
+  "rules": {
+    "prefer-destructuring": "off",
+    "camelcase": "off",
+    "no-empty-function": "off",
+    "no-param-reassign": "off",
+    "no-useless-constructor": "off",
+    "class-methods-use-this": "off",
+    "import/extensions": "off",
+    "no-return-assign": "off",
+    "no-unused-vars": "off",
+    "@typescript-eslint/no-unused-vars": "off",
+    "import/no-unresolved": "off"
+  }
+}

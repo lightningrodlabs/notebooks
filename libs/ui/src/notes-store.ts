@@ -1,4 +1,4 @@
-import { BaseClient } from '@holochain-open-dev/cell-client';
+import { CellClient, HolochainClient } from '@holochain-open-dev/cell-client';
 import {
   AgentPubKeyB64,
   deserializeHash,
@@ -34,11 +34,11 @@ export class NotesStore {
   #openedNotes: Writable<Dictionary<NoteSynStore>> = writable({});
 
   notesCreatedByMe = derived(this.#notesByEntryHash, notes =>
-    pickBy(notes, (value, _key) => value.creator === this.myAgentPubKey)
+    pickBy(notes, value => value.creator === this.myAgentPubKey)
   );
 
   notesCreatedByOthers = derived(this.#notesByEntryHash, notes =>
-    pickBy(notes, (value, _key) => value.creator !== this.myAgentPubKey)
+    pickBy(notes, value => value.creator !== this.myAgentPubKey)
   );
 
   note(noteHash: EntryHashB64) {
@@ -54,13 +54,16 @@ export class NotesStore {
   }
 
   constructor(
-    protected client: BaseClient,
+    protected client: HolochainClient,
     protected adminWebsocket: AdminWebsocket,
     protected notesCell: InstalledCell,
     protected synDnaHash: DnaHash, // This is a template DNA so we don't have a cell on app init
     zomeName: string = 'notes'
   ) {
-    this.service = new NotesService(client.forCell(notesCell), zomeName);
+    this.service = new NotesService(
+      new CellClient(client, notesCell),
+      zomeName
+    );
   }
 
   async fetchAllNotes() {
@@ -103,8 +106,7 @@ export class NotesStore {
       note = get(this.#notesByEntryHash)[noteHash];
     }
 
-    const creator = note.creator;
-    const timestamp = note.timestamp;
+    const { creator, timestamp } = note;
 
     if (!(await this.isNoteDnaInstalled(creator, timestamp))) {
       const resultingDnaHash = await this.installNoteDna(creator, timestamp);
@@ -122,7 +124,7 @@ export class NotesStore {
         deserializeHash(this.myAgentPubKey) as Buffer,
       ],
     };
-    const cellClient = this.client.forCell(cellData);
+    const cellClient = new CellClient(this.client, cellData);
 
     const store: SynStore<TextEditorGrammar> = new SynStore(
       cellClient,
@@ -154,19 +156,19 @@ export class NotesStore {
       properties: { creator, timestamp },
     });
 
-    const installed_app_id = `syn-${creator}-${timestamp}`;
+    const installedAppId = `syn-${creator}-${timestamp}`;
     const newAppInfo: InstalledAppInfo = await this.adminWebsocket.installApp({
-      installed_app_id,
+      installed_app_id: installedAppId,
       agent_key: deserializeHash(this.myAgentPubKey),
       dnas: [
         {
           hash: newWeHash,
-          role_id: installed_app_id,
+          role_id: installedAppId,
         },
       ],
     });
-    const enabledResult = await this.adminWebsocket.enableApp({
-      installed_app_id,
+    await this.adminWebsocket.enableApp({
+      installed_app_id: installedAppId,
     });
 
     return serializeHash(newAppInfo.cell_data[0].cell_id[0]);

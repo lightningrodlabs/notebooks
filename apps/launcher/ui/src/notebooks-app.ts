@@ -1,7 +1,7 @@
 import { LitElement, css, html } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { AdminWebsocket, AppWebsocket, InstalledCell } from '@holochain/client';
-import { HolochainClient } from '@holochain-open-dev/cell-client';
+import { HolochainClient, CellClient } from '@holochain-open-dev/cell-client';
 import { EntryHashB64 } from '@holochain-open-dev/core-types';
 import {
   AgentAvatar,
@@ -74,25 +74,25 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
       `ws://localhost:${process.env.ADMIN_PORT}`
     );
 
-    const client = await HolochainClient.connect(url, 'notebooks');
+    const appWebsocket = await AppWebsocket.connect(url);
+    const client = new HolochainClient(appWebsocket);
 
-    const notebooksCell = client.cellDataByRoleId('notebooks')!;
+    const appInfo = await appWebsocket.appInfo({
+      installed_app_id: 'notebooks',
+    });
 
-    const cellClient = client.forCell(notebooksCell);
+    const installedCells = appInfo.cell_data;
+    const notebooksCell = installedCells.find(
+      c => c.role_id === 'notebooks'
+    ) as InstalledCell;
+
+    const cellClient = new CellClient(client, notebooksCell);
 
     this._profilesStore = new ProfilesStore(cellClient);
 
     this._myProfileTask = new TaskSubscriber(this, () =>
       this._profilesStore.fetchMyProfile()
     );
-
-    const appInfo = await (
-      (client as any).appWebsocket as AppWebsocket
-    ).appInfo({
-      installed_app_id: 'notebooks',
-    });
-
-    const installedCells = appInfo.cell_data;
     const cell = installedCells.find(c => c.role_id === 'syn') as InstalledCell;
     const synDnaHash = cell.cell_id[0];
 
