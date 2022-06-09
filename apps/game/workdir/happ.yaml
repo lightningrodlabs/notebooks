@@ -8,7 +8,7 @@ roles:
       strategy: create
       deferred: false
     dna:
-      bundled: "../dnas/notebooks/workdir/notebooks.dna"
+      bundled: "../dnas/notebooks/notebooks.dna"
       properties: ~
       uuid: ~
       version: ~
@@ -19,7 +19,7 @@ roles:
       strategy: create
       deferred: false
     dna:
-      bundled: "../dnas/syn/workdir/syn.dna"
+      bundled: "../dnas/syn/syn.dna"
       properties: ~
       uuid: ~
       version: ~

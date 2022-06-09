@@ -2,9 +2,12 @@ import { WeGame } from '@lightningrodlabs/we-game';
 import { NotesStore } from '@lightningrodlabs/notebooks';
 import { CellClient, HolochainClient } from '@holochain-open-dev/cell-client';
 import { DnaHash } from '@holochain/client';
+import { html, render } from 'lit';
+
+import { NotebooksGame } from './notebooks-game';
 
 const notebooksGame: WeGame = {
-  gameRenderers: (appWs, adminWs, weStore, gameInfo) => {
+  gameRenderers: (appWs, adminWs, weServices, gameInfo) => {
     const notebooksCell = gameInfo.cell_data.find(
       c => c.role_id === 'notebooks'
     )!;
@@ -20,7 +23,15 @@ const notebooksGame: WeGame = {
 
     return {
       full: (rootElement: HTMLElement, registry: CustomElementRegistry) => {
-        rootElement.innerHTML = 'This is where the game renders';
+        registry.define('notebooks-game', NotebooksGame);
+
+        render(
+          html`<notebooks-game
+            .notesStore=${notesStore}
+            .profilesStore=${weServices.profilesStore}
+          ></notebooks-game>`,
+          rootElement
+        );
       },
       blocks: [],
     };

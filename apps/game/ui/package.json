@@ -7,7 +7,13 @@
   "scripts": {
     "lint": "eslint --ext .ts,.html . --ignore-path .gitignore && prettier \"**/*.ts\" --check --ignore-path .gitignore",
     "format": "eslint --ext .ts,.html . --fix --ignore-path .gitignore && prettier \"**/*.ts\" --write --ignore-path .gitignore",
-    "build": "rimraf dist && rollup -c rollup.config.js"
+    "build": "rimraf dist && rollup -c rollup.config.js",
+    "package": "npm run build:happ && npm run build && cd dist && bestzip ../dist.zip * && cd .. && hc web-app pack ../workdir",
+    "demo": "npm run build:happ && npm run build && cross-env HC_PORT=$(port) ADMIN_PORT=$(port) concurrently \"npm run start:happ\" \"wds --config web-dev-server.config.mjs\"",
+    "start:happ": "RUST_LOG=warn hc s -f=$ADMIN_PORT generate ../workdir/notebooks.happ --run=$HC_PORT -a notebooks network mdns",
+    "build:happ": "npm run build:dnas && hc app pack ../workdir",
+    "build:dnas": "npm run build:zomes && hc dna pack ../dnas/notebooks && hc dna pack ../dnas/syn",
+    "build:zomes": "CARGO_TARGET_DIR=../../../target cargo build --release --target wasm32-unknown-unknown"
   },
   "dependencies": {
     "@holochain-open-dev/cell-client": "^0.4.0",

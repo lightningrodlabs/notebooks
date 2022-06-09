@@ -27,7 +27,7 @@ export default /** @type {import('@web/dev-server').DevServerConfig} */ ({
   // esbuildTarget: 'auto'
 
   /** Set appIndex to enable SPA routing */
-  appIndex: './index.html',
+  appIndex: './demo/index.html',
   clearTerminalOnReload: false,
 
   plugins: [
