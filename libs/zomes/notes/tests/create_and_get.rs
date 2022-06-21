@@ -14,7 +14,7 @@ async fn create_and_get() {
     // Use prebuilt DNA file
     let dna_path = std::env::current_dir()
         .unwrap()
-        .join("../../workdir/notebooks.dna");
+        .join("../../../apps/launcher/dnas/notebooks/notebooks.dna");
     let dna = SweetDnaFile::from_bundle(&dna_path).await.unwrap();
 
     // Set up conductors
