@@ -29,7 +29,7 @@ import {
   notesStoreContext,
 } from '@lightningrodlabs/notebooks';
 
-export class NotebooksGame extends ScopedElementsMixin(LitElement) {
+export class NotebooksApplet extends ScopedElementsMixin(LitElement) {
   @state()
   _activeNoteHash: EntryHashB64 | undefined;
 
@@ -47,7 +47,7 @@ export class NotebooksGame extends ScopedElementsMixin(LitElement) {
       : undefined
   );
 
-  _myProfileTask!: TaskSubscriber<Profile | undefined>;
+  _myProfileTask!: TaskSubscriber<[], Profile | undefined>;
 
   _openedSyn = new StoreSubscriber(this, () =>
     this._activeNoteHash

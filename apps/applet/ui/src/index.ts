@@ -1,13 +1,13 @@
-import { WeGame } from '@lightningrodlabs/we-game';
+import { WeApplet } from '@lightningrodlabs/we-applet';
 import { NotesStore } from '@lightningrodlabs/notebooks';
 import { CellClient, HolochainClient } from '@holochain-open-dev/cell-client';
-import { DnaHash } from '@holochain/client';
+import { AppWebsocket, DnaHash } from '@holochain/client';
 import { html, render } from 'lit';
 
-import { NotebooksGame } from './notebooks-game';
+import { NotebooksApplet } from './notebooks-applet';
 
-const notebooksGame: WeGame = {
-  gameRenderers: (appWs, adminWs, weServices, gameInfo) => {
+const notebooksGame: WeApplet = {
+ async appletRenderers(appWs: AppWebsocket, adminWs, weServices, gameInfo) {
     const notebooksCell = gameInfo.cell_data.find(
       c => c.role_id === 'notebooks'
     )!;
@@ -23,15 +23,15 @@ const notebooksGame: WeGame = {
 
     return {
       full: (rootElement: HTMLElement, registry: CustomElementRegistry) => {
-        registry.define('notebooks-game', NotebooksGame);
+        registry.define('notebooks-applet', NotebooksApplet);
 
-        render(
-          html`<notebooks-game
-            .notesStore=${notesStore}
-            .profilesStore=${weServices.profilesStore}
-          ></notebooks-game>`,
-          rootElement
-        );
+        rootElement.innerHTML = `<notebooks-applet
+        id="applet"
+      ></notebooks-applet>`;
+
+        const appletEl = rootElement.querySelector('#applet') as any;
+        appletEl.notesStore = notesStore;
+        appletEl.profilesStore = weServices.profilesStore;
       },
       blocks: [],
     };

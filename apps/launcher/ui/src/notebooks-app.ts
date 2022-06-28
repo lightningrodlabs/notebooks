@@ -7,6 +7,7 @@ import {
   AgentAvatar,
   Profile,
   ProfilePrompt,
+  ProfilesService,
   ProfilesStore,
   profilesStoreContext,
 } from '@holochain-open-dev/profiles';
@@ -55,7 +56,7 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
       : undefined
   );
 
-  _myProfileTask!: TaskSubscriber<Profile | undefined>;
+  _myProfileTask!: TaskSubscriber<[], Profile | undefined>;
 
   _openedSyn = new StoreSubscriber(this, () =>
     this._activeNoteHash
@@ -88,7 +89,7 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
 
     const cellClient = new CellClient(client, notebooksCell);
 
-    this._profilesStore = new ProfilesStore(cellClient);
+    this._profilesStore = new ProfilesStore(new ProfilesService(cellClient));
 
     this._myProfileTask = new TaskSubscriber(this, () =>
       this._profilesStore.fetchMyProfile()
