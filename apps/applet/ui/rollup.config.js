@@ -2,6 +2,7 @@ import typescript from '@rollup/plugin-typescript';
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import { terser } from 'rollup-plugin-terser';
+import copy from "rollup-plugin-copy";
 
 export default {
   input: `src/index.ts`,
@@ -12,6 +13,9 @@ export default {
     include: 'src/**',
   },
   plugins: [
+    copy({
+      targets: [{ src: "icon.png", dest: "dist" }],
+    }),
     typescript({}),
     resolve({}),
     commonjs({
