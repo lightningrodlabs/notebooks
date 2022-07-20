@@ -7,7 +7,7 @@ use hdk::prelude::Timestamp;
 use hdk::prelude::*;
 use holochain::test_utils::consistency_10s;
 use holochain::{conductor::config::ConductorConfig, sweettest::*};
-use notes::{CreateNoteInput, Note, UpdateNoteBacklinksInput, NoteBacklinks};
+use notes::{CreateNoteInput, Note, NoteWithBacklinks, UpdateNoteBacklinksInput, NoteBacklinks};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn create_and_get() {
@@ -45,7 +45,7 @@ async fn create_and_get() {
 
     consistency_10s(&[&alice, &bobbo]).await;
 
-    let all_notes: BTreeMap<EntryHashB64, Note> =
+    let all_notes: BTreeMap<EntryHashB64, NoteWithBacklinks> =
         conductors[1].call(&bob_zome, "get_all_notes", ()).await;
 
     assert_eq!(all_notes.keys().len(), 1);

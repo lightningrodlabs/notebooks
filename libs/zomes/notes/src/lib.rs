@@ -6,6 +6,7 @@ use regex::Regex;
 
 #[hdk_entry(id = "note")]
 #[serde(rename_all = "camelCase")]
+#[derive(Clone)]
 pub struct Note {
     pub title: String,
 
@@ -16,6 +17,29 @@ pub struct Note {
 
     // Resulting Dna hash to check that we are accessing the right thing
     pub syn_dna_hash: DnaHashB64,
+}
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteWithBacklinks {
+    pub title: String,
+    pub creator: AgentPubKeyB64,
+    pub timestamp: Timestamp,
+    pub syn_dna_hash: DnaHashB64,
+    pub backlinks: NoteBacklinks, 
+}
+impl NoteWithBacklinks {
+    fn from_note(note: Note) -> ExternResult<Self> {
+        let note_hash: EntryHashB64 = hash_entry(note.clone())?.into();
+        Ok(
+            Self {
+                title: note.title,
+                creator: note.creator,
+                timestamp: note.timestamp,
+                syn_dna_hash: note.syn_dna_hash,
+                backlinks: get_note_links(note_hash)?,
+            }
+        )
+    }
 }
 
 entry_defs![Note::entry_def(), PathEntry::entry_def()];
@@ -77,7 +101,7 @@ pub fn create_new_note(input: CreateNoteInput) -> ExternResult<EntryHashB64> {
 }
 
 #[hdk_extern]
-pub fn get_all_notes(_: ()) -> ExternResult<BTreeMap<EntryHashB64, Note>> {
+pub fn get_all_notes(_: ()) -> ExternResult<BTreeMap<EntryHashB64, NoteWithBacklinks>> {
     let path = all_notes_path();
 
     let links = get_links(path.path_entry_hash()?, None)?;
@@ -89,7 +113,7 @@ pub fn get_all_notes(_: ()) -> ExternResult<BTreeMap<EntryHashB64, Note>> {
 
     let notes_elements = HDK.with(|hdk| hdk.borrow().get(get_inputs))?;
 
-    let notes: Vec<(EntryHashB64, Note)> = notes_elements
+    let notes: Vec<(EntryHashB64, NoteWithBacklinks)> = notes_elements
         .into_iter()
         .filter_map(|e| e)
         .map(|element| {
@@ -103,11 +127,11 @@ pub fn get_all_notes(_: ()) -> ExternResult<BTreeMap<EntryHashB64, Note>> {
                 .to_app_option()?
                 .ok_or(WasmError::Guest(String::from("Malformed note")))?;
 
-            Ok((EntryHashB64::from(entry_hash.clone()), note))
+            Ok((EntryHashB64::from(entry_hash.clone()), NoteWithBacklinks::from_note(note)?))
         })
-        .collect::<ExternResult<Vec<(EntryHashB64, Note)>>>()?;
+        .collect::<ExternResult<Vec<(EntryHashB64, NoteWithBacklinks)>>>()?;
 
-    let notes_map: BTreeMap<EntryHashB64, Note> = notes.into_iter().collect();
+    let notes_map: BTreeMap<EntryHashB64, NoteWithBacklinks> = notes.into_iter().collect();
 
     Ok(notes_map)
 }
