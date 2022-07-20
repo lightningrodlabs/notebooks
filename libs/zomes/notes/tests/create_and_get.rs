@@ -84,15 +84,15 @@ async fn create_and_get() {
         .call(&alice_zome, "update_note_backlinks", non_existant_notes)
         .await;
 
-    let note_links: Vec<Link> = conductors[0]
+    let first_note_links: Vec<String> = conductors[0]
         .call(&alice_zome, "get_note_links", first_note_hash.clone())
         .await;
-    let linked_note_links: Vec<Link> = conductors[0]
+    let second_note_links: Vec<String> = conductors[0]
         .call(&alice_zome, "get_note_links", second_note_hash.clone())
         .await;
 
-    assert_eq!(note_links.len(),1);
-    assert_eq!(EntryHash::from(note_links.clone().pop().unwrap().target), EntryHash::from(second_note_hash));
-    assert_eq!(linked_note_links.len(),1);
-    assert_eq!(EntryHash::from(linked_note_links.clone().pop().unwrap().target), EntryHash::from(first_note_hash));
+    assert_eq!(first_note_links.len(),1);
+    assert_eq!(first_note_links.clone().pop().unwrap(), format!("links_to_{}", note_title_2));
+    assert_eq!(second_note_links.len(),1);
+    assert_eq!(second_note_links.clone().pop().unwrap(), format!("linked_from_{}", note_title_1));
 }

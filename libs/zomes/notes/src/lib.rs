@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use hdk::prelude::holo_hash::*;
 use hdk::prelude::*;
+// use regex::Regex;
 
 #[hdk_entry(id = "note")]
 #[serde(rename_all = "camelCase")]
@@ -199,11 +200,26 @@ fn get_note(entry_hash: EntryHash) -> ExternResult<Note> {
     }
 }
 
-// pub fn get_note_links(note_hash: EntryHashB64) -> ExternResult<BTreeMap<String, EntryHashB64>> {
 #[hdk_extern]
-pub fn get_note_links(note_hash: EntryHashB64) -> ExternResult<Vec<Link>> {
-    get_links::<EntryHash>(
+pub fn get_note_links(note_hash: EntryHashB64) -> ExternResult<Vec<String>> {
+    // pub fn get_note_links(note_hash: EntryHashB64) -> ExternResult<BTreeMap<String, EntryHashB64>> {
+// pub fn get_note_links(note_hash: EntryHashB64) -> ExternResult<Vec<Link>> {
+    let links = get_links::<EntryHash>(
         note_hash.into(),
         None,
-    )
+    )?;
+    //     .collect::<ExternResult<Vec<(EntryHashB64, Note)>>>()?;
+
+    // let notes_map: BTreeMap<EntryHashB64, Note> = notes.into_iter().collect();
+    let links_tuple = links.iter().map(|link| title_from_tag(link.tag.clone()))
+        .collect::<ExternResult<Vec<String>>>()?;
+    Ok(links_tuple)
+}
+
+fn title_from_tag(link_tag: LinkTag) -> ExternResult<String> {
+    // let links_to_regex = Regex::new(r"links_to_(.*)$").map_err(|e| WasmError::Guest(String::from("error defining regex")))?;
+    // let linked_from_regex = Regex::new(r"linked_from_(.*)$").map_err(|_e| WasmError::Guest(String::from("error defining regex")))?;
+
+    let tag_string = String::from_utf8(link_tag.into_inner());
+    tag_string.map_err(|_e| WasmError::Guest(String::from("could not convert link tag to string")))
 }
