@@ -7,7 +7,7 @@ use hdk::prelude::Timestamp;
 use hdk::prelude::*;
 use holochain::test_utils::consistency_10s;
 use holochain::{conductor::config::ConductorConfig, sweettest::*};
-use notes::{CreateNoteInput, Note, UpdateNoteBacklinksInput};
+use notes::{CreateNoteInput, Note, UpdateNoteBacklinksInput, NoteBacklinks};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn create_and_get() {
@@ -84,15 +84,17 @@ async fn create_and_get() {
         .call(&alice_zome, "update_note_backlinks", non_existant_notes)
         .await;
 
-    let first_note_links: Vec<String> = conductors[0]
+    let first_note_links: NoteBacklinks = conductors[0]
         .call(&alice_zome, "get_note_links", first_note_hash.clone())
         .await;
-    let second_note_links: Vec<String> = conductors[0]
+    let second_note_links: NoteBacklinks = conductors[0]
         .call(&alice_zome, "get_note_links", second_note_hash.clone())
         .await;
 
-    assert_eq!(first_note_links.len(),1);
-    assert_eq!(first_note_links.clone().pop().unwrap(), format!("links_to_{}", note_title_2));
-    assert_eq!(second_note_links.len(),1);
-    assert_eq!(second_note_links.clone().pop().unwrap(), format!("linked_from_{}", note_title_1));
+    assert_eq!(first_note_links.links_to.len(), 1);
+    assert_eq!(first_note_links.links_to.keys().last().unwrap().clone(), note_title_2);
+    assert_eq!(first_note_links.links_to.values().last().unwrap().clone(), second_note_hash);
+    assert_eq!(second_note_links.linked_from.len(), 1);
+    assert_eq!(second_note_links.linked_from.keys().last().unwrap().clone(), note_title_1);
+    assert_eq!(second_note_links.linked_from.values().last().unwrap().clone(), first_note_hash);
 }

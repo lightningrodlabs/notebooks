@@ -11,6 +11,7 @@ name = "notes"
 chrono = {version = "0.4", features = ["serde"]}
 derive_more = "0"
 serde = "1"
+regex = "1"
 
 hdk = {version = "0.0.136", features = ["encoding"]}
 

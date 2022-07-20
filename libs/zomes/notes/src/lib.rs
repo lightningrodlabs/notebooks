@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use hdk::prelude::holo_hash::*;
 use hdk::prelude::*;
-// use regex::Regex;
+use regex::Regex;
 
 #[hdk_entry(id = "note")]
 #[serde(rename_all = "camelCase")]
@@ -40,6 +40,12 @@ pub struct UpdateNoteBacklinksInput {
     pub link_titles: Vec<String>,
 }
 
+#[derive(Clone)]
+pub enum NoteLink {
+    LinksTo(String),
+    LinkedFrom(String),
+}
+
 #[hdk_extern]
 pub fn create_new_note(input: CreateNoteInput) -> ExternResult<EntryHashB64> {
     let creator = agent_info()?.agent_latest_pubkey;
@@ -59,12 +65,7 @@ pub fn create_new_note(input: CreateNoteInput) -> ExternResult<EntryHashB64> {
     let path = all_notes_path();
     path.ensure()?;
 
-    create_link(
-        path.path_entry_hash()?,
-        hash.clone(),
-        HdkLinkType::Any,
-        (),
-    )?;
+    create_link(path.path_entry_hash()?, hash.clone(), HdkLinkType::Any, ())?;
     create_link(
         title_path(input.title).path_entry_hash()?,
         hash.clone(),
@@ -111,17 +112,19 @@ pub fn get_all_notes(_: ()) -> ExternResult<BTreeMap<EntryHashB64, Note>> {
     Ok(notes_map)
 }
 
-
 #[hdk_extern]
 pub fn update_note_backlinks(input: UpdateNoteBacklinksInput) -> ExternResult<()> {
-    // - figures out which links to delete, and which links to add  
-    // - gets all links of type `linksTo`, maps over all then, checking if the tag name matches the link names, if it doesn't delete (delete backlink as well)  
+    // - figures out which links to delete, and which links to add
+    // - gets all links of type `linksTo`, maps over all then, checking if the tag name matches the link names, if it doesn't delete (delete backlink as well)
     // - for each title in link_titles, check if matches a tag name, if not, create a new link
     // - return the notes backlinks?
     let links = get_links(EntryHash::from(input.note.clone()), None)?;
     // find overlaps
     for title in input.link_titles {
-        match links.iter().find(|link| link.clone().tag.eq(&links_to_tag(title.clone()))) {
+        match links
+            .iter()
+            .find(|link| link.clone().tag.eq(&links_to_tag(title.clone())))
+        {
             // link exists
             Some(_) => (),
             // link doesn't exist, so create it
@@ -163,7 +166,7 @@ fn add_backlink(base_note: EntryHash, target_note_title: String) -> ExternResult
                 linked_from_tag(get_note(base_note)?.title),
             )?;
             ()
-        },
+        }
         // note doesn't exist
         None => (),
     };
@@ -172,19 +175,17 @@ fn add_backlink(base_note: EntryHash, target_note_title: String) -> ExternResult
 
 #[hdk_extern]
 pub fn get_note_by_title(title: String) -> ExternResult<Option<Note>> {
-    let mut links = get_links(
-        title_path(title).path_entry_hash()?,
-        None,
-    )?;
+    let mut links = get_links(title_path(title).path_entry_hash()?, None)?;
     match links.pop() {
-        Some(link) => { 
-            match get::<EntryHash>(link.target.into(), GetOptions::default())? {
-                Some(element) => { 
-                    let note: Note = element.entry().to_app_option()?.ok_or(WasmError::Guest(String::from("Malformed note")))?;
-                    Ok(Some(note))
-                },
-                None => Ok(None),
+        Some(link) => match get::<EntryHash>(link.target.into(), GetOptions::default())? {
+            Some(element) => {
+                let note: Note = element
+                    .entry()
+                    .to_app_option()?
+                    .ok_or(WasmError::Guest(String::from("Malformed note")))?;
+                Ok(Some(note))
             }
+            None => Ok(None),
         },
         None => Ok(None),
     }
@@ -193,33 +194,80 @@ pub fn get_note_by_title(title: String) -> ExternResult<Option<Note>> {
 fn get_note(entry_hash: EntryHash) -> ExternResult<Note> {
     match get(entry_hash, GetOptions::default())? {
         Some(element) => {
-            let note: Note = element.entry().to_app_option()?.ok_or(WasmError::Guest(String::from("malformed note")))?;
+            let note: Note = element
+                .entry()
+                .to_app_option()?
+                .ok_or(WasmError::Guest(String::from("malformed note")))?;
             Ok(note)
-        },
-        None => Err(WasmError::Guest(String::from("unable to resolve note from entry hash"))),
+        }
+        None => Err(WasmError::Guest(String::from(
+            "unable to resolve note from entry hash",
+        ))),
     }
 }
 
 #[hdk_extern]
-pub fn get_note_links(note_hash: EntryHashB64) -> ExternResult<Vec<String>> {
-    // pub fn get_note_links(note_hash: EntryHashB64) -> ExternResult<BTreeMap<String, EntryHashB64>> {
-// pub fn get_note_links(note_hash: EntryHashB64) -> ExternResult<Vec<Link>> {
-    let links = get_links::<EntryHash>(
-        note_hash.into(),
-        None,
-    )?;
-    //     .collect::<ExternResult<Vec<(EntryHashB64, Note)>>>()?;
-
-    // let notes_map: BTreeMap<EntryHashB64, Note> = notes.into_iter().collect();
-    let links_tuple = links.iter().map(|link| title_from_tag(link.tag.clone()))
-        .collect::<ExternResult<Vec<String>>>()?;
-    Ok(links_tuple)
+pub fn get_note_links(note_hash: EntryHashB64) -> ExternResult<NoteBacklinks> {
+    let links = get_links::<EntryHash>(note_hash.into(), None)?;
+    let mut links_to: BTreeMap<String, EntryHashB64> = BTreeMap::new();
+    let mut linked_from: BTreeMap<String, EntryHashB64> = BTreeMap::new();
+    let _links_tuple: Vec<(String, EntryHashB64)> = links
+        .iter()
+        .map(|link| {
+            let maybe_title = title_from_tag(link.tag.clone())?;
+            let entry_hash: EntryHash = link.target.clone().into();
+            Ok((entry_hash.into(), maybe_title))
+        })
+        .collect::<ExternResult<Vec<(EntryHashB64, Option<NoteLink>)>>>()?
+        .iter()
+        .filter_map(|target_title_pair| {
+            if let Some(title) = target_title_pair.1.clone() {
+                match title {
+                    NoteLink::LinksTo(title_string) => {
+                        links_to.insert(title_string.clone(), target_title_pair.0.clone());
+                        Some((title_string, target_title_pair.0.clone()))
+                    },
+                    NoteLink::LinkedFrom(title_string) => {
+                        linked_from.insert(title_string.clone(), target_title_pair.0.clone());
+                        Some((title_string, target_title_pair.0.clone()))
+                    },
+                }
+            }
+            else {
+                None
+            }
+        })
+        .collect();
+    Ok(
+        NoteBacklinks {
+            links_to,
+            linked_from,
+        }
+    )
 }
 
-fn title_from_tag(link_tag: LinkTag) -> ExternResult<String> {
-    // let links_to_regex = Regex::new(r"links_to_(.*)$").map_err(|e| WasmError::Guest(String::from("error defining regex")))?;
-    // let linked_from_regex = Regex::new(r"linked_from_(.*)$").map_err(|_e| WasmError::Guest(String::from("error defining regex")))?;
-
-    let tag_string = String::from_utf8(link_tag.into_inner());
-    tag_string.map_err(|_e| WasmError::Guest(String::from("could not convert link tag to string")))
+fn title_from_tag(link_tag: LinkTag) -> ExternResult<Option<NoteLink>> {
+    let links_to_regex = Regex::new(r"links_to_(.*)$")
+        .map_err(|_e| WasmError::Guest(String::from("error defining regex")))?;
+    let linked_from_regex = Regex::new(r"linked_from_(.*)$")
+        .map_err(|_e| WasmError::Guest(String::from("error defining regex")))?;
+    let tag_string = String::from_utf8(link_tag.into_inner())
+        .map_err(|_e| WasmError::Guest(String::from("could not convert link tag to string")))?;
+    if let Some(captures) = links_to_regex.captures(&*tag_string) {
+        Ok(
+            captures
+                .get(1)
+                .map(|mat| mat.as_str())
+                .map(|title| NoteLink::LinksTo(String::from(title)))
+        )
+    } else if let Some(captures) = linked_from_regex.captures(&*tag_string) {
+        Ok(
+            captures
+                .get(1)
+                .map(|mat| mat.as_str())
+                .map(|title| NoteLink::LinkedFrom(String::from(title)))
+        )
+    } else {
+        return Ok(None);
+    }
 }
