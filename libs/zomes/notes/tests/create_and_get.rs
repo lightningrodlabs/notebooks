@@ -7,7 +7,7 @@ use hdk::prelude::Timestamp;
 use hdk::prelude::*;
 use holochain::test_utils::consistency_10s;
 use holochain::{conductor::config::ConductorConfig, sweettest::*};
-use notes::{CreateNoteInput, Note, NoteWithBacklinks, UpdateNoteBacklinksInput, NoteBacklinks};
+use notes::{CreateNoteInput, Note, NoteWithBacklinks, UpdateNoteBacklinksInput, NoteBacklinks, NoteContentsInput};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn create_and_get() {
@@ -97,4 +97,21 @@ async fn create_and_get() {
     assert_eq!(second_note_links.linked_from.len(), 1);
     assert_eq!(second_note_links.linked_from.keys().last().unwrap().clone(), note_title_1);
     assert_eq!(second_note_links.linked_from.values().last().unwrap().clone(), first_note_hash);
+
+
+    let note_content = String::from(
+        "
+        hello, this is a note with [[backlinks]] which can be [[composed of multiple words]], [[I love links]].
+        "
+    );
+    let note_links = vec![String::from("backlinks"), String::from("composed of multiple words"), String::from("I love links")];
+    let note_contents_input = NoteContentsInput {
+        note: first_note_hash,
+        contents: note_content,
+    };
+    let note_links_regexed: Vec<String> = conductors[0]
+        .call(&alice_zome, "parse_note_for_links_and_update_index", note_contents_input)
+        .await;
+    assert_eq!(note_links_regexed.len(), 3);
+    assert_eq!(note_links_regexed, note_links);
 }

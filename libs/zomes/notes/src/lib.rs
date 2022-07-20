@@ -25,20 +25,18 @@ pub struct NoteWithBacklinks {
     pub creator: AgentPubKeyB64,
     pub timestamp: Timestamp,
     pub syn_dna_hash: DnaHashB64,
-    pub backlinks: NoteBacklinks, 
+    pub backlinks: NoteBacklinks,
 }
 impl NoteWithBacklinks {
     fn from_note(note: Note) -> ExternResult<Self> {
         let note_hash: EntryHashB64 = hash_entry(note.clone())?.into();
-        Ok(
-            Self {
-                title: note.title,
-                creator: note.creator,
-                timestamp: note.timestamp,
-                syn_dna_hash: note.syn_dna_hash,
-                backlinks: get_note_links(note_hash)?,
-            }
-        )
+        Ok(Self {
+            title: note.title,
+            creator: note.creator,
+            timestamp: note.timestamp,
+            syn_dna_hash: note.syn_dna_hash,
+            backlinks: get_note_links(note_hash)?,
+        })
     }
 }
 
@@ -62,6 +60,12 @@ pub struct NoteBacklinks {
 pub struct UpdateNoteBacklinksInput {
     pub note: EntryHashB64,
     pub link_titles: Vec<String>,
+}
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteContentsInput {
+    pub note: EntryHashB64,
+    pub contents: String,
 }
 
 #[derive(Clone)]
@@ -127,7 +131,10 @@ pub fn get_all_notes(_: ()) -> ExternResult<BTreeMap<EntryHashB64, NoteWithBackl
                 .to_app_option()?
                 .ok_or(WasmError::Guest(String::from("Malformed note")))?;
 
-            Ok((EntryHashB64::from(entry_hash.clone()), NoteWithBacklinks::from_note(note)?))
+            Ok((
+                EntryHashB64::from(entry_hash.clone()),
+                NoteWithBacklinks::from_note(note)?,
+            ))
         })
         .collect::<ExternResult<Vec<(EntryHashB64, NoteWithBacklinks)>>>()?;
 
@@ -250,24 +257,21 @@ pub fn get_note_links(note_hash: EntryHashB64) -> ExternResult<NoteBacklinks> {
                     NoteLink::LinksTo(title_string) => {
                         links_to.insert(title_string.clone(), target_title_pair.0.clone());
                         Some((title_string, target_title_pair.0.clone()))
-                    },
+                    }
                     NoteLink::LinkedFrom(title_string) => {
                         linked_from.insert(title_string.clone(), target_title_pair.0.clone());
                         Some((title_string, target_title_pair.0.clone()))
-                    },
+                    }
                 }
-            }
-            else {
+            } else {
                 None
             }
         })
         .collect();
-    Ok(
-        NoteBacklinks {
-            links_to,
-            linked_from,
-        }
-    )
+    Ok(NoteBacklinks {
+        links_to,
+        linked_from,
+    })
 }
 
 fn title_from_tag(link_tag: LinkTag) -> ExternResult<Option<NoteLink>> {
@@ -278,20 +282,30 @@ fn title_from_tag(link_tag: LinkTag) -> ExternResult<Option<NoteLink>> {
     let tag_string = String::from_utf8(link_tag.into_inner())
         .map_err(|_e| WasmError::Guest(String::from("could not convert link tag to string")))?;
     if let Some(captures) = links_to_regex.captures(&*tag_string) {
-        Ok(
-            captures
-                .get(1)
-                .map(|mat| mat.as_str())
-                .map(|title| NoteLink::LinksTo(String::from(title)))
-        )
+        Ok(captures
+            .get(1)
+            .map(|mat| mat.as_str())
+            .map(|title| NoteLink::LinksTo(String::from(title))))
     } else if let Some(captures) = linked_from_regex.captures(&*tag_string) {
-        Ok(
-            captures
-                .get(1)
-                .map(|mat| mat.as_str())
-                .map(|title| NoteLink::LinkedFrom(String::from(title)))
-        )
+        Ok(captures
+            .get(1)
+            .map(|mat| mat.as_str())
+            .map(|title| NoteLink::LinkedFrom(String::from(title))))
     } else {
         return Ok(None);
     }
+}
+
+#[hdk_extern]
+pub fn parse_note_for_links_and_update_index(
+    NoteContentsInput { note: _note, contents }: NoteContentsInput,
+) -> ExternResult<Vec<String>> {
+    let inline_links = Regex::new(r"\[\[([^\]]*)\]\]")
+        .map_err(|_e| WasmError::Guest(String::from("error defining regex")))?;
+    Ok(inline_links.captures_iter(&*contents).filter_map(|cap| {
+        cap.get(1)
+            .map(|mat| mat.as_str())
+            .map(|title| String::from(title))
+    })
+    .collect::<Vec<String>>())
 }
