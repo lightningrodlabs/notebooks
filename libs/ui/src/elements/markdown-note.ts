@@ -102,7 +102,36 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
     if (!this._selectedCommitHash) return undefined;
 
     const selectedCommit = this._allCommits.value[this._selectedCommitHash];
-    return this._snapshots.value[selectedCommit.newContentHash].text;
+    const rawText = this._snapshots.value[selectedCommit.newContentHash].text;
+    return this.insertBacklinks(this.replaceLinks(rawText));
+  }
+
+  hashLookup(a: any, b: any) {
+      const entryHash = this._note.value.backlinks.linksTo[b]
+      if (entryHash) {
+        return `[${b}](/#/note/${entryHash})`;
+      }
+      return `[[${b}]]`;
+  }
+
+  replaceLinks(text = "") {
+    const backlinks = this._note.value.backlinks.linksTo;
+    return text.replace(/\[\[([^\]]*)\]\]/g, (a, b) => {
+      const entryHash = backlinks[b]
+      if (entryHash) {
+        return `[${b}](/#/note/${entryHash})`;
+      }
+      return `[[${b}]]`;
+    })
+  }
+
+  insertBacklinks(text = "") {
+    const backlinks = this._note.value.backlinks.linkedFrom;
+    let backlinkList = ""
+    for (const title of Object.keys(backlinks)) {
+      backlinkList += `- [${title}](/#/note/${backlinks[title]})\n`
+    }
+    return `${text}\n\n\r---\n## backlinks\n\n${backlinkList}`;
   }
 
   async fetchSnapshot(commitHash: EntryHashB64) {
@@ -138,7 +167,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
                     <markdown-renderer
                       style="flex: 1;"
                       .markdown=${this.getMarkdownContent()}
-                    ></markdown-renderer>
+                      ></markdown-renderer>
                   </div>
                 </div>
               </div>
@@ -176,7 +205,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
             <div class="flex-scrollable-y" style="padding: 0 8px;">
               <markdown-renderer
                 style="flex: 1; "
-                .markdown=${this._state.value?.text}
+                .markdown=${this.insertBacklinks(this.replaceLinks(this._state.value?.text))}
               ></markdown-renderer>
             </div>
           </div>
@@ -198,9 +227,15 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
               "
         @click=${async () => {
           this._selectedCommitHash = this._lastCommitHash.value;
+          const text = this._state.value?.text;
           const result = await this._activeSession.value?.leave();
           if (result && result.closingCommitHash)
             this._selectedCommitHash = result?.closingCommitHash;
+          // TODO, handle unhappy path
+          this._notesStore.service.parseAndUpdateNoteLinks({
+            note: this.noteHash,
+            contents: text,
+          });
         }}
       ></mwc-fab>
     </div>`;
