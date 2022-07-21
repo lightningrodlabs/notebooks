@@ -297,15 +297,20 @@ fn title_from_tag(link_tag: LinkTag) -> ExternResult<Option<NoteLink>> {
 }
 
 #[hdk_extern]
-pub fn parse_note_for_links_and_update_index(
-    NoteContentsInput { note: _note, contents }: NoteContentsInput,
+pub fn parse_note_for_links_and_update_backlinks(
+    NoteContentsInput { note, contents }: NoteContentsInput,
 ) -> ExternResult<Vec<String>> {
     let inline_links = Regex::new(r"\[\[([^\]]*)\]\]")
         .map_err(|_e| WasmError::Guest(String::from("error defining regex")))?;
-    Ok(inline_links.captures_iter(&*contents).filter_map(|cap| {
+    let link_titles = inline_links.captures_iter(&*contents).filter_map(|cap| {
         cap.get(1)
             .map(|mat| mat.as_str())
             .map(|title| String::from(title))
     })
-    .collect::<Vec<String>>())
+    .collect::<Vec<String>>();
+    update_note_backlinks(UpdateNoteBacklinksInput {
+        note,
+        link_titles: link_titles.clone(),
+    })?;
+    Ok(link_titles)
 }

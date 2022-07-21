@@ -110,7 +110,7 @@ async fn create_and_get() {
         contents: note_content,
     };
     let note_links_regexed: Vec<String> = conductors[0]
-        .call(&alice_zome, "parse_note_for_links_and_update_index", note_contents_input)
+        .call(&alice_zome, "parse_note_for_links_and_update_backlinks", note_contents_input)
         .await;
     assert_eq!(note_links_regexed.len(), 3);
     assert_eq!(note_links_regexed, note_links);
