@@ -18,6 +18,8 @@ import {
   Fab,
   Snackbar,
   MenuSurface,
+  List,
+  ListItem,
 } from '@scoped-elements/material-web';
 
 import { notesStoreContext } from '../context';
@@ -25,6 +27,7 @@ import { NotesStore, NoteSynStore } from '../notes-store';
 import { sharedStyles } from '../shared-styles';
 
 import { getLatestCommit } from './utils';
+import { NoteWithBacklinks } from '../types';
 
 export class MarkdownNote extends ScopedElementsMixin(LitElement) {
   @property()
@@ -45,6 +48,10 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
     this,
     () => this._activeSession.value?.lastCommitHash
   );
+
+  _myNoteTitles = new StoreSubscriber(this, () => this._notesStore.notesCreatedByMe);
+
+  _othersNoteTitles = new StoreSubscriber(this, () => this._notesStore.notesCreatedByOthers);
 
   _state = new StoreSubscriber(this, () => this._activeSession.value?.state);
 
@@ -209,15 +216,18 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
             if (text[position - 1] === '[' && text[position] === ']') {
               console.log('square bracket activated')
               const menuSurface  = this.shadowRoot?.getElementById("title-search-modal") as MenuSurface;
-              // menuSurface.x = e.detail.coords.x;
-              // menuSurface.y = e.detail.coords.y;
+              menuSurface.x = e.detail.coords.left + 20;
+              menuSurface.y = e.detail.coords.top + 20;
               menuSurface.show()
             }
           }}
           }
       ></syn-text-editor>
-      <mwc-menu-surface fixed id="title-search-modal">
-          surface
+      <mwc-menu-surface relative id="title-search-modal">
+          <mwc-list>
+            ${Object.values(this._myNoteTitles.value).map((note: NoteWithBacklinks) => html`<mwc-list-item>${note.title}</mwc-list-item>`)}
+            ${Object.values(this._othersNoteTitles.value).map((note: NoteWithBacklinks) => html`<mwc-list-item>${note.title}</mwc-list-item>`)}
+          </mwc-list>
       </mwc-menu-surface>
 
       <mwc-card style="flex: 1; margin-left: 4px;">
@@ -310,6 +320,8 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
       'syn-commit-history': SynCommitHistory,
       'syn-context': SynContext,
       'mwc-menu-surface': MenuSurface,
+      'mwc-list': List,
+      'mwc-list-item': ListItem,
     };
   }
 
