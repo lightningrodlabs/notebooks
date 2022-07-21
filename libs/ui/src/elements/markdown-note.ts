@@ -9,7 +9,7 @@ import {
   SynCommitHistory,
   SynSessions,
 } from '@holochain-syn/elements';
-import { SynTextEditor } from '@holochain-syn/text-editor';
+import { SynTextEditor, TextEditorDeltaType } from '@holochain-syn/text-editor';
 import { StoreSubscriber } from 'lit-svelte-stores';
 import { MarkdownRenderer } from '@scoped-elements/markdown-renderer';
 import {
@@ -17,6 +17,7 @@ import {
   CircularProgress,
   Fab,
   Snackbar,
+  MenuSurface,
 } from '@scoped-elements/material-web';
 
 import { notesStoreContext } from '../context';
@@ -57,6 +58,9 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
 
   @state()
   _fetchingSnapshot = false;
+
+  @state()
+  _noteLinkModalOpen = false;
 
   _selectedCommitHash: EntryHashB64 | undefined;
 
@@ -197,7 +201,24 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
       <syn-text-editor
         style="flex: 1;"
         .synSlice=${this._activeSession.value}
+        @text-inserted=${(e: any) => {
+          if (e.detail.text === '[]') {
+            this._activeSession.value?.requestChanges([{type: TextEditorDeltaType.ChangeSelection, position: e.detail.from + 1, characterCount: 0}])
+            const text = this._state.value?.text;
+            const position = e.detail.from;
+            if (text[position - 1] === '[' && text[position] === ']') {
+              console.log('square bracket activated')
+              const menuSurface  = this.shadowRoot?.getElementById("title-search-modal") as MenuSurface;
+              // menuSurface.x = e.detail.coords.x;
+              // menuSurface.y = e.detail.coords.y;
+              menuSurface.show()
+            }
+          }}
+          }
       ></syn-text-editor>
+      <mwc-menu-surface fixed id="title-search-modal">
+          surface
+      </mwc-menu-surface>
 
       <mwc-card style="flex: 1; margin-left: 4px;">
         <div class="flex-scrollable-parent">
@@ -288,6 +309,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
       'syn-folks': SynFolks,
       'syn-commit-history': SynCommitHistory,
       'syn-context': SynContext,
+      'mwc-menu-surface': MenuSurface,
     };
   }
 
