@@ -3130,6 +3130,7 @@ dependencies = [
  "futures",
  "hdk",
  "holochain",
+ "regex",
  "serde",
  "tokio",
 ]

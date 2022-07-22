@@ -49,9 +49,15 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
     () => this._activeSession.value?.lastCommitHash
   );
 
-  _myNoteTitles = new StoreSubscriber(this, () => this._notesStore.notesCreatedByMe);
+  _myNoteTitles = new StoreSubscriber(
+    this,
+    () => this._notesStore.notesCreatedByMe
+  );
 
-  _othersNoteTitles = new StoreSubscriber(this, () => this._notesStore.notesCreatedByOthers);
+  _othersNoteTitles = new StoreSubscriber(
+    this,
+    () => this._notesStore.notesCreatedByOthers
+  );
 
   _state = new StoreSubscriber(this, () => this._activeSession.value?.state);
 
@@ -106,41 +112,49 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
     if (Object.keys(this._allCommits.value).length > 0) {
       const latest = getLatestCommit(this._allCommits.value);
       await this.fetchSnapshot(latest[0]);
+    } else {
+      this._selectedCommitHash = undefined;
     }
   }
 
   getMarkdownContent() {
-    if (!this._selectedCommitHash) return undefined;
+    if (!this._selectedCommitHash) return this.insertBacklinks('');
 
     const selectedCommit = this._allCommits.value[this._selectedCommitHash];
+    if (
+      !selectedCommit ||
+      !this._snapshots.value[selectedCommit.newContentHash]
+    )
+      return this.insertBacklinks('');
+
     const rawText = this._snapshots.value[selectedCommit.newContentHash].text;
     return this.insertBacklinks(this.replaceLinks(rawText));
   }
 
   hashLookup(a: any, b: any) {
-      const entryHash = this._note.value.backlinks.linksTo[b]
-      if (entryHash) {
-        return `[${b}](/#/note/${entryHash})`;
-      }
-      return `[[${b}]]`;
+    const entryHash = this._note.value.backlinks.linksTo[b];
+    if (entryHash) {
+      return `[${b}](/#/note/${entryHash})`;
+    }
+    return `[[${b}]]`;
   }
 
-  replaceLinks(text = "") {
+  replaceLinks(text = '') {
     const backlinks = this._note.value.backlinks.linksTo;
     return text.replace(/\[\[([^\]]*)\]\]/g, (a, b) => {
-      const entryHash = backlinks[b]
+      const entryHash = backlinks[b];
       if (entryHash) {
         return `[${b}](/#/note/${entryHash})`;
       }
       return `[[${b}]]`;
-    })
+    });
   }
 
-  insertBacklinks(text = "") {
+  insertBacklinks(text = '') {
     const backlinks = this._note.value.backlinks.linkedFrom;
-    let backlinkList = ""
+    let backlinkList = '';
     for (const title of Object.keys(backlinks)) {
-      backlinkList += `- [${title}](/#/note/${backlinks[title]})\n`
+      backlinkList += `- [${title}](/#/note/${backlinks[title]})\n`;
     }
     return `${text}\n\n\r---\n## backlinks\n\n${backlinkList}`;
   }
@@ -178,7 +192,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
                     <markdown-renderer
                       style="flex: 1;"
                       .markdown=${this.getMarkdownContent()}
-                      ></markdown-renderer>
+                    ></markdown-renderer>
                   </div>
                 </div>
               </div>
@@ -210,24 +224,37 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
         .synSlice=${this._activeSession.value}
         @text-inserted=${(e: any) => {
           if (e.detail.text === '[]') {
-            this._activeSession.value?.requestChanges([{type: TextEditorDeltaType.ChangeSelection, position: e.detail.from + 1, characterCount: 0}])
+            this._activeSession.value?.requestChanges([
+              {
+                type: TextEditorDeltaType.ChangeSelection,
+                position: e.detail.from + 1,
+                characterCount: 0,
+              },
+            ]);
             const text = this._state.value?.text;
             const position = e.detail.from;
             if (text[position - 1] === '[' && text[position] === ']') {
-              console.log('square bracket activated')
-              const menuSurface  = this.shadowRoot?.getElementById("title-search-modal") as MenuSurface;
+              const menuSurface = this.shadowRoot?.getElementById(
+                'title-search-modal'
+              ) as MenuSurface;
               menuSurface.x = e.detail.coords.left + 20;
               menuSurface.y = e.detail.coords.top + 20;
-              menuSurface.show()
+              menuSurface.show();
             }
-          }}
           }
+        }}
       ></syn-text-editor>
       <mwc-menu-surface relative id="title-search-modal">
-          <mwc-list>
-            ${Object.values(this._myNoteTitles.value).map((note: NoteWithBacklinks) => html`<mwc-list-item>${note.title}</mwc-list-item>`)}
-            ${Object.values(this._othersNoteTitles.value).map((note: NoteWithBacklinks) => html`<mwc-list-item>${note.title}</mwc-list-item>`)}
-          </mwc-list>
+        <mwc-list>
+          ${Object.values(this._myNoteTitles.value).map(
+            (note: NoteWithBacklinks) =>
+              html`<mwc-list-item>${note.title}</mwc-list-item>`
+          )}
+          ${Object.values(this._othersNoteTitles.value).map(
+            (note: NoteWithBacklinks) =>
+              html`<mwc-list-item>${note.title}</mwc-list-item>`
+          )}
+        </mwc-list>
       </mwc-menu-surface>
 
       <mwc-card style="flex: 1; margin-left: 4px;">
@@ -236,7 +263,9 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
             <div class="flex-scrollable-y" style="padding: 0 8px;">
               <markdown-renderer
                 style="flex: 1; "
-                .markdown=${this.insertBacklinks(this.replaceLinks(this._state.value?.text))}
+                .markdown=${this.insertBacklinks(
+                  this.replaceLinks(this._state.value?.text)
+                )}
               ></markdown-renderer>
             </div>
           </div>
