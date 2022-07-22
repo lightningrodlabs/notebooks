@@ -22,14 +22,14 @@ import {
 } from '@holochain-syn/text-editor';
 
 import { NotesService } from './notes-service';
-import { Note } from './types';
+import { NoteWithBacklinks } from './types';
 
 export type NoteSynStore = SynStore<TextEditorGrammar>;
 
 export class NotesStore {
   service: NotesService;
 
-  #notesByEntryHash: Writable<Dictionary<Note>> = writable({});
+  #notesByEntryHash: Writable<Dictionary<NoteWithBacklinks>> = writable({});
 
   #openedNotes: Writable<Dictionary<NoteSynStore>> = writable({});
 
@@ -93,6 +93,7 @@ export class NotesStore {
         synDnaHash,
         timestamp,
         creator,
+        backlinks: {linksTo: {}, linkedFrom: {}},
       };
       return notes;
     });
