@@ -93,7 +93,7 @@ export class NotesStore {
       return notes;
     });
 
-    const synStore = get(this.#openedNotes)[entryHash];
+    const synStore = await this.openNote(entryHash);
 
     const { initialCommitHash } = await synStore.createRoot(textEditorGrammar);
     await synStore.createWorkspace(

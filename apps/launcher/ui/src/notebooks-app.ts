@@ -1,3 +1,5 @@
+import '@webcomponents/scoped-custom-element-registry';
+
 import { LitElement, css, html } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { AdminWebsocket, AppWebsocket, InstalledCell } from '@holochain/client';
@@ -62,11 +64,6 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
     this._activeNoteHash
       ? this._notesStore?.noteSynStore(this._activeNoteHash)
       : undefined
-  );
-
-  _activeSession = new StoreSubscriber(
-    this,
-    () => this._openedSyn.value?.activeSession
   );
 
   async connectToHolochain() {
@@ -213,12 +210,7 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
   }
 
   renderBackButton() {
-    if (
-      !this._activeNoteHash ||
-      !this._activeSession ||
-      this._activeSession.value
-    )
-      return html``;
+    if (!this._activeNoteHash) return html``;
 
     return html`
       <mwc-icon-button

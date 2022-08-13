@@ -24,8 +24,6 @@ export default {
   plugins: [
     /** Enable using HTML as rollup entrypoint */
     replace({
-      'process.env.HC_PORT': '8888',
-      'process.env.ADMIN_PORT': '8889',
       delimiters: ['', ''],
     }),
     html({
