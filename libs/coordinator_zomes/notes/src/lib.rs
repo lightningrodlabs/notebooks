@@ -1,46 +1,7 @@
-use std::collections::BTreeMap;
-
-use hdk::prelude::holo_hash::*;
+use notes_integrity::*;
 use hdk::prelude::*;
 use regex::Regex;
 
-#[hdk_entry(id = "note")]
-#[serde(rename_all = "camelCase")]
-#[derive(Clone)]
-pub struct Note {
-    pub title: String,
-
-    // With the creator and timestamp as properties,
-    // anyone can recreate the Note Dna
-    pub creator: AgentPubKeyB64,
-    pub timestamp: Timestamp,
-
-    // Resulting Dna hash to check that we are accessing the right thing
-    pub syn_dna_hash: DnaHashB64,
-}
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct NoteWithBacklinks {
-    pub title: String,
-    pub creator: AgentPubKeyB64,
-    pub timestamp: Timestamp,
-    pub syn_dna_hash: DnaHashB64,
-    pub backlinks: NoteBacklinks,
-}
-impl NoteWithBacklinks {
-    fn from_note(note: Note) -> ExternResult<Self> {
-        let note_hash: EntryHashB64 = hash_entry(note.clone())?.into();
-        Ok(Self {
-            title: note.title,
-            creator: note.creator,
-            timestamp: note.timestamp,
-            syn_dna_hash: note.syn_dna_hash,
-            backlinks: get_note_links(note_hash)?,
-        })
-    }
-}
-
-entry_defs![Note::entry_def(), PathEntry::entry_def()];
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -74,6 +35,28 @@ pub enum NoteLink {
     LinkedFrom(String),
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteWithBacklinks {
+    pub title: String,
+    pub creator: AgentPubKeyB64,
+    pub timestamp: Timestamp,
+    pub syn_dna_hash: DnaHashB64,
+    pub backlinks: NoteBacklinks,
+}
+impl NoteWithBacklinks {
+    fn from_note(note: Note) -> ExternResult<Self> {
+        let note_hash: EntryHashB64 = hash_entry(note.clone())?.into();
+        Ok(Self {
+            title: note.title,
+            creator: note.creator,
+            timestamp: note.timestamp,
+            syn_dna_hash: note.syn_dna_hash,
+            backlinks: get_note_links(note_hash)?,
+        })
+    }
+}
+
 #[hdk_extern]
 pub fn create_new_note(input: CreateNoteInput) -> ExternResult<EntryHashB64> {
     let creator = agent_info()?.agent_latest_pubkey;
@@ -87,17 +70,16 @@ pub fn create_new_note(input: CreateNoteInput) -> ExternResult<EntryHashB64> {
         title: input.title.clone(),
     };
 
-    create_entry(&note)?;
+    create_entry(&EntryTypes::Note(note.clone()))?;
     let hash = hash_entry(&note)?;
 
     let path = all_notes_path();
-    path.ensure()?;
 
-    create_link(path.path_entry_hash()?, hash.clone(), HdkLinkType::Any, ())?;
+    create_link(path.path_entry_hash()?, hash.clone(), LinkTypes::PathToNote, ())?;
     create_link(
         title_path(input.title).path_entry_hash()?,
         hash.clone(),
-        HdkLinkType::Any,
+        LinkTypes::PathToNote,
         (),
     )?;
 
@@ -108,7 +90,7 @@ pub fn create_new_note(input: CreateNoteInput) -> ExternResult<EntryHashB64> {
 pub fn get_all_notes(_: ()) -> ExternResult<BTreeMap<EntryHashB64, NoteWithBacklinks>> {
     let path = all_notes_path();
 
-    let links = get_links(path.path_entry_hash()?, None)?;
+    let links = get_links(path.path_entry_hash()?, LinkTypes::PathToNote, None)?;
 
     let get_inputs = links
         .into_iter()
@@ -149,7 +131,7 @@ pub fn update_note_backlinks(input: UpdateNoteBacklinksInput) -> ExternResult<()
     // - gets all links of type `linksTo`, maps over all then, checking if the tag name matches the link names, if it doesn't delete (delete backlink as well)
     // - for each title in link_titles, check if matches a tag name, if not, create a new link
     // - return the notes backlinks?
-    let links = get_links(EntryHash::from(input.note.clone()), None)?;
+    let links = get_links(EntryHash::from(input.note.clone()), LinkTypes::PathToNote, None)?;
     // find overlaps
     for title in input.link_titles {
         match links
@@ -187,13 +169,13 @@ fn add_backlink(base_note: EntryHash, target_note_title: String) -> ExternResult
             create_link(
                 base_note.clone(),
                 target_note_hash.clone(),
-                HdkLinkType::Any,
+                LinkTypes::NoteToBacklinks,
                 links_to_tag(target_note_title),
             )?;
             create_link(
                 target_note_hash,
                 base_note.clone(),
-                HdkLinkType::Any,
+                LinkTypes::NoteToBacklinks,
                 linked_from_tag(get_note(base_note)?.title),
             )?;
             ()
@@ -206,7 +188,7 @@ fn add_backlink(base_note: EntryHash, target_note_title: String) -> ExternResult
 
 #[hdk_extern]
 pub fn get_note_by_title(title: String) -> ExternResult<Option<Note>> {
-    let mut links = get_links(title_path(title).path_entry_hash()?, None)?;
+    let mut links = get_links(title_path(title).path_entry_hash()?, LinkTypes::PathToNote,  None)?;
     match links.pop() {
         Some(link) => match get::<EntryHash>(link.target.into(), GetOptions::default())? {
             Some(element) => {
@@ -239,7 +221,7 @@ fn get_note(entry_hash: EntryHash) -> ExternResult<Note> {
 
 #[hdk_extern]
 pub fn get_note_links(note_hash: EntryHashB64) -> ExternResult<NoteBacklinks> {
-    let links = get_links::<EntryHash>(note_hash.into(), None)?;
+    let links = get_links::<EntryHash>(note_hash.into(), LinkTypes::NoteToBacklinks, None)?;
     let mut links_to: BTreeMap<String, EntryHashB64> = BTreeMap::new();
     let mut linked_from: BTreeMap<String, EntryHashB64> = BTreeMap::new();
     let _links_tuple: Vec<(String, EntryHashB64)> = links

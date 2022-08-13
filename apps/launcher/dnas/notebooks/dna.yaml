@@ -1,10 +1,23 @@
 ---
 manifest_version: "1"
 name: notebooks
-uuid: 00000000-0000-0000-0000-000000000000
-properties: ~
-zomes: 
-  - name: notes
-    bundled: ../../../../target/wasm32-unknown-unknown/release/notes.wasm
-  - name: profiles
-    bundled: ../../../../target/wasm32-unknown-unknown/release/profiles.wasm
+
+integrity:
+  uid: 00000000-0000-0000-0000-000000000000
+  properties: ~
+  zomes:
+    - name: notes_integrity
+      bundled: ../../../../target/wasm32-unknown-unknown/release/hc_zome_notes_integrity.wasm
+    - name: profiles_integrity
+      bundled: ../../../../target/wasm32-unknown-unknown/release/profiles_integrity.wasm
+
+coordinator:
+  zomes:
+    - name: notes
+      bundled: ../../../../target/wasm32-unknown-unknown/release/hc_zome_notes_coordinator.wasm
+      dependencies:
+        - name: notes_integrity
+    - name: profiles
+      bundled: ../../../../target/wasm32-unknown-unknown/release/profiles_coordinator.wasm
+      dependencies:
+        - name: profiles_integrity

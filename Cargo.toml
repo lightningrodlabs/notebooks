@@ -1,7 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
-  "libs/zomes/*",
+  "libs/coordinator_zomes/*",
+  "libs/integrity_zomes/*",
 ]
 
 [profile.dev]
