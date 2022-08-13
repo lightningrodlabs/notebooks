@@ -1,5 +1,8 @@
+use std::collections::BTreeMap;
+
 use notes_integrity::*;
 use hdk::prelude::*;
+use hdk::prelude::holo_hash::*;
 use regex::Regex;
 
 
@@ -70,7 +73,7 @@ pub fn create_new_note(input: CreateNoteInput) -> ExternResult<EntryHashB64> {
         title: input.title.clone(),
     };
 
-    create_entry(&EntryTypes::Note(note.clone()))?;
+    create_entry(EntryTypes::Note(note.clone()))?;
     let hash = hash_entry(&note)?;
 
     let path = all_notes_path();
@@ -104,14 +107,14 @@ pub fn get_all_notes(_: ()) -> ExternResult<BTreeMap<EntryHashB64, NoteWithBackl
         .filter_map(|e| e)
         .map(|element| {
             let entry_hash = element
-                .header()
+                .action()
                 .entry_hash()
-                .ok_or(WasmError::Guest("Malformed note element".into()))?;
+                .ok_or(wasm_error!(WasmErrorInner::Guest("Malformed note element".into())))?;
 
             let note: Note = element
                 .entry()
                 .to_app_option()?
-                .ok_or(WasmError::Guest(String::from("Malformed note")))?;
+                .ok_or(wasm_error!(WasmErrorInner::Guest(String::from("Malformed note"))))?;
 
             Ok((
                 EntryHashB64::from(entry_hash.clone()),
@@ -190,12 +193,12 @@ fn add_backlink(base_note: EntryHash, target_note_title: String) -> ExternResult
 pub fn get_note_by_title(title: String) -> ExternResult<Option<Note>> {
     let mut links = get_links(title_path(title).path_entry_hash()?, LinkTypes::PathToNote,  None)?;
     match links.pop() {
-        Some(link) => match get::<EntryHash>(link.target.into(), GetOptions::default())? {
+        Some(link) => match get(EntryHash::from(link.target), GetOptions::default())? {
             Some(element) => {
                 let note: Note = element
                     .entry()
                     .to_app_option()?
-                    .ok_or(WasmError::Guest(String::from("Malformed note")))?;
+                    .ok_or(wasm_error!(WasmErrorInner::Guest(String::from("Malformed note"))))?;
                 Ok(Some(note))
             }
             None => Ok(None),
@@ -210,10 +213,10 @@ fn get_note(entry_hash: EntryHash) -> ExternResult<Note> {
             let note: Note = element
                 .entry()
                 .to_app_option()?
-                .ok_or(WasmError::Guest(String::from("malformed note")))?;
+                .ok_or(wasm_error!(WasmErrorInner::Guest(String::from("malformed note"))))?;
             Ok(note)
         }
-        None => Err(WasmError::Guest(String::from(
+        None => Err(wasm_error!(WasmErrorInner::Guest(String::fro)m(
             "unable to resolve note from entry hash",
         ))),
     }
@@ -221,7 +224,7 @@ fn get_note(entry_hash: EntryHash) -> ExternResult<Note> {
 
 #[hdk_extern]
 pub fn get_note_links(note_hash: EntryHashB64) -> ExternResult<NoteBacklinks> {
-    let links = get_links::<EntryHash>(note_hash.into(), LinkTypes::NoteToBacklinks, None)?;
+    let links = get_links(EntryHash::from(note_hash), LinkTypes::NoteToBacklinks, None)?;
     let mut links_to: BTreeMap<String, EntryHashB64> = BTreeMap::new();
     let mut linked_from: BTreeMap<String, EntryHashB64> = BTreeMap::new();
     let _links_tuple: Vec<(String, EntryHashB64)> = links
@@ -258,11 +261,11 @@ pub fn get_note_links(note_hash: EntryHashB64) -> ExternResult<NoteBacklinks> {
 
 fn title_from_tag(link_tag: LinkTag) -> ExternResult<Option<NoteLink>> {
     let links_to_regex = Regex::new(r"links_to_(.*)$")
-        .map_err(|_e| WasmError::Guest(String::from("error defining regex")))?;
+        .map_err(|_e| wasm_error!(WasmErrorInner::Guest(String::from("error defining regex"))))?;
     let linked_from_regex = Regex::new(r"linked_from_(.*)$")
-        .map_err(|_e| WasmError::Guest(String::from("error defining regex")))?;
+        .map_err(|_e| wasm_error!(WasmErrorInner::Guest(String::from("error defining regex"))))?;
     let tag_string = String::from_utf8(link_tag.into_inner())
-        .map_err(|_e| WasmError::Guest(String::from("could not convert link tag to string")))?;
+        .map_err(|_e| wasm_error!(WasmErrorInner::Guest(String::from("could not convert link tag to string"))))?;
     if let Some(captures) = links_to_regex.captures(&*tag_string) {
         Ok(captures
             .get(1)
@@ -283,7 +286,7 @@ pub fn parse_note_for_links_and_update_backlinks(
     NoteContentsInput { note, contents }: NoteContentsInput,
 ) -> ExternResult<Vec<String>> {
     let inline_links = Regex::new(r"\[\[([^\]]*)\]\]")
-        .map_err(|_e| WasmError::Guest(String::from("error defining regex")))?;
+        .map_err(|_e| wasm_error!(WasmErrorInner::Guest(String::from("error defining regex"))))?;
     let link_titles = inline_links.captures_iter(&*contents).filter_map(|cap| {
         cap.get(1)
             .map(|mat| mat.as_str())
