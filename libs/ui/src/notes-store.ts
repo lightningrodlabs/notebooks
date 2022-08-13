@@ -9,29 +9,22 @@ import {
 } from '@holochain-open-dev/core-types';
 import { derived, get, Writable, writable } from 'svelte/store';
 import pickBy from 'lodash-es/pickBy';
-import { SynStore } from '@holochain-syn/store';
+import { SynClient, SynStore } from '@holochain-syn/core';
 import {
   AdminWebsocket,
   DnaHash,
   InstalledAppInfo,
   InstalledCell,
 } from '@holochain/client';
-import {
-  textEditorGrammar,
-  TextEditorGrammar,
-} from '@holochain-syn/text-editor';
-
 import { NotesService } from './notes-service';
 import { NoteWithBacklinks } from './types';
-
-export type NoteSynStore = SynStore<TextEditorGrammar>;
 
 export class NotesStore {
   service: NotesService;
 
   #notesByEntryHash: Writable<Dictionary<NoteWithBacklinks>> = writable({});
 
-  #openedNotes: Writable<Dictionary<NoteSynStore>> = writable({});
+  #openedNotes: Writable<Dictionary<SynStore>> = writable({});
 
   notesCreatedByMe = derived(this.#notesByEntryHash, notes =>
     pickBy(notes, value => value.creator === this.myAgentPubKey)
@@ -93,13 +86,13 @@ export class NotesStore {
         synDnaHash,
         timestamp,
         creator,
-        backlinks: {linksTo: {}, linkedFrom: {}},
+        backlinks: { linksTo: {}, linkedFrom: {} },
       };
       return notes;
     });
   }
 
-  async openNote(noteHash: EntryHashB64): Promise<NoteSynStore> {
+  async openNote(noteHash: EntryHashB64): Promise<SynStore> {
     let note = get(this.#notesByEntryHash)[noteHash];
 
     if (!note) {
@@ -127,10 +120,7 @@ export class NotesStore {
     };
     const cellClient = new CellClient(this.client, cellData);
 
-    const store: SynStore<TextEditorGrammar> = new SynStore(
-      cellClient,
-      textEditorGrammar
-    );
+    const store: SynStore = new SynStore(new SynClient(cellClient));
 
     this.#openedNotes.update(n => {
       n[noteHash] = store;

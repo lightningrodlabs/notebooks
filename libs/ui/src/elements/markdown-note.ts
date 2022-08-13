@@ -1,16 +1,24 @@
-import { EntryHashB64 } from '@holochain-open-dev/core-types';
+import { deserializeHash, EntryHashB64 } from '@holochain-open-dev/core-types';
 import { contextProvided } from '@lit-labs/context';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements';
 import { html, LitElement, PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import {
   SynContext,
-  SynFolks,
+  WorkspaceParticipants,
   SynCommitHistory,
-  SynSessions,
-} from '@holochain-syn/elements';
-import { SynTextEditor, TextEditorDeltaType } from '@holochain-syn/text-editor';
-import { StoreSubscriber } from 'lit-svelte-stores';
+  WorkspaceStore,
+  SynStore,
+  Commit,
+} from '@holochain-syn/core';
+import {
+  SynMarkdownEditor,
+  TextEditorDeltaType,
+  textEditorGrammar,
+  TextEditorGrammar,
+} from '@holochain-syn/text-editor';
+import { decode } from '@msgpack/msgpack';
+import { StoreSubscriber, TaskSubscriber } from 'lit-svelte-stores';
 import { MarkdownRenderer } from '@scoped-elements/markdown-renderer';
 import {
   Card,
@@ -21,13 +29,17 @@ import {
   List,
   ListItem,
 } from '@scoped-elements/material-web';
+import { readable } from 'svelte/store';
+import { EntryHashMap, serializeHash } from '@holochain-open-dev/utils';
+import { EntryHash } from '@holochain/client';
 
 import { notesStoreContext } from '../context';
-import { NotesStore, NoteSynStore } from '../notes-store';
+import { NotesStore } from '../notes-store';
 import { sharedStyles } from '../shared-styles';
 
 import { getLatestCommit } from './utils';
 import { NoteWithBacklinks } from '../types';
+import { WorkspaceList } from './workspace-list';
 
 export class MarkdownNote extends ScopedElementsMixin(LitElement) {
   @property()
@@ -37,16 +49,14 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
   _notesStore!: NotesStore;
 
   @state()
-  _noteSynStore: NoteSynStore | undefined;
+  _noteSynStore: SynStore | undefined;
 
-  _activeSession = new StoreSubscriber(
-    this,
-    () => this._noteSynStore?.activeSession
-  );
+  @state()
+  _workspaceStore: WorkspaceStore<TextEditorGrammar> | undefined;
 
   _lastCommitHash = new StoreSubscriber(
     this,
-    () => this._activeSession.value?.lastCommitHash
+    () => this._workspaceStore?.currentTip
   );
 
   _myNoteTitles = new StoreSubscriber(
@@ -59,11 +69,13 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
     () => this._notesStore.notesCreatedByOthers
   );
 
-  _state = new StoreSubscriber(this, () => this._activeSession.value?.state);
+  _state = new StoreSubscriber(this, () => this._workspaceStore?.state);
 
-  _allCommits = new StoreSubscriber(this, () => this._noteSynStore?.allCommits);
-
-  _snapshots = new StoreSubscriber(this, () => this._noteSynStore?.snapshots);
+  _allCommits: TaskSubscriber<any, EntryHashMap<Commit>> = new TaskSubscriber(
+    this,
+    async () =>
+      this._noteSynStore ? this._noteSynStore.fetchAllCommits() : readable()
+  );
 
   _note = new StoreSubscriber(this, () =>
     this._notesStore?.note(this.noteHash)
@@ -86,49 +98,48 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
   }
 
   async connectSyn() {
-    if (this._noteSynStore) await this._noteSynStore.close();
+    if (this._workspaceStore) {
+      await this._workspaceStore.leaveWorkspace();
+    }
 
     this._noteSynStore = await this._notesStore.openNote(this.noteHash);
 
-    this._noteSynStore.activeSession.subscribe(activeSession => {
-      if (
-        activeSession &&
-        activeSession.session.scribe === this._noteSynStore?.myPubKey
-      ) {
-        window.onbeforeunload = () =>
-          'Are you sure you want to leave? Close the session before leaving to commit the changes.';
-      } else {
-        window.onbeforeunload = () => undefined;
-      }
-
-      activeSession?.on('session-closed', () => {
-        (
-          this.shadowRoot?.getElementById('closed-session-message') as Snackbar
-        ).show();
-      });
-    });
-
-    await this._noteSynStore.fetchCommitHistory();
-    if (Object.keys(this._allCommits.value).length > 0) {
-      const latest = getLatestCommit(this._allCommits.value);
-      await this.fetchSnapshot(latest[0]);
+    await this._allCommits.run();
+    if (this._allCommits.value && this._allCommits.value.keys().length > 0) {
+      this._selectedCommitHash = serializeHash(
+        getLatestCommit(this._allCommits.value)[0]
+      );
     } else {
       this._selectedCommitHash = undefined;
     }
   }
 
+  async joinWorskpace(workspaceHash: EntryHash) {
+    this._workspaceStore = await this._noteSynStore?.joinWorkspace(
+      workspaceHash,
+      textEditorGrammar
+    );
+    window.onbeforeunload = () =>
+      'Are you sure you want to leave? Leave the workspace before leaving to commit the changes.';
+  }
+
+  async leaveWorkspace() {
+    await this._workspaceStore?.leaveWorkspace();
+    window.onbeforeunload = () => undefined;
+    this._workspaceStore = undefined;
+  }
+
   getMarkdownContent() {
     if (!this._selectedCommitHash) return this.insertBacklinks('');
 
-    const selectedCommit = this._allCommits.value[this._selectedCommitHash];
-    if (
-      !selectedCommit ||
-      !this._snapshots.value[selectedCommit.newContentHash]
-    )
-      return this.insertBacklinks('');
+    const selectedCommit: Commit | undefined = (
+      this._allCommits as any
+    ).value?.get(deserializeHash(this._selectedCommitHash));
+    if (!selectedCommit) return this.insertBacklinks('');
 
-    const rawText = this._snapshots.value[selectedCommit.newContentHash].text;
-    return this.insertBacklinks(this.replaceLinks(rawText));
+    return this.insertBacklinks(
+      this.replaceLinks((decode(selectedCommit.state) as any).text.toString())
+    );
   }
 
   hashLookup(a: any, b: any) {
@@ -159,27 +170,20 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
     return `${text}\n\n\r---\n## backlinks\n\n${backlinkList}`;
   }
 
-  async fetchSnapshot(commitHash: EntryHashB64) {
-    this._fetchingSnapshot = true;
-    this._selectedCommitHash = commitHash;
-
-    const selectedCommit = this._allCommits.value[commitHash];
-
-    await this._noteSynStore?.fetchSnapshot(selectedCommit.newContentHash);
-    this._fetchingSnapshot = false;
-  }
-
   renderNotInSessionContent() {
     return html`<div class="row" style="flex: 1;">
       <div class="column" style="flex: 1;">
-        <syn-sessions
+        <workspace-list
           style="flex: 1; margin: 16px; margin-bottom: 0;"
-        ></syn-sessions>
+          @join-workspace=${(e: CustomEvent) =>
+            this.joinWorskpace(e.detail.workspaceHash)}
+        ></workspace-list>
         <syn-commit-history
           style="flex: 1; margin: 16px;"
           .selectedCommitHash=${this._selectedCommitHash}
-          @commit-selected=${(e: CustomEvent) =>
-            this.fetchSnapshot(e.detail.commitHash)}
+          @commit-selected=${(e: CustomEvent) => {
+            this._selectedCommitHash = e.detail.commitHash;
+          }}
         ></syn-commit-history>
       </div>
       ${this._fetchingSnapshot
@@ -197,34 +201,20 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
                 </div>
               </div>
             </mwc-card>
-
-            <mwc-fab
-              extended
-              icon="edit"
-              label="Start Session"
-              style="
-                margin: 16px;
-                position: absolute;
-                right: 0;
-                bottom: 0;
-              "
-              @click=${() =>
-                this._noteSynStore?.newSession(this._selectedCommitHash)}
-            ></mwc-fab>
           `}
     </div> `;
   }
 
-  renderInSessionContent() {
+  renderInSessionContent(workspaceStore: WorkspaceStore<TextEditorGrammar>) {
     return html`<div class="row" style="flex: 1;">
       <syn-folks style="margin: 4px;"></syn-folks>
 
-      <syn-text-editor
+      <syn-markdown-editor
         style="flex: 1;"
-        .synSlice=${this._activeSession.value}
+        .slice=${workspaceStore}
         @text-inserted=${(e: any) => {
           if (e.detail.text === '[]') {
-            this._activeSession.value?.requestChanges([
+            workspaceStore.requestChanges([
               {
                 type: TextEditorDeltaType.ChangeSelection,
                 position: e.detail.from + 1,
@@ -243,7 +233,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
             }
           }
         }}
-      ></syn-text-editor>
+      ></syn-markdown-editor>
       <mwc-menu-surface relative id="title-search-modal">
         <mwc-list>
           ${Object.values(this._myNoteTitles.value).map(
@@ -264,7 +254,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
               <markdown-renderer
                 style="flex: 1; "
                 .markdown=${this.insertBacklinks(
-                  this.replaceLinks(this._state.value?.text)
+                  this.replaceLinks(this._state.value?.text.toString())
                 )}
               ></markdown-renderer>
             </div>
@@ -275,10 +265,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
       <mwc-fab
         extended
         icon="logout"
-        .label=${this._noteSynStore?.myPubKey ===
-        this._activeSession.value?.session.scribe
-          ? 'Close Session'
-          : 'Leave Session'}
+        label="Leave Workspace"
         style="
                 margin: 16px;
                 position: absolute;
@@ -286,15 +273,15 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
                 bottom: 0;
               "
         @click=${async () => {
-          this._selectedCommitHash = this._lastCommitHash.value;
+          this._selectedCommitHash = serializeHash(this._lastCommitHash.value);
           const text = this._state.value?.text;
-          const result = await this._activeSession.value?.leave();
-          if (result && result.closingCommitHash)
+          await this.leaveWorkspace();
+          /*           if (result && result.closingCommitHash)
             this._selectedCommitHash = result?.closingCommitHash;
-          // TODO, handle unhappy path
+ */ // TODO, handle unhappy path
           this._notesStore.service.parseAndUpdateNoteLinks({
             note: this.noteHash,
-            contents: text,
+            contents: text.toString(),
           });
         }}
       ></mwc-fab>
@@ -323,8 +310,8 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
     if (!this._noteSynStore) return this.renderLoading();
     return html`
       <syn-context .store=${this._noteSynStore}>
-        ${this._activeSession.value
-          ? this.renderInSessionContent()
+        ${this._workspaceStore
+          ? this.renderInSessionContent(this._workspaceStore)
           : this.renderNotInSessionContent()}
       </syn-context>
       ${this.renderSessionClosedMessage()}
@@ -333,7 +320,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    this._noteSynStore?.close();
+    this.leaveWorkspace();
   }
 
   static get scopedElements() {
@@ -343,9 +330,9 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
       'mwc-card': Card,
       'mwc-fab': Fab,
       'mwc-snackbar': Snackbar,
-      'syn-text-editor': SynTextEditor,
-      'syn-sessions': SynSessions,
-      'syn-folks': SynFolks,
+      'syn-markdown-editor': SynMarkdownEditor,
+      'workspace-list': WorkspaceList,
+      'workspace-participants': WorkspaceParticipants,
       'syn-commit-history': SynCommitHistory,
       'syn-context': SynContext,
       'mwc-menu-surface': MenuSurface,

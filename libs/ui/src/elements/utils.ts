@@ -1,11 +1,12 @@
-import { Dictionary, EntryHashB64 } from '@holochain-open-dev/core-types';
-import { Commit } from '@holochain-syn/client';
+import { EntryHash } from '@holochain/client';
+import { EntryHashMap } from '@holochain-open-dev/utils';
+import { Commit } from '@holochain-syn/core';
 
 export function getLatestCommit(
-  commits: Dictionary<Commit>
-): [EntryHashB64, Commit] {
-  const sortedCommits = Object.entries(commits).sort(
-    ([_, c1], [__, c2]) => c2.createdAt - c1.createdAt
-  );
+  commits: EntryHashMap<Commit>
+): [EntryHash, Commit] {
+  const sortedCommits = commits
+    .entries()
+    .sort(([_, c1], [__, c2]) => c2.created_at - c1.created_at);
   return sortedCommits[0];
 }
