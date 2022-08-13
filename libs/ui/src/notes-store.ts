@@ -16,6 +16,8 @@ import {
   InstalledAppInfo,
   InstalledCell,
 } from '@holochain/client';
+import { textEditorGrammar } from '@holochain-syn/text-editor';
+
 import { NotesService } from './notes-service';
 import { NoteWithBacklinks } from './types';
 
@@ -90,6 +92,14 @@ export class NotesStore {
       };
       return notes;
     });
+
+    const synStore = get(this.#openedNotes)[entryHash];
+
+    const { initialCommitHash } = await synStore.createRoot(textEditorGrammar);
+    await synStore.createWorkspace(
+      { name: 'main', meta: undefined },
+      initialCommitHash
+    );
   }
 
   async openNote(noteHash: EntryHashB64): Promise<SynStore> {

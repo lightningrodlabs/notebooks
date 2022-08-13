@@ -39,9 +39,10 @@ export class WorkspaceList extends ScopedElementsMixin(LitElement) {
               new CustomEvent('join-workspace', {
                 detail: {
                   workspaceHash,
-                  bubbles: true,
-                  composed: true,
+                  workspace,
                 },
+                composed: true,
+                bubbles: true,
               })
             );
           }}

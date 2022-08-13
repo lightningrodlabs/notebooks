@@ -10,10 +10,11 @@ name = "notes"
 [dependencies]
 chrono = {version = "0.4", features = ["serde"]}
 derive_more = "0"
-serde = "1"
 regex = "1"
+serde = "1"
 
 hdk = {version = "0.0.142", features = ["encoding"]}
+notes_integrity = {path = "../../integrity_zomes/notes"}
 
 [dev-dependencies]
 fixt = "0.0.11"

@@ -7,17 +7,17 @@ integrity:
   properties: ~
   zomes:
     - name: notes_integrity
-      bundled: ../../../../target/wasm32-unknown-unknown/release/hc_zome_notes_integrity.wasm
+      bundled: ../../../../target/wasm32-unknown-unknown/release/notes_integrity.wasm
     - name: profiles_integrity
       bundled: ../../../../target/wasm32-unknown-unknown/release/profiles_integrity.wasm
 
 coordinator:
   zomes:
     - name: notes
-      bundled: ../../../../target/wasm32-unknown-unknown/release/hc_zome_notes_coordinator.wasm
+      bundled: ../../../../target/wasm32-unknown-unknown/release/notes.wasm
       dependencies:
         - name: notes_integrity
     - name: profiles
-      bundled: ../../../../target/wasm32-unknown-unknown/release/profiles_coordinator.wasm
+      bundled: ../../../../target/wasm32-unknown-unknown/release/profiles.wasm
       dependencies:
         - name: profiles_integrity

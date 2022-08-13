@@ -113,7 +113,7 @@ pub fn get_all_notes(_: ()) -> ExternResult<BTreeMap<EntryHashB64, NoteWithBackl
 
             let note: Note = element
                 .entry()
-                .to_app_option()?
+                .to_app_option().map_err(|err| wasm_error!(err.into()))?
                 .ok_or(wasm_error!(WasmErrorInner::Guest(String::from("Malformed note"))))?;
 
             Ok((
@@ -197,7 +197,7 @@ pub fn get_note_by_title(title: String) -> ExternResult<Option<Note>> {
             Some(element) => {
                 let note: Note = element
                     .entry()
-                    .to_app_option()?
+                    .to_app_option().map_err(|err| wasm_error!(err.into()))?
                     .ok_or(wasm_error!(WasmErrorInner::Guest(String::from("Malformed note"))))?;
                 Ok(Some(note))
             }
@@ -212,13 +212,13 @@ fn get_note(entry_hash: EntryHash) -> ExternResult<Note> {
         Some(element) => {
             let note: Note = element
                 .entry()
-                .to_app_option()?
+                .to_app_option().map_err(|err| wasm_error!(err.into()))?
                 .ok_or(wasm_error!(WasmErrorInner::Guest(String::from("malformed note"))))?;
             Ok(note)
         }
-        None => Err(wasm_error!(WasmErrorInner::Guest(String::fro)m(
+        None => Err(wasm_error!(WasmErrorInner::Guest(String::from(
             "unable to resolve note from entry hash",
-        ))),
+        )))),
     }
 }
 
