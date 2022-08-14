@@ -22,7 +22,7 @@
     "@holochain-open-dev/core-types": "^0.2.0",
     "@holochain-open-dev/profiles": "^0.5.0",
     "@holochain-open-dev/utils": "^0.3.0",
-    "@holochain-syn/core": "^0.1.2",
+    "@holochain-syn/core": "^0.1.3",
     "@holochain-syn/text-editor": "^0.1.1",
     "@holochain/client": "^0.7.0",
     "@lit-labs/context": "^0.1.1",

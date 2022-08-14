@@ -21,7 +21,7 @@
     "playground": "run-singleton \"holochain-playground\""
   },
   "devDependencies": {
-    "@holochain-playground/cli": "^0.0.8",
+    "@holochain-playground/cli": "^0.0.11",
     "bestzip": "^2.2.0",
     "concurrently": "^6.2.1",
     "concurrently-repeat": "^0.0.1",

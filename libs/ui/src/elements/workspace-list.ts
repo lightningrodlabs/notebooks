@@ -66,7 +66,7 @@ export class WorkspaceList extends ScopedElementsMixin(LitElement) {
         <mwc-card style="flex: 1;">
           <div class="column" style="flex: 1;">
             <span class="title" style="margin: 16px; margin-bottom: 0;"
-              >Live Sessions</span
+              >Workspaces</span
             >
 
             ${workspaces.keys().length === 0
@@ -76,7 +76,7 @@ export class WorkspaceList extends ScopedElementsMixin(LitElement) {
                     style="flex: 1; align-items: center; justify-content: center;"
                   >
                     <span class="placeholder"
-                      >There are no live sessions at the moment</span
+                      >There are no workspaces</span
                     >
                   </div>
                 `

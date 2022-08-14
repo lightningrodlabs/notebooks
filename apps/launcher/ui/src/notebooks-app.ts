@@ -4,7 +4,7 @@ import { LitElement, css, html } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { AdminWebsocket, AppWebsocket, InstalledCell } from '@holochain/client';
 import { HolochainClient, CellClient } from '@holochain-open-dev/cell-client';
-import { EntryHashB64 } from '@holochain-open-dev/core-types';
+import { EntryHashB64, serializeHash } from '@holochain-open-dev/core-types';
 import {
   AgentAvatar,
   Profile,
@@ -196,16 +196,19 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
   renderMyProfile() {
     return this._myProfileTask?.render({
       pending: () => html``,
-      complete: profile => html` <div
-        class="row"
-        style="align-items: center;"
-        slot="actionItems"
-      >
-        <agent-avatar
-          .agentPubKey=${this._profilesStore.myAgentPubKey}
-        ></agent-avatar>
-        <span style="margin: 0 16px;">${profile?.nickname}</span>
-      </div>`,
+      complete: profile =>
+        profile
+          ? html` <div
+              class="row"
+              style="align-items: center;"
+              slot="actionItems"
+            >
+              <agent-avatar
+                .agentPubKey=${serializeHash(this._profilesStore.myAgentPubKey)}
+              ></agent-avatar>
+              <span style="margin: 0 16px;">${profile?.nickname}</span>
+            </div>`
+          : undefined,
     });
   }
 
@@ -240,7 +243,10 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
         ${this.renderBackButton()}
         <div slot="title">${this.renderTitle()}</div>
         <div class="fill row" style="width: 100vw; height: 100%;">
-          <profile-prompt style="flex: 1;">
+          <profile-prompt
+            style="flex: 1;"
+            @profile-created=${() => this._myProfileTask.run()}
+          >
             ${this.renderContent()}
           </profile-prompt>
         </div>
