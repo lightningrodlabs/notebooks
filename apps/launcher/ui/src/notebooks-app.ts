@@ -183,10 +183,13 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
 
         <mwc-button
           slot="primaryAction"
-          dialogAction="create"
           .disabled=${!this._newNoteTitle}
-          @click=${() =>
-            this._notesStore.createNote(this._newNoteTitle as string)}
+          @click=${async () => {
+            await this._notesStore.createNote(this._newNoteTitle as string);
+            (
+              this.shadowRoot?.getElementById('new-note-dialog') as Dialog
+            ).close();
+          }}
         >
           Create
         </mwc-button>

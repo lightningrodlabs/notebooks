@@ -29,7 +29,7 @@ export class WorkspaceList extends ScopedElementsMixin(LitElement) {
   renderWorkspace(workspaceHash: EntryHash, workspace: Workspace) {
     return html`
       <div class="row" style="flex: 1; align-items: center">
-        <mwc-list-item graphic="avatar" style="flex: 1;">
+        <mwc-list-item style="flex: 1;">
           ${workspace.name}
         </mwc-list-item>
 

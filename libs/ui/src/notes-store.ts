@@ -100,6 +100,7 @@ export class NotesStore {
       { name: 'main', meta: undefined },
       initialCommitHash
     );
+    console.log(get(await synStore.fetchAllWorkspaces()));
   }
 
   async openNote(noteHash: EntryHashB64): Promise<SynStore> {

@@ -23,6 +23,7 @@ import {
   textEditorGrammar,
   TextEditorGrammar,
 } from '@holochain-syn/text-editor';
+import Automerge from 'automerge';
 import { decode } from '@msgpack/msgpack';
 import { StoreSubscriber, TaskSubscriber } from 'lit-svelte-stores';
 import { MarkdownRenderer } from '@scoped-elements/markdown-renderer';
@@ -36,6 +37,8 @@ import {
   ListItem,
   Drawer,
   Button,
+  Dialog,
+  TextField,
 } from '@scoped-elements/material-web';
 import { readable } from 'svelte/store';
 import { EntryHashMap } from '@holochain-open-dev/utils';
@@ -47,6 +50,7 @@ import { sharedStyles } from '../shared-styles';
 
 import { NoteWithBacklinks } from '../types';
 import { WorkspaceList } from './workspace-list';
+import { words } from 'lodash-es';
 
 export class MarkdownNote extends ScopedElementsMixin(LitElement) {
   @property()
@@ -133,28 +137,23 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
   @state()
   _noteLinkModalOpen = false;
 
+  @state()
   _selectedCommitHash: EntryHashB64 | undefined;
 
   async leaveWorkspace() {
     await this._workspaceStore.value?.leaveWorkspace();
-    /*  const text = this._
-    this._notesStore.service.parseAndUpdateNoteLinks({
-      note: this.noteHash,
-      contents: text.toString(),
-    }); */
   }
 
   getMarkdownContent(allCommits: EntryHashMap<Commit>) {
-    if (!this._selectedCommitHash) return this.insertBacklinks('');
-
+    if (!this._selectedCommitHash) return '';
     const selectedCommit: Commit | undefined = allCommits.get(
       deserializeHash(this._selectedCommitHash)
     );
-    if (!selectedCommit) return this.insertBacklinks('');
+    if (!selectedCommit) return '';
 
-    return this.insertBacklinks(
-      this.replaceLinks((decode(selectedCommit.state) as any).text.toString())
-    );
+    return (
+      Automerge.load(decode(selectedCommit.state) as any) as any
+    ).text.toString();
   }
 
   hashLookup(a: any, b: any) {
@@ -185,17 +184,77 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
     return `${text}\n\n\r---\n## backlinks\n\n${backlinkList}`;
   }
 
+  @state()
+  _newWorkspaceName: string | undefined;
+
+  renderNewWorkspaceButton() {
+    return html` <mwc-button
+        style="flex: 1"
+        .disabled=${this._selectedCommitHash === undefined}
+        raised
+        label="Create Workspace From This Commit"
+        @click=${() => {
+          (
+            this.shadowRoot?.getElementById('new-workspace-dialog') as Dialog
+          ).show();
+        }}
+      ></mwc-button>
+
+      <mwc-dialog heading="Create Workspace" id="new-workspace-dialog">
+        <mwc-textfield
+          label="Title"
+          id="new-workspace-name"
+          required
+          autoValidate
+          outlined
+          @input=${(e: CustomEvent) => {
+            this._newWorkspaceName = (e.target as any).value;
+          }}
+        ></mwc-textfield>
+
+        <mwc-button slot="secondaryAction" dialogAction="cancel">
+          Cancel
+        </mwc-button>
+
+        <mwc-button
+          slot="primaryAction"
+          dialogAction="create"
+          .disabled=${this._newWorkspaceName === undefined ||
+          this._allWorkspaces.value
+            ?.entries()
+            .find(([_, w]) => w.name === this._newWorkspaceName)}
+          @click=${async () => {
+            setTimeout(async () => {
+              if (this._workspaceStore.value) await this.leaveWorkspace();
+
+              await this._noteSynStore.value?.createWorkspace(
+                { name: this._newWorkspaceName as string, meta: undefined },
+                deserializeHash(this._selectedCommitHash as string)
+              );
+
+              (this.shadowRoot?.getElementById('drawer') as Drawer).open =
+                false;
+              this._workspaceName = this._newWorkspaceName as string;
+            });
+          }}
+        >
+          Create
+        </mwc-button>
+      </mwc-dialog>`;
+  }
+
   renderVersionControlPanel() {
     return html`<div class="row" style="flex: 1; height: 88%">
-      <div class="column" style="flex: 1;">
+      <div class="column" style="flex: 1; width: 300px;">
         <workspace-list
           style="flex: 1; margin: 16px; margin-bottom: 0;"
           @join-workspace=${(e: CustomEvent) => {
             this._workspaceName = e.detail.workspace.name;
+            (this.shadowRoot?.getElementById('drawer') as Drawer).open = false;
           }}
         ></workspace-list>
         <commit-history
-          style="flex: 1; margin: 16px;"
+          style="width: 300px; margin: 16px;"
           .selectedCommitHash=${this._selectedCommitHash}
           @commit-selected=${(e: CustomEvent) => {
             this._selectedCommitHash = e.detail.commitHash;
@@ -206,18 +265,21 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
         pending: () => this.renderLoading(),
         complete: allCommits =>
           html`
-            <mwc-card style="flex: 1;">
-              <div class="flex-scrollable-parent">
-                <div class="flex-scrollable-container">
-                  <div class="flex-scrollable-y" style="padding: 0 8px;">
-                    <markdown-renderer
-                      style="flex: 1;"
-                      .markdown=${this.getMarkdownContent(allCommits)}
-                    ></markdown-renderer>
+            <div class="column" style="flex: 1">
+              <mwc-card style="flex: 1;">
+                <div class="flex-scrollable-parent">
+                  <div class="flex-scrollable-container">
+                    <div class="flex-scrollable-y" style="padding: 0 8px;">
+                      <markdown-renderer
+                        style="flex: 1;"
+                        .markdown=${this.getMarkdownContent(allCommits)}
+                      ></markdown-renderer>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </mwc-card>
+              </mwc-card>
+              <div class="row">${this.renderNewWorkspaceButton()}</div>
+            </div>
           `,
       })}
     </div> `;
@@ -228,28 +290,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
       pending: () => this.renderLoading(),
       complete: workspaceStore =>
         workspaceStore
-          ? html`<div class="column" style="flex: 1;">
-              <div
-                class="row"
-                style="align-items: center; background-color: white"
-              >
-                <mwc-button
-                  icon="account_tree"
-                  .label=${this._workspaceName}
-                  raised
-                  @click=${() => {
-                    (this.shadowRoot?.getElementById('drawer') as Drawer).open =
-                      true;
-                  }}
-                ></mwc-button>
-                <span style="flex:1"></span>
-
-                <workspace-participants
-                  direction="row"
-                  .workspacestore=${this._workspaceStore.value}
-                  style="margin: 4px;"
-                ></workspace-participants>
-              </div>
+          ? html`
               <mwc-drawer
                 style="flex: 1; --mdc-drawer-width: 1200px;"
                 type="modal"
@@ -258,69 +299,93 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
                 ${this.renderVersionControlPanel()}
                 <div
                   slot="appContent"
-                  class="row"
+                  class="column"
                   style="flex: 1; height: 100%"
                 >
-                  <syn-markdown-editor
-                    style="flex: 1;"
-                    .slice=${workspaceStore}
-                    @text-inserted=${(e: any) => {
-                      if (e.detail.text === '[]') {
-                        workspaceStore.requestChanges([
-                          {
-                            type: TextEditorDeltaType.ChangeSelection,
-                            position: e.detail.from + 1,
-                            characterCount: 0,
-                          },
-                        ]);
-                        const text = this._state.value?.text;
-                        const position = e.detail.from;
-                        if (
-                          text[position - 1] === '[' &&
-                          text[position] === ']'
-                        ) {
-                          const menuSurface = this.shadowRoot?.getElementById(
-                            'title-search-modal'
-                          ) as MenuSurface;
-                          menuSurface.x = e.detail.coords.left + 20;
-                          menuSurface.y = e.detail.coords.top + 20;
-                          menuSurface.show();
-                        }
-                      }
-                    }}
-                  ></syn-markdown-editor>
-                  <mwc-menu-surface relative id="title-search-modal">
-                    <mwc-list>
-                      ${Object.values(this._myNoteTitles.value).map(
-                        (note: NoteWithBacklinks) =>
-                          html`<mwc-list-item>${note.title}</mwc-list-item>`
-                      )}
-                      ${Object.values(this._othersNoteTitles.value).map(
-                        (note: NoteWithBacklinks) =>
-                          html`<mwc-list-item>${note.title}</mwc-list-item>`
-                      )}
-                    </mwc-list>
-                  </mwc-menu-surface>
+                  <div
+                    class="row"
+                    style="align-items: center; background-color: white"
+                  >
+                    <mwc-button
+                      icon="account_tree"
+                      .label=${this._workspaceName}
+                      raised
+                      @click=${() => {
+                        (
+                          this.shadowRoot?.getElementById('drawer') as Drawer
+                        ).open = true;
+                        this._allCommits.run();
+                      }}
+                    ></mwc-button>
+                    <span style="flex:1"></span>
 
-                  <mwc-card style="flex: 1; margin-left: 4px;">
-                    <div class="flex-scrollable-parent">
-                      <div class="flex-scrollable-container">
-                        <div class="flex-scrollable-y" style="padding: 0 8px;">
-                          <markdown-renderer
-                            style="flex: 1; "
-                            .markdown=${this.insertBacklinks(
-                              this.replaceLinks(
-                                this._state.value?.text.toString()
-                              )
-                            )}
-                          ></markdown-renderer>
+                    <workspace-participants
+                      direction="row"
+                      .workspacestore=${this._workspaceStore.value}
+                      style="margin: 4px;"
+                    ></workspace-participants>
+                  </div>
+                  <div class="row" style="flex: 1;">
+                    <syn-markdown-editor
+                      style="flex: 1;"
+                      .slice=${workspaceStore}
+                      @text-inserted=${(e: any) => {
+                        if (e.detail.text === '[]') {
+                          workspaceStore.requestChanges([
+                            {
+                              type: TextEditorDeltaType.ChangeSelection,
+                              position: e.detail.from + 1,
+                              characterCount: 0,
+                            },
+                          ]);
+                          const text = this._state.value?.text;
+                          const position = e.detail.from;
+                          if (
+                            text[position - 1] === '[' &&
+                            text[position] === ']'
+                          ) {
+                            const menuSurface = this.shadowRoot?.getElementById(
+                              'title-search-modal'
+                            ) as MenuSurface;
+                            menuSurface.x = e.detail.coords.left + 20;
+                            menuSurface.y = e.detail.coords.top + 20;
+                            menuSurface.show();
+                          }
+                        }
+                      }}
+                    ></syn-markdown-editor>
+                    <mwc-menu-surface relative id="title-search-modal">
+                      <mwc-list>
+                        ${Object.values(this._myNoteTitles.value).map(
+                          (note: NoteWithBacklinks) =>
+                            html`<mwc-list-item>${note.title}</mwc-list-item>`
+                        )}
+                        ${Object.values(this._othersNoteTitles.value).map(
+                          (note: NoteWithBacklinks) =>
+                            html`<mwc-list-item>${note.title}</mwc-list-item>`
+                        )}
+                      </mwc-list>
+                    </mwc-menu-surface>
+
+                    <mwc-card style="flex: 1; margin-left: 4px;">
+                      <div class="flex-scrollable-parent">
+                        <div class="flex-scrollable-container">
+                          <div
+                            class="flex-scrollable-y"
+                            style="padding: 0 8px;"
+                          >
+                            <markdown-renderer
+                              style="flex: 1; "
+                              .markdown=${this._state.value?.text.toString()}
+                            ></markdown-renderer>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </mwc-card>
+                    </mwc-card>
+                  </div>
                 </div>
               </mwc-drawer>
-            </div> `
+            `
           : this.renderLoading(),
     });
   }
@@ -343,8 +408,8 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
         style="flex: 1; align-items: center; justify-content: center"
       >
         <span class="placeholder"
-          >The note was not found. This is because none of its past participants
-          are online right now.</span
+          >The note was not found. Try again when one of its past contributors
+          is online.</span
         >
       </div>
     `;
@@ -375,6 +440,8 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
       'mwc-circular-progress': CircularProgress,
       'mwc-card': Card,
       'mwc-drawer': Drawer,
+      'mwc-dialog': Dialog,
+      'mwc-textfield': TextField,
       'mwc-button': Button,
       'mwc-snackbar': Snackbar,
       'syn-markdown-editor': SynMarkdownEditor,
