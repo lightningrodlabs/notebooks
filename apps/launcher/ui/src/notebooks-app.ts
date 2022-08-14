@@ -162,6 +162,7 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
       ></mwc-fab>
       <mwc-dialog
         heading="Create Note"
+        scrimClickAction=""
         id="new-note-dialog"
         @closed=${() =>
           ((this.shadowRoot?.getElementById('new-note-title') as any).value =

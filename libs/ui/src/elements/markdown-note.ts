@@ -5,6 +5,7 @@ import {
   contextProvider,
 } from '@lit-labs/context';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements';
+import { ref } from 'lit/directives/ref.js';
 import { html, LitElement, PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import {
@@ -21,7 +22,6 @@ import {
   SynMarkdownEditor,
   TextEditorDeltaType,
   textEditorGrammar,
-  TextEditorGrammar,
 } from '@holochain-syn/text-editor';
 import Automerge from 'automerge';
 import { decode } from '@msgpack/msgpack';
@@ -50,7 +50,6 @@ import { sharedStyles } from '../shared-styles';
 
 import { NoteWithBacklinks } from '../types';
 import { WorkspaceList } from './workspace-list';
-import { words } from 'lodash-es';
 
 export class MarkdownNote extends ScopedElementsMixin(LitElement) {
   @property()
@@ -245,16 +244,17 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
 
   renderVersionControlPanel() {
     return html`<div class="row" style="flex: 1; height: 88%">
-      <div class="column" style="flex: 1; width: 300px;">
+      <div class="column" style="width: 400px;">
         <workspace-list
           style="flex: 1; margin: 16px; margin-bottom: 0;"
-          @join-workspace=${(e: CustomEvent) => {
+          @join-workspace=${async (e: CustomEvent) => {
+            if (this._workspaceStore.value) await this._workspaceStore.value.leaveWorkspace();
             this._workspaceName = e.detail.workspace.name;
             (this.shadowRoot?.getElementById('drawer') as Drawer).open = false;
           }}
         ></workspace-list>
         <commit-history
-          style="width: 300px; margin: 16px;"
+          style="margin: 16px; flex: 1"
           .selectedCommitHash=${this._selectedCommitHash}
           @commit-selected=${(e: CustomEvent) => {
             this._selectedCommitHash = e.detail.commitHash;

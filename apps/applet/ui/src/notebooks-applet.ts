@@ -55,11 +55,6 @@ export class NotebooksApplet extends ScopedElementsMixin(LitElement) {
       : undefined
   );
 
-  _activeSession = new StoreSubscriber(
-    this,
-    () => this._openedSyn.value?.activeSession
-  );
-
   renderContent() {
     if (this._activeNoteHash)
       return html`<markdown-note
@@ -106,6 +101,7 @@ export class NotebooksApplet extends ScopedElementsMixin(LitElement) {
       ></mwc-fab>
       <mwc-dialog
         heading="Create Note"
+        scrimClickAction=""
         id="new-note-dialog"
         @closed=${() =>
           ((this.shadowRoot?.getElementById('new-note-title') as any).value =
@@ -127,10 +123,13 @@ export class NotebooksApplet extends ScopedElementsMixin(LitElement) {
 
         <mwc-button
           slot="primaryAction"
-          dialogAction="create"
           .disabled=${!this._newNoteTitle}
-          @click=${() =>
-            this.notesStore.createNote(this._newNoteTitle as string)}
+          @click=${async () => {
+            await this.notesStore.createNote(this._newNoteTitle as string);
+            (
+              this.shadowRoot?.getElementById('new-note-dialog') as Dialog
+            ).close();
+          }}
         >
           Create
         </mwc-button>
@@ -138,12 +137,7 @@ export class NotebooksApplet extends ScopedElementsMixin(LitElement) {
   }
 
   renderBackButton() {
-    if (
-      !this._activeNoteHash ||
-      !this._activeSession ||
-      this._activeSession.value
-    )
-      return html``;
+    if (!this._activeNoteHash) return html``;
 
     return html`
       <mwc-icon-button
