@@ -12,6 +12,6 @@ integrity:
 coordinator:
   zomes:
     - name: notes
-      bundled: ../../../../target/wasm32-unknown-unknown/release/notes_coordinator.wasm
+      bundled: ../../../../target/wasm32-unknown-unknown/release/notes.wasm
       dependencies:
         - name: notes_integrity
