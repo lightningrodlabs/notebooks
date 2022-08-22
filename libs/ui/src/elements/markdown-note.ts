@@ -1,19 +1,16 @@
-import { deserializeHash, EntryHashB64 } from '@holochain-open-dev/core-types';
+import { EntryHashB64 } from '@holochain-open-dev/core-types';
+import { deserializeHash } from '@holochain-open-dev/utils';
 import {
   contextProvided,
   ContextProvider,
-  contextProvider,
 } from '@lit-labs/context';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements';
-import { ref } from 'lit/directives/ref.js';
-import { html, LitElement, PropertyValues } from 'lit';
+import { html, LitElement } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import {
   SynContext,
   WorkspaceParticipants,
   CommitHistory,
-  WorkspaceStore,
-  SynStore,
   Commit,
   Workspace,
   synContext,
@@ -30,7 +27,6 @@ import { MarkdownRenderer } from '@scoped-elements/markdown-renderer';
 import {
   Card,
   CircularProgress,
-  Fab,
   Snackbar,
   MenuSurface,
   List,

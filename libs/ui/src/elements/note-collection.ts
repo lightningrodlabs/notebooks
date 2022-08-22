@@ -1,7 +1,7 @@
 import { ScopedElementsMixin } from '@open-wc/scoped-elements';
 import { css, html, LitElement } from 'lit';
 import { Card, Ripple } from '@scoped-elements/material-web';
-import { property, state } from 'lit/decorators.js';
+import { property } from 'lit/decorators.js';
 import { EntryHashB64 } from '@holochain-open-dev/core-types';
 import { SlRelativeTime, SlSkeleton } from '@scoped-elements/shoelace';
 import { AgentAvatar } from '@holochain-open-dev/profiles';

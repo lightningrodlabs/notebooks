@@ -4,7 +4,8 @@ import { LitElement, css, html } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { AdminWebsocket, AppWebsocket, InstalledCell } from '@holochain/client';
 import { HolochainClient, CellClient } from '@holochain-open-dev/cell-client';
-import { EntryHashB64, serializeHash } from '@holochain-open-dev/core-types';
+import { EntryHashB64 } from '@holochain-open-dev/core-types';
+import { serializeHash } from '@holochain-open-dev/utils'
 import {
   AgentAvatar,
   Profile,

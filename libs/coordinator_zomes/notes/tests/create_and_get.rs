@@ -7,7 +7,8 @@ use hdk::prelude::Timestamp;
 use hdk::prelude::*;
 use holochain::test_utils::consistency_10s;
 use holochain::{conductor::config::ConductorConfig, sweettest::*};
-use notes::{CreateNoteInput, Note, NoteWithBacklinks, UpdateNoteBacklinksInput, NoteBacklinks, NoteContentsInput};
+use notes::{CreateNoteInput, NoteWithBacklinks, UpdateNoteBacklinksInput, NoteBacklinks, NoteContentsInput};
+use notes_integrity::Note;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn create_and_get() {

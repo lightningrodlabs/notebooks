@@ -1,12 +1,11 @@
 import { CellClient, HolochainClient } from '@holochain-open-dev/cell-client';
 import {
   AgentPubKeyB64,
-  deserializeHash,
   Dictionary,
   DnaHashB64,
   EntryHashB64,
-  serializeHash,
 } from '@holochain-open-dev/core-types';
+import { serializeHash, deserializeHash } from '@holochain-open-dev/utils';
 import { derived, get, Writable, writable } from 'svelte/store';
 import pickBy from 'lodash-es/pickBy';
 import { SynClient, SynStore } from '@holochain-syn/core';
