@@ -7,7 +7,7 @@
   "scripts": {
     "lint": "eslint --ext .ts,.html . --ignore-path .gitignore && prettier \"**/*.ts\" --check --ignore-path .gitignore",
     "format": "eslint --ext .ts,.html . --fix --ignore-path .gitignore && prettier \"**/*.ts\" --write --ignore-path .gitignore",
-    "build": "rimraf dist && rollup -c rollup.config.js",
+    "build": "rimraf dist && tsc && rollup -c rollup.config.js",
     "package": "npm run build:happ && npm run build && cd dist && bestzip ../dist.zip * && cd .. && hc web-app pack ../workdir",
     "demo": "npm run build:happ && npm run build && cross-env HC_PORT=$(port) ADMIN_PORT=$(port) concurrently \"npm run start:happ\" \"wds --config web-dev-server.config.mjs\"",
     "start:happ": "RUST_LOG=warn echo \"pass\" | hc s --piped -f=$ADMIN_PORT generate ../workdir/notebooks.happ --run=$HC_PORT -a notebooks network mdns",
@@ -22,7 +22,7 @@
     "@holochain/client": "^0.7.0",
     "@lightningrodlabs/notebooks": "^0.0.1",
     "@lightningrodlabs/we-applet": "^0.1.0",
-    "@lit-labs/context": "^0.1.1",
+    "@lit-labs/context": "^0.1.2",
     "@open-wc/scoped-elements": "^2.0.1",
     "@scoped-elements/material-web": "^0.0.19",
     "lit": "^2.0.0",
