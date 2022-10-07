@@ -8,11 +8,11 @@ import {
 import { serializeHash, deserializeHash } from '@holochain-open-dev/utils';
 import { derived, get, Writable, writable } from 'svelte/store';
 import pickBy from 'lodash-es/pickBy';
+import isEqual from 'lodash-es/isEqual';
 import { SynClient, SynStore } from '@holochain-syn/core';
 import {
   AdminWebsocket,
   DnaHash,
-  InstalledAppInfo,
   InstalledCell,
 } from '@holochain/client';
 import { textEditorGrammar } from '@holochain-syn/text-editor';
@@ -73,7 +73,8 @@ export class NotesStore {
     const creator = this.myAgentPubKey;
     const timestamp = Date.now() * 1000;
 
-    const synDnaHash = await this.installNoteDna(creator, timestamp);
+    const cell = await this.cloneNoteDna(creator, timestamp);
+    const synDnaHash = serializeHash(cell.cell_id[0]);
 
     const entryHash = await this.service.createNote({
       title,
@@ -94,12 +95,8 @@ export class NotesStore {
 
     const synStore = await this.openNote(entryHash);
 
-    const { initialCommitHash } = await synStore.createRoot(textEditorGrammar);
-    await synStore.createWorkspace(
-      { name: 'main', meta: undefined },
-      initialCommitHash
-    );
-    console.log(get(await synStore.fetchAllWorkspaces()));
+    const rootStore = await synStore.createRoot(textEditorGrammar);
+    await rootStore.createWorkspace('main', rootStore.root.entryHash);
   }
 
   async openNote(noteHash: EntryHashB64): Promise<SynStore> {
@@ -110,25 +107,20 @@ export class NotesStore {
       note = get(this.#notesByEntryHash)[noteHash];
     }
 
-    const { creator, timestamp } = note;
+    const { creator, timestamp, synDnaHash } = note;
 
-    if (!(await this.isNoteDnaInstalled(creator, timestamp))) {
-      const resultingDnaHash = await this.installNoteDna(creator, timestamp);
-      if (resultingDnaHash !== note.synDnaHash) {
+    let noteCell = await this.getNoteCell(synDnaHash);
+
+    if (!noteCell) {
+      noteCell = await this.cloneNoteDna(creator, timestamp);
+      if (serializeHash(noteCell.cell_id[0]) !== note.synDnaHash) {
         throw new Error(
           "Installed Dna hash doesn't actually match the expected one"
         );
       }
     }
 
-    const cellData: InstalledCell = {
-      role_id: `syn-${creator}-${timestamp}`,
-      cell_id: [
-        deserializeHash(note.synDnaHash) as Buffer,
-        deserializeHash(this.myAgentPubKey) as Buffer,
-      ],
-    };
-    const cellClient = new CellClient(this.client, cellData);
+    const cellClient = new CellClient(this.client, noteCell);
 
     const store: SynStore = new SynStore(new SynClient(cellClient));
 
@@ -140,38 +132,29 @@ export class NotesStore {
     return store;
   }
 
-  private async isNoteDnaInstalled(creator: AgentPubKeyB64, timestamp: number) {
-    const appId = `syn-${creator}-${timestamp}`;
-    const activeApps = await this.adminWebsocket.listActiveApps();
-
-    return !!activeApps.find(app => app === appId);
+  private async getNoteCell(
+    synDnaHashB64: DnaHashB64
+  ): Promise<InstalledCell | undefined> {
+    const synDnaHash = deserializeHash(synDnaHashB64);
+    const appInfo = await this.client.appWebsocket.appInfo({
+      installed_app_id: 'notebooks',
+    });
+    const cell = appInfo.cell_data.find(c => isEqual(c.cell_id[0], synDnaHash));
+    return cell;
   }
 
-  private async installNoteDna(
+  private async cloneNoteDna(
     creator: AgentPubKeyB64,
     timestamp: number
-  ): Promise<DnaHashB64> {
-    const newWeHash = await this.adminWebsocket.registerDna({
-      hash: this.synDnaHash,
-      uid: '',
-      properties: { creator, timestamp },
+  ): Promise<InstalledCell> {
+    const newCell = await this.client.appWebsocket.createCloneCell({
+      app_id: 'notebooks',
+      modifiers: {
+        network_seed: `notebooks-${creator}-${timestamp}`,
+      },
+      role_id: 'syn',
     });
 
-    const installedAppId = `syn-${creator}-${timestamp}`;
-    const newAppInfo: InstalledAppInfo = await this.adminWebsocket.installApp({
-      installed_app_id: installedAppId,
-      agent_key: deserializeHash(this.myAgentPubKey),
-      dnas: [
-        {
-          hash: newWeHash,
-          role_id: installedAppId,
-        },
-      ],
-    });
-    await this.adminWebsocket.enableApp({
-      installed_app_id: installedAppId,
-    });
-
-    return serializeHash(newAppInfo.cell_data[0].cell_id[0]);
+    return newCell;
   }
 }
