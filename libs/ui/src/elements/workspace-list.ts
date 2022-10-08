@@ -10,20 +10,21 @@ import {
   CircularProgress,
   Card,
 } from '@scoped-elements/material-web';
-import { synContext, SynStore, Workspace } from '@holochain-syn/core';
+import { RootStore, synRootContext, Workspace } from '@holochain-syn/core';
 import { AgentAvatar } from '@holochain-open-dev/profiles';
 import { EntryHash } from '@holochain/client';
 import { SlRelativeTime } from '@scoped-elements/shoelace';
+import { TextEditorGrammar } from '@holochain-syn/text-editor';
 
 import { sharedStyles } from '../shared-styles';
 
 export class WorkspaceList extends ScopedElementsMixin(LitElement) {
-  @contextProvided({ context: synContext, subscribe: true })
+  @contextProvided({ context: synRootContext, subscribe: true })
   @property()
-  synStore!: SynStore;
+  rootStore!: RootStore<TextEditorGrammar>;
 
-  _allCommitsTask = new TaskSubscriber(this, () =>
-    this.synStore.fetchAllWorkspaces()
+  _workspacesTask = new TaskSubscriber(this, () =>
+    this.rootStore.fetchWorkspaces()
   );
 
   renderWorkspace(workspaceHash: EntryHash, workspace: Workspace) {
@@ -53,7 +54,7 @@ export class WorkspaceList extends ScopedElementsMixin(LitElement) {
   }
 
   render() {
-    return this._allCommitsTask.render({
+    return this._workspacesTask.render({
       pending: () => html`
         <div
           class="row"

@@ -19,7 +19,7 @@
     "@holochain/client": "^0.9.0",
     "@holochain-open-dev/cell-client": "^0.8.0",
     "@holochain-open-dev/core-types": "^0.4.1",
-    "@holochain-open-dev/profiles": "^0.5.3",
+    "@holochain-open-dev/profiles": "^0.6.0",
     "@lightningrodlabs/notebooks": "^0.0.1",
     "@lightningrodlabs/we-applet": "^0.1.0",
     "@lit-labs/context": "^0.1.2",

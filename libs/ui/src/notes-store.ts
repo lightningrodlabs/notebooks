@@ -9,13 +9,12 @@ import { serializeHash, deserializeHash } from '@holochain-open-dev/utils';
 import { derived, get, Writable, writable } from 'svelte/store';
 import pickBy from 'lodash-es/pickBy';
 import isEqual from 'lodash-es/isEqual';
-import { SynClient, SynStore } from '@holochain-syn/core';
+import { RootStore, SynClient, SynStore } from '@holochain-syn/core';
+import { AdminWebsocket, DnaHash, InstalledCell } from '@holochain/client';
 import {
-  AdminWebsocket,
-  DnaHash,
-  InstalledCell,
-} from '@holochain/client';
-import { textEditorGrammar } from '@holochain-syn/text-editor';
+  TextEditorGrammar,
+  textEditorGrammar,
+} from '@holochain-syn/text-editor';
 
 import { NotesService } from './notes-service';
 import { NoteWithBacklinks } from './types';
@@ -25,7 +24,9 @@ export class NotesStore {
 
   #notesByEntryHash: Writable<Dictionary<NoteWithBacklinks>> = writable({});
 
-  #openedNotes: Writable<Dictionary<SynStore>> = writable({});
+  #openedNotes: Writable<Dictionary<RootStore<TextEditorGrammar>>> = writable(
+    {}
+  );
 
   notesCreatedByMe = derived(this.#notesByEntryHash, notes =>
     pickBy(notes, value => value.creator === this.myAgentPubKey)
@@ -49,7 +50,6 @@ export class NotesStore {
 
   constructor(
     protected client: HolochainClient,
-    protected adminWebsocket: AdminWebsocket,
     protected notesCell: InstalledCell,
     protected synDnaHash: DnaHash, // This is a template DNA so we don't have a cell on app init
     zomeName: string = 'notes'
@@ -93,13 +93,41 @@ export class NotesStore {
       return notes;
     });
 
-    const synStore = await this.openNote(entryHash);
+    const synStore = await this.buildNoteSynStore(entryHash);
 
     const rootStore = await synStore.createRoot(textEditorGrammar);
     await rootStore.createWorkspace('main', rootStore.root.entryHash);
+
+    this.#openedNotes.update(n => {
+      n[entryHash] = rootStore;
+      return n;
+    });
   }
 
-  async openNote(noteHash: EntryHashB64): Promise<SynStore> {
+  async openNote(
+    noteHash: EntryHashB64
+  ): Promise<RootStore<TextEditorGrammar>> {
+    const synStore = await this.buildNoteSynStore(noteHash);
+
+    const roots = get(await synStore.fetchAllRoots());
+
+    if (roots.entryRecords.length === 0) throw new Error('Could not find root');
+
+    const rootStore = new RootStore(
+      synStore.client,
+      textEditorGrammar,
+      roots.entryRecords[0]
+    );
+
+    this.#openedNotes.update(n => {
+      n[noteHash] = rootStore;
+      return n;
+    });
+
+    return rootStore;
+  }
+
+  private async buildNoteSynStore(noteHash: EntryHashB64): Promise<SynStore> {
     let note = get(this.#notesByEntryHash)[noteHash];
 
     if (!note) {
@@ -122,14 +150,7 @@ export class NotesStore {
 
     const cellClient = new CellClient(this.client, noteCell);
 
-    const store: SynStore = new SynStore(new SynClient(cellClient));
-
-    this.#openedNotes.update(n => {
-      n[noteHash] = store;
-      return n;
-    });
-
-    return store;
+    return new SynStore(new SynClient(cellClient));
   }
 
   private async getNoteCell(

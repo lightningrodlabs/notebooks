@@ -1,12 +1,14 @@
-import { EntryHash } from '@holochain/client';
-import { EntryHashMap } from '@holochain-open-dev/utils';
+import { Create, EntryHash } from '@holochain/client';
+import { RecordBag } from '@holochain-open-dev/utils';
 import { Commit } from '@holochain-syn/core';
 
 export function getLatestCommit(
-  commits: EntryHashMap<Commit>
+  commits: RecordBag<Commit>
 ): [EntryHash, Commit] {
-  const sortedCommits = commits
-    .entries()
-    .sort(([_, c1], [__, c2]) => c2.created_at - c1.created_at);
-  return sortedCommits[0];
+  const sortedActions = commits.actionMap
+    .values()
+    .sort((a1, a2) => a2.timestamp - a1.timestamp);
+  const entryHash = (sortedActions[0] as Create).entry_hash;
+  const commit = commits.entryMap.get(entryHash);
+  return [entryHash, commit];
 }

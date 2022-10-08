@@ -2,7 +2,7 @@ import '@webcomponents/scoped-custom-element-registry';
 
 import { LitElement, css, html } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import { AdminWebsocket, AppWebsocket, InstalledCell } from '@holochain/client';
+import { AppWebsocket, InstalledCell } from '@holochain/client';
 import { HolochainClient, CellClient } from '@holochain-open-dev/cell-client';
 import { EntryHashB64 } from '@holochain-open-dev/core-types';
 import { serializeHash } from '@holochain-open-dev/utils'
@@ -69,9 +69,6 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
 
   async connectToHolochain() {
     const url = `ws://localhost:${process.env.HC_PORT}`;
-    const adminWebsocket = await AdminWebsocket.connect(
-      `ws://localhost:${process.env.ADMIN_PORT}`
-    );
 
     const appWebsocket = await AppWebsocket.connect(url);
     const client = new HolochainClient(appWebsocket);
@@ -97,7 +94,6 @@ export class NotebooksApp extends ScopedElementsMixin(LitElement) {
 
     this._notesStore = new NotesStore(
       client,
-      adminWebsocket,
       notebooksCell,
       synDnaHash
     );

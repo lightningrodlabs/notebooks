@@ -1,9 +1,10 @@
 import { EntryHashB64 } from '@holochain-open-dev/core-types';
-import { deserializeHash } from '@holochain-open-dev/utils';
 import {
-  contextProvided,
-  ContextProvider,
-} from '@lit-labs/context';
+  deserializeHash,
+  EntryHashMap,
+  RecordBag,
+} from '@holochain-open-dev/utils';
+import { contextProvided, ContextProvider } from '@lit-labs/context';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements';
 import { html, LitElement } from 'lit';
 import { property, state } from 'lit/decorators.js';
@@ -13,12 +14,11 @@ import {
   CommitHistory,
   Commit,
   Workspace,
-  synContext,
+  synRootContext,
 } from '@holochain-syn/core';
 import {
   SynMarkdownEditor,
   TextEditorDeltaType,
-  textEditorGrammar,
 } from '@holochain-syn/text-editor';
 import Automerge from 'automerge';
 import { decode } from '@msgpack/msgpack';
@@ -37,7 +37,6 @@ import {
   TextField,
 } from '@scoped-elements/material-web';
 import { readable } from 'svelte/store';
-import { EntryHashMap } from '@holochain-open-dev/utils';
 import { Task } from '@lit-labs/task';
 
 import { notesStoreContext } from '../context';
@@ -54,15 +53,15 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
   @contextProvided({ context: notesStoreContext })
   _notesStore!: NotesStore;
 
-  _synStore = new ContextProvider(this, synContext, undefined);
+  _rootStore = new ContextProvider(this, synRootContext, undefined);
 
-  _noteSynStore = new Task(
+  _noteRootStore = new Task(
     this,
     async () => {
       if (this._workspaceStore.value) await this.leaveWorkspace();
-      const synStore = await this._notesStore.openNote(this.noteHash);
-      this._synStore.setValue(synStore);
-      return synStore;
+      const rootStore = await this._notesStore.openNote(this.noteHash);
+      this._rootStore.setValue(rootStore);
+      return rootStore;
     },
     () => [this.noteHash]
   );
@@ -70,10 +69,10 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
   _allWorkspaces = new TaskSubscriber<any, EntryHashMap<Workspace>>(
     this,
     async () =>
-      this._noteSynStore.value
-        ? this._noteSynStore.value.fetchAllWorkspaces()
+      this._noteRootStore.value
+        ? this._noteRootStore.value.fetchWorkspaces()
         : readable(new EntryHashMap()),
-    () => [this._noteSynStore.value]
+    () => [this._noteRootStore.value]
   );
 
   @state()
@@ -82,7 +81,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
   _workspaceStore = new Task(
     this,
     async () => {
-      if (!this._noteSynStore.value || !this._allWorkspaces.value)
+      if (!this._noteRootStore.value || !this._allWorkspaces.value)
         return undefined;
 
       const workspace = this._allWorkspaces.value
@@ -91,10 +90,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
 
       if (!workspace) return undefined;
 
-      return this._noteSynStore.value.joinWorkspace(
-        workspace[0],
-        textEditorGrammar
-      );
+      return this._noteRootStore.value.joinWorkspace(workspace[0]);
     },
     () => [this._allWorkspaces.value, this._workspaceName]
   );
@@ -116,13 +112,13 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
 
   _state = new StoreSubscriber(this, () => this._workspaceStore.value?.state);
 
-  _allCommits: TaskSubscriber<any, EntryHashMap<Commit>> = new TaskSubscriber(
+  _allCommits: TaskSubscriber<any, RecordBag<Commit>> = new TaskSubscriber(
     this,
     async () =>
-      this._noteSynStore.value
-        ? this._noteSynStore.value.fetchAllCommits()
+      this._noteRootStore.value
+        ? this._noteRootStore.value.fetchCommits()
         : readable(),
-    () => [this._noteSynStore.value]
+    () => [this._noteRootStore.value]
   );
 
   _note = new StoreSubscriber(this, () =>
@@ -139,9 +135,9 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
     await this._workspaceStore.value?.leaveWorkspace();
   }
 
-  getMarkdownContent(allCommits: EntryHashMap<Commit>) {
+  getMarkdownContent(allCommits: RecordBag<Commit>) {
     if (!this._selectedCommitHash) return '';
-    const selectedCommit: Commit | undefined = allCommits.get(
+    const selectedCommit: Commit | undefined = allCommits.entryMap.get(
       deserializeHash(this._selectedCommitHash)
     );
     if (!selectedCommit) return '';
@@ -222,8 +218,8 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
             setTimeout(async () => {
               if (this._workspaceStore.value) await this.leaveWorkspace();
 
-              await this._noteSynStore.value?.createWorkspace(
-                { name: this._newWorkspaceName as string, meta: undefined },
+              await this._noteRootStore.value?.createWorkspace(
+                this._newWorkspaceName as string,
                 deserializeHash(this._selectedCommitHash as string)
               );
 
@@ -244,7 +240,8 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
         <workspace-list
           style="flex: 1; margin: 16px; margin-bottom: 0;"
           @join-workspace=${async (e: CustomEvent) => {
-            if (this._workspaceStore.value) await this._workspaceStore.value.leaveWorkspace();
+            if (this._workspaceStore.value)
+              await this._workspaceStore.value.leaveWorkspace();
             this._workspaceName = e.detail.workspace.name;
             (this.shadowRoot?.getElementById('drawer') as Drawer).open = false;
           }}
@@ -390,7 +387,7 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
     return html`
       <div
         class="row"
-        style="flex: 1; align-items: center; justify-contents: center"
+        style="flex: 1; align-items: center; justify-content: center"
       >
         <mwc-circular-progress indeterminate></mwc-circular-progress>
       </div>
@@ -412,8 +409,9 @@ export class MarkdownNote extends ScopedElementsMixin(LitElement) {
   }
 
   render() {
-    return this._noteSynStore.render({
+    return this._noteRootStore.render({
       pending: () => this.renderLoading(),
+      error: () => this.renderNoRootFound(),
       complete: () =>
         this._allWorkspaces.render({
           pending: () => this.renderLoading(),
