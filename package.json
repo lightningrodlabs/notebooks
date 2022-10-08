@@ -13,7 +13,7 @@
     "start:happ": "RUST_LOG=warn echo \"pass\" | hc s --piped -f=$ADMIN_PORT generate ./apps/launcher/workdir/notebooks.happ --run=$HC_PORT -a notebooks network mdns",
     "test": "npm run build:happ && cargo test",
     "package": "npm run build:happ && npm run package:ui && hc web-app pack ./apps/launcher/workdir",
-    "package:ui": "npm run build:ui && cd apps/launcher/ui/dist && bestzip ../dist.zip *",
+    "package:ui": "npm run build:ui && cd apps/launcher/ui/dist && rimraf ../dist.zip && bestzip ../dist.zip *",
     "build:ui": "npm run build -w @lightningrodlabs/notebooks -w notebooks-app",
     "build:happ": "npm run build:dnas && hc app pack ./apps/launcher/workdir",
     "build:dnas": "npm run build:zomes && hc dna pack ./apps/launcher/dnas/notebooks && hc dna pack ./apps/launcher/dnas/syn",

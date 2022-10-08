@@ -18,8 +18,6 @@
     "@holochain-open-dev/core-types": "^0.4.1",
     "@holochain-open-dev/utils": "^0.4.3",
     "@holochain-open-dev/profiles": "^0.6.0",
-    "@holochain-syn/core": "^0.2.1",
-    "@holochain-syn/text-editor": "^0.2.1",
     "@lightningrodlabs/notebooks": "0.0.1",
     "@lit-labs/context": "^0.1.2",
     "@open-wc/scoped-elements": "^2.0.1",
