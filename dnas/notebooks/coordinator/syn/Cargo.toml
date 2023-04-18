@@ -1,0 +1,13 @@
+[package]
+edition = "2021"
+name = "syn"
+version = "0.0.1"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "syn"
+
+[dependencies]
+derive_more = "0"
+
+hc_zome_syn_coordinator = { git = "https://github.com/holochain/syn", branch = "main" }

@@ -1,12 +1,14 @@
 [workspace]
 resolver = "2"
-members = [
-  "libs/coordinator_zomes/*",
-  "libs/integrity_zomes/*",
-]
+members = ["dnas/*/zomes/coordinator/*", "dnas/*/zomes/integrity/*"]
 
 [profile.dev]
 opt-level = "z"
 
 [profile.release]
 opt-level = "z"
+
+[workspace.dependencies]
+hdi = "0.2"
+hdk = "0.1"
+holochain = "0.1.4"

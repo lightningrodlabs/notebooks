@@ -1,34 +1,27 @@
 {
   "name": "notebooks-dev",
   "private": true,
-  "workspaces": [
-    "libs/ui",
-    "apps/*/ui"
-  ],
+  "workspaces": ["ui/*"],
   "scripts": {
-    "start": "npm run network 2",
-    "network": "hc s clean && npm run build:happ && concurrently-repeat \"npm run start:agent\"",
-    "start:agent": "cross-env HC_PORT=$(port) ADMIN_PORT=$(port) concurrently \"npm run playground\" \"npm run start:happ\" \"npm run start:ui\"",
-    "start:ui": "npm run build -w @lightningrodlabs/notebooks && concurrently \"npm run build:watch -w @lightningrodlabs/notebooks\" \"npm run build-start -w notebooks-app\"",
-    "start:happ": "RUST_LOG=warn echo \"pass\" | hc s --piped -f=$ADMIN_PORT generate ./apps/launcher/workdir/notebooks.happ --run=$HC_PORT -a notebooks network mdns",
-    "test": "npm run build:happ && cargo test",
-    "package": "npm run build:happ && npm run package:ui && hc web-app pack ./apps/launcher/workdir",
-    "package:ui": "npm run build:ui && cd apps/launcher/ui/dist && rimraf ../dist.zip && bestzip ../dist.zip *",
-    "build:ui": "npm run build -w @lightningrodlabs/notebooks -w notebooks-app",
-    "build:happ": "npm run build:dnas && hc app pack ./apps/launcher/workdir",
-    "build:dnas": "npm run build:zomes && hc dna pack ./apps/launcher/dnas/notebooks && hc dna pack ./apps/launcher/dnas/syn",
+    "start": "AGENTS=2 npm run network:app",
+    "network:app": "hc s clean && npm run build:zomes && UI_PORT=8888 concurrently \"npm run build:watch -w @lightningrodlabs/notebooks\" \"npm run launch\" \"npm run start -w notebooks-app\"",
+    "start:applet": "AGENTS=2 npm run network:applet",
+    "network:applet": "hc s clean && npm run build:zomes && UI_PORT=8888 concurrently \"npm run build:watch -w @lightningrodlabs/notebooks\" \"npm run launch\" \"npm run start -w applet\"",
+    "test": "npm run build:happ && cargo nextest run -j 1",
+    "package:applet": "npm run build:happ && npm run build -w @lightningrodlabs/notebooks && npm run package -w applet && hc web-app pack workdir --recursive",
+    "package:app": "npm run build:happ && npm run build -w @lightningrodlabs/notebooks && npm run package -w notebooks-app && hc web-app pack workdir --recursive",
+    "build:happ": "npm run build:zomes && hc app pack workdir --recursive",
     "build:zomes": "CARGO_TARGET_DIR=target cargo build --release --target wasm32-unknown-unknown",
-    "playground": "run-singleton \"holochain-playground\""
+    "launch": "echo \"pass\" | RUST_LOG=warn hc launch --piped -n $AGENTS workdir/notebooks.happ --ui-port $UI_PORT network mdns",
+    "prepare": "npm run build -w @lightningrodlabs/notebooks",
+    "playground": "holochain-playground"
   },
   "devDependencies": {
-    "@holochain-playground/cli": "^0.0.11",
+    "@holochain-playground/cli": "^0.1.1",
     "bestzip": "^2.2.0",
     "concurrently": "^6.2.1",
-    "concurrently-repeat": "^0.0.1",
     "cross-env": "^7.0.3",
-    "new-port-cli": "^1.0.0",
-    "rimraf": "^3.0.2",
-    "run-singleton-cli": "^0.0.5"
+    "rimraf": "^3.0.2"
   },
   "engines": {
     "npm": ">=7.0.0"
