@@ -30,9 +30,11 @@ import { SlDialog } from "@shoelace-style/shoelace";
 import {
   notifyError,
   onSubmit,
+  sharedStyles,
   wrapPathInSvg,
 } from "@holochain-open-dev/elements";
 import { mdiArrowLeft } from "@mdi/js";
+import { decode } from "@msgpack/msgpack";
 
 @localized()
 @customElement("notebooks-app")
@@ -51,19 +53,16 @@ export class NotebooksApp extends LitElement {
   @property()
   _notesStore!: NotesStore;
 
-  _activeNote = new StoreSubscriber(this, () =>
-    this._activeNoteHash
-      ? this._notesStore.note(this._activeNoteHash)
-      : undefined
+  _activeNote = new StoreSubscriber(
+    this,
+    () =>
+      this._activeNoteHash
+        ? this._notesStore.synStore.commits.get(this._activeNoteHash)
+        : undefined,
+    () => [this._activeNoteHash]
   );
 
   _myProfile!: StoreSubscriber<AsyncStatus<Profile | undefined>>;
-
-  _openedSyn = new StoreSubscriber(this, () =>
-    this._activeNoteHash
-      ? this._notesStore?.noteSynStore(this._activeNoteHash)
-      : undefined
-  );
 
   async connectToHolochain() {
     const client = await AppAgentWebsocket.connect("", "notebooks");
@@ -200,7 +199,8 @@ export class NotebooksApp extends LitElement {
   }
 
   renderTitle() {
-    if (this._activeNote.value) return this._activeNote.value.title;
+    if (this._activeNote.value.status === "complete")
+      return (decode(this._activeNote.value.value.entry.meta!) as any).title;
     return msg("Notebooks");
   }
 
