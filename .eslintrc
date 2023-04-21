@@ -13,6 +13,9 @@
     "no-return-assign": "off",
     "no-unused-vars": "off",
     "@typescript-eslint/no-unused-vars": "off",
-    "import/no-unresolved": "off"
+    "import/no-unresolved": "off",
+    "consistent-return": "off",
+    "default-case": "off",
+    "no-console": "off"
   }
 }

@@ -4,9 +4,9 @@
   "workspaces": ["ui/*"],
   "scripts": {
     "start": "AGENTS=2 npm run network:app",
-    "network:app": "hc s clean && npm run build:zomes && UI_PORT=8888 concurrently \"npm run build:watch -w @lightningrodlabs/notebooks\" \"npm run launch\" \"npm run start -w notebooks-app\"",
+    "network:app": "hc s clean && npm run build:happ && UI_PORT=8888 concurrently \"npm run build:watch -w @lightningrodlabs/notebooks\" \"npm run launch\" \"npm run start -w notebooks-app\"",
     "start:applet": "AGENTS=2 npm run network:applet",
-    "network:applet": "hc s clean && npm run build:zomes && UI_PORT=8888 concurrently \"npm run build:watch -w @lightningrodlabs/notebooks\" \"npm run launch\" \"npm run start -w applet\"",
+    "network:applet": "hc s clean && npm run build:happ && UI_PORT=8888 concurrently \"npm run build:watch -w @lightningrodlabs/notebooks\" \"npm run launch\" \"npm run start -w applet\"",
     "test": "npm run build:happ && cargo nextest run -j 1",
     "package:applet": "npm run build:happ && npm run build -w @lightningrodlabs/notebooks && npm run package -w applet && hc web-app pack workdir --recursive",
     "package:app": "npm run build:happ && npm run build -w @lightningrodlabs/notebooks && npm run package -w notebooks-app && hc web-app pack workdir --recursive",

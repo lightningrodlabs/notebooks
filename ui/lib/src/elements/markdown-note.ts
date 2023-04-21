@@ -1,6 +1,6 @@
 import { EntryRecord, RecordBag } from "@holochain-open-dev/utils";
 import { consume, provide } from "@lit-labs/context";
-import { html, LitElement } from "lit";
+import { css, html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
   Workspace,
@@ -8,6 +8,8 @@ import {
   WorkspaceStore,
   stateFromCommit,
 } from "@holochain-syn/core";
+import { MarkdownRenderer } from "@scoped-elements/markdown-renderer";
+customElements.define("markdown-renderer", MarkdownRenderer);
 
 import "@holochain-syn/core/dist/elements/syn-context.js";
 import "@holochain-syn/core/dist/elements/syn-root-context.js";
@@ -19,6 +21,7 @@ import "@shoelace-style/shoelace/dist/components/input/input.js";
 import "@shoelace-style/shoelace/dist/components/button/button.js";
 import "@shoelace-style/shoelace/dist/components/card/card.js";
 import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
+import "@shoelace-style/shoelace/dist/components/badge/badge.js";
 import "@shoelace-style/shoelace/dist/components/drawer/drawer.js";
 
 import {
@@ -227,17 +230,19 @@ export class MarkdownNote extends LitElement {
 
   renderSelectedCommit() {
     if (!this._selectedCommitHash)
-      return html`<span>${msg("Select a commit to see its contents")}</span>`;
+      return html`<div class="column center-content" style="flex:1">
+        <span>${msg("Select a commit to see its contents")}</span>
+      </div>`;
 
     switch (this._selectedCommit.value.status) {
       case "pending":
         return this.renderLoading();
       case "complete":
         return html`
-          <sl-card style="flex: 1;">
-            <div class="flex-scrollable-parent">
-              <div class="flex-scrollable-container">
-                <div class="flex-scrollable-y" style="padding: 0 8px;">
+          <div class="flex-scrollable-parent">
+            <div class="flex-scrollable-container">
+              <div class="flex-scrollable-y" style="padding: 0 8px;">
+                <sl-card>
                   <markdown-renderer
                     style="flex: 1;"
                     .markdown=${(
@@ -246,10 +251,10 @@ export class MarkdownNote extends LitElement {
                       ) as TextEditorState
                     ).text.toString()}
                   ></markdown-renderer>
-                </div>
+                </sl-card>
               </div>
             </div>
-          </sl-card>
+          </div>
         `;
       case "error":
         return html`<display-error
@@ -263,25 +268,26 @@ export class MarkdownNote extends LitElement {
     rootStore: RootStore<TextEditorGrammar>,
     workspaceStore: WorkspaceStore<TextEditorGrammar>
   ) {
-    return html`<div class="row" style="flex: 1; height: 88%">
-      <div class="column" style="width: 400px;">
+    return html`<div class="row" style="flex: 1;">
+      <div class="column" style="width: 600px; margin-right: 16px">
         <workspace-list
-          style="flex: 1; margin: 16px; margin-bottom: 0;"
+          style="flex: 1; margin-bottom: 16px;"
+          .activeWorkspace=${this._workspaceName}
           @join-workspace=${async (e: CustomEvent) => {
             if (this._workspace.value) await workspaceStore.leaveWorkspace();
             this.drawer.hide();
-            this._workspaceName = e.detail.workspace.name;
+            this._workspaceName = e.detail.workspace.entry.name;
           }}
         ></workspace-list>
         <commit-history
-          style="margin: 16px; flex: 1"
+          style="flex: 1"
           .selectedCommitHash=${this._selectedCommitHash}
           @commit-selected=${(e: CustomEvent) => {
             this._selectedCommitHash = e.detail.commitHash;
           }}
         ></commit-history>
       </div>
-      <div class="column" style="flex: 1">
+      <div class="column" style="width: 800px">
         ${this.renderSelectedCommit()}
         <div class="row">
           ${this.renderNewWorkspaceButton(rootStore, workspaceStore)}
@@ -299,50 +305,62 @@ export class MarkdownNote extends LitElement {
         const state = this._workspace.value.value[1];
         return html`
           <syn-root-context .rootstore=${rootStore}>
-            <sl-drawer id="drawer">
+            <sl-drawer id="drawer" style="--size: auto">
               ${this.renderVersionControlPanel(
                 rootStore,
                 workspaceStore
               )}</sl-drawer
             >
-            <div class="column" style="flex: 1; height: 100%">
+            <div class="column" style="flex: 1; height: 100%;">
               <div
                 class="row"
-                style="align-items: center; background-color: white"
+                style="align-items: center; background-color: white; padding: 8px;
+          box-shadow: var(--sl-shadow-x-large); z-index: 10"
               >
-                <sl-button
-                  .label=${this._workspaceName}
-                  variant="primary"
-                  @click=${() => {
-                    this.drawer.show();
-                  }}
-                ></sl-button>
-                <span style="flex:1"></span>
-
+                <span style="margin: 0 8px">${msg("Participants:")}</span>
                 <workspace-participants
                   direction="row"
                   .workspacestore=${workspaceStore}
-                  style="margin: 4px;"
                 ></workspace-participants>
+                <span style="flex: 1"></span>
+                <span>${msg("Active Workspace:")}</span>
+                <sl-badge variant="primary" pill style="margin-left: 8px"
+                  >${this._workspaceName}</sl-badge
+                >
+                <sl-button
+                  style="margin-left: 16px;"
+                  @click=${() => {
+                    this.drawer.show();
+                  }}
+                >
+                  ${msg("Version Control")}
+                </sl-button>
               </div>
               <div class="row" style="flex: 1;">
-                <syn-markdown-editor
-                  style="flex: 1;"
-                  .slice=${workspaceStore}
-                ></syn-markdown-editor>
+                <div class="flex-scrollable-parent">
+                  <div class="flex-scrollable-container">
+                    <div class="flex-scrollable-y">
+                      <syn-markdown-editor
+                        .slice=${workspaceStore}
+                      ></syn-markdown-editor>
+                    </div>
+                  </div>
+                </div>
 
-                <sl-card style="flex: 1; margin-left: 4px;">
-                  <div class="flex-scrollable-parent">
-                    <div class="flex-scrollable-container">
-                      <div class="flex-scrollable-y" style="padding: 0 8px;">
-                        <markdown-renderer
-                          style="flex: 1; "
-                          .markdown=${state.text.toString()}
-                        ></markdown-renderer>
+                <div class="flex-scrollable-parent">
+                  <div class="flex-scrollable-container">
+                    <div class="flex-scrollable-y">
+                      <div style="margin: 8px">
+                        <sl-card style="width: 100%">
+                          <markdown-renderer
+                            style="flex: 1; "
+                            .markdown=${state.text.toString()}
+                          ></markdown-renderer>
+                        </sl-card>
                       </div>
                     </div>
                   </div>
-                </sl-card>
+                </div>
               </div>
             </div>
           </syn-root-context>
@@ -402,5 +420,12 @@ export class MarkdownNote extends LitElement {
     if (this._workspace.value.status === "complete")
       this._workspace.value.value[0].leaveWorkspace();
   }
-  static styles = [sharedStyles];
+  static styles = [
+    sharedStyles,
+    css`
+      sl-drawer::part(body) {
+        display: flex;
+      }
+    `,
+  ];
 }

@@ -7,7 +7,8 @@
   "main": "dist/index.js",
   "module": "dist/index.js",
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./dist/*": "./dist/*"
   },
   "scripts": {
     "analyze": "cem analyze --litelement",
@@ -18,12 +19,12 @@
     "format": "eslint --ext .ts,.html . --fix --ignore-path .gitignore && prettier \"**/*.ts\" --write --ignore-path .gitignore"
   },
   "dependencies": {
-    "@holochain-open-dev/elements": "^0.4.0",
+    "@holochain-open-dev/elements": "^0.4.1",
     "@holochain-open-dev/profiles": "^0.13.0",
     "@holochain-open-dev/stores": "^0.4.0",
     "@holochain-open-dev/utils": "^0.13.0",
-    "@holochain-syn/core": "^0.4.1",
-    "@holochain-syn/text-editor": "^0.4.0",
+    "@holochain-syn/core": "^0.4.3",
+    "@holochain-syn/text-editor": "^0.4.1",
     "@holochain/client": "^0.13.0",
     "@lightningrodlabs/notebooks": "0.0.1",
     "@lit-labs/context": "^0.2.0",

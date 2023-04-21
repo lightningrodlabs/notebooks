@@ -8,17 +8,17 @@ integrity:
   origin_time: 2022-02-11T23:05:19.470323Z
   zomes:
     - name: syn_integrity
-      bundled: ../../../../target/wasm32-unknown-unknown/release/syn_integrity.wasm
+      bundled: ../../../target/wasm32-unknown-unknown/release/syn_integrity.wasm
     - name: profiles_integrity
-      bundled: ../../../../target/wasm32-unknown-unknown/release/profiles_integrity.wasm
+      bundled: ../../../target/wasm32-unknown-unknown/release/profiles_integrity.wasm
 
 coordinator:
   zomes:
     - name: syn
-      bundled: ../../../../target/wasm32-unknown-unknown/release/syn.wasm
+      bundled: ../../../target/wasm32-unknown-unknown/release/syn.wasm
       dependencies:
         - name: syn_integrity
     - name: profiles
-      bundled: ../../../../target/wasm32-unknown-unknown/release/profiles.wasm
+      bundled: ../../../target/wasm32-unknown-unknown/release/profiles.wasm
       dependencies:
         - name: profiles_integrity

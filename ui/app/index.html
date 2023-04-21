@@ -23,8 +23,8 @@
       }
 
       :root {
-        --mdc-theme-primary: #7B1FA2;
-        --mdc-theme-secondary: #FF5722;
+        --mdc-theme-primary: #7b1fa2;
+        --mdc-theme-secondary: #ff5722;
       }
     </style>
     <link
@@ -36,12 +36,11 @@
   </head>
 
   <body>
-    <notebooks-app style="flex: 1;"></notebooks-app>
+    <notebooks-app style="flex: 1"></notebooks-app>
 
     <script type="module">
-      import { NotebooksApp } from './out-tsc/notebooks-app.js';
-
-      customElements.define('notebooks-app', NotebooksApp);
+      import "@shoelace-style/shoelace/dist/themes/light.css";
+      import "./src/notebooks-app.ts";
     </script>
   </body>
 </html>

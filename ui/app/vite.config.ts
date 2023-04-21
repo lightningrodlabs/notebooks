@@ -5,6 +5,7 @@ import { viteStaticCopy } from "vite-plugin-static-copy";
 
 const components = [
   "dialog",
+  "drawer",
   "dropdown",
   "menu",
   "menu-item",
@@ -31,7 +32,7 @@ export default defineConfig({
   optimizeDeps: {
     exclude: [
       ...exclude,
-      "@holochain-open-dev/elements/elements/display-error.js",
+      "@holochain-open-dev/elements/dist/elements/display-error.js",
     ],
   },
   plugins: [

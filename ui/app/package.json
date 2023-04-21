@@ -25,8 +25,7 @@
     "@scoped-elements/markdown-renderer": "^0.0.3",
     "@shoelace-style/shoelace": "^2.3.0",
     "lit": "^2.0.0",
-    "lodash-es": "^4.17.21",
-    "navigo": "^8.11.1"
+    "lodash-es": "^4.17.21"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.15.0",
@@ -52,42 +51,8 @@
     "vite-plugin-checker": "^0.5.3",
     "vite-plugin-static-copy": "^0.13.1"
   },
-  "eslintConfig": {
-    "parser": "@typescript-eslint/parser",
-    "extends": [
-      "@open-wc",
-      "prettier"
-    ],
-    "plugins": [
-      "@typescript-eslint"
-    ],
-    "rules": {
-      "prefer-destructuring": "off",
-      "camelcase": "off",
-      "no-empty-function": "off",
-      "no-param-reassign": "off",
-      "no-useless-constructor": "off",
-      "class-methods-use-this": "off",
-      "import/extensions": "off",
-      "no-return-assign": "off",
-      "no-unused-vars": "off",
-      "@typescript-eslint/no-unused-vars": "off",
-      "import/no-unresolved": "off"
-    }
-  },
   "prettier": {
     "singleQuote": true,
     "arrowParens": "avoid"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
-  },
-  "lint-staged": {
-    "*.ts": [
-      "eslint --fix",
-      "prettier --write"
-    ]
   }
 }

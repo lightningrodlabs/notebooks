@@ -27,23 +27,24 @@ export class AllNotes extends LitElement {
 
   renderNote(note: EntryRecord<Commit>) {
     return html`
-      <sl-card
-        class="note"
-        @click=${() =>
-          this.dispatchEvent(
-            new CustomEvent("note-selected", {
-              bubbles: true,
-              composed: true,
-              detail: {
-                noteHash: note.entryHash,
-              },
-            })
-          )}
-      >
-        <div class="column" style="flex: 1; ">
-          <span style="font-size: 18px;">${
-            (decode(note.entry.meta!) as any).title
-          }</span>
+      <sl-card class="note">
+        <div
+          class="column"
+          style="flex: 1; "
+          @click=${() =>
+            this.dispatchEvent(
+              new CustomEvent("note-selected", {
+                bubbles: true,
+                composed: true,
+                detail: {
+                  noteHash: note.entryHash,
+                },
+              })
+            )}
+        >
+          <span style="font-size: 18px;"
+            >${(decode(note.entry.meta!) as any).title}</span
+          >
           <div style="flex: 1"></div>
           <div
             class="row"
@@ -52,13 +53,13 @@ export class AllNotes extends LitElement {
             <span class="placeholder" style="flex: 1;"
               >Created
               <sl-relative-time
-                .date=${new Date(note.action.timestamp / 1000)}
+                .date=${new Date(note.action.timestamp)}
               ></sl-relative-time
             ></span>
             <agent-avatar .agentPubKey=${note.action.author}></agent-avatar>
           </div>
         </div>
-      </mwc-card>
+      </sl-card>
     `;
   }
 
@@ -75,7 +76,9 @@ export class AllNotes extends LitElement {
               class="row"
               style="flex: 1; justify-content: center; align-items: center"
             >
-              <span class="placeholder">${msg("There are no notes yet")}</span>
+              <span class="placeholder" style="margin: 24px;"
+                >${msg("There are no notes yet")}</span
+              >
             </div>
           `;
         return html`
@@ -120,6 +123,14 @@ export class AllNotes extends LitElement {
         width: 250px;
         margin-right: 16px;
         margin-bottom: 16px;
+        display: flex;
+      }
+      sl-card::part(body) {
+        display: flex;
+        flex: 1;
+      }
+      :host {
+        display: flex;
       }
     `,
   ];

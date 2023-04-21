@@ -11,11 +11,11 @@ import {
 import "@holochain-open-dev/elements/dist/elements/display-error.js";
 import "@holochain-open-dev/profiles/dist/elements/agent-avatar.js";
 import "@holochain-open-dev/profiles/dist/elements/profile-prompt.js";
-import "@shoelace-style/shoelace/dist/dialog/dialog.js";
-import "@shoelace-style/shoelace/dist/spinner/spinner.js";
-import "@shoelace-style/shoelace/dist/icon-button/icon-button.js";
-import "@shoelace-style/shoelace/dist/button/button.js";
-import "@shoelace-style/shoelace/dist/alert/alert.js";
+import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
+import "@shoelace-style/shoelace/dist/components/spinner/spinner.js";
+import "@shoelace-style/shoelace/dist/components/icon-button/icon-button.js";
+import "@shoelace-style/shoelace/dist/components/button/button.js";
+import "@shoelace-style/shoelace/dist/components/alert/alert.js";
 
 import { provide } from "@lit-labs/context";
 import { localized, msg } from "@lit/localize";
@@ -24,7 +24,6 @@ import "@lightningrodlabs/notebooks/dist/elements/markdown-note.js";
 import "@lightningrodlabs/notebooks/dist/elements/all-notes.js";
 import { NotesStore, notesStoreContext } from "@lightningrodlabs/notebooks";
 
-import { router } from "./router";
 import { AsyncStatus, StoreSubscriber } from "@holochain-open-dev/stores";
 import { SlDialog } from "@shoelace-style/shoelace";
 import {
@@ -82,14 +81,6 @@ export class NotebooksApp extends LitElement {
   async firstUpdated() {
     await this.connectToHolochain();
 
-    router
-      .on("/note/:note", (params: any) => {
-        this._activeNoteHash = params.data.note;
-      })
-      .on("/", () => {
-        this._activeNoteHash = undefined;
-      })
-      .resolve();
     this._loading = false;
   }
 
@@ -104,8 +95,9 @@ export class NotebooksApp extends LitElement {
       <div class="column" style="flex: 1;">
         <all-notes
           style="flex: 1; margin: 16px;"
-          @note-selected=${(e: CustomEvent) =>
-            router.navigate(`/note/${e.detail.noteHash}`)}
+          @note-selected=${(e: CustomEvent) => {
+            this._activeNoteHash = e.detail.noteHash;
+          }}
         ></all-notes>
         ${this.renderNewNoteButton()}
       </div>
@@ -116,15 +108,24 @@ export class NotebooksApp extends LitElement {
     return this.shadowRoot?.getElementById("new-note-dialog") as SlDialog;
   }
 
+  @state()
+  creatingNote = false;
+
   async createNote(title: string) {
+    if (this.creatingNote) return;
+
+    this.creatingNote = true;
+
     try {
-      await this._notesStore.createNote(title);
+      const note = await this._notesStore.createNote(title);
+      this._activeNoteHash = note.entryHash;
       this._newNoteDialog.hide();
       (this.shadowRoot?.getElementById("note-form") as HTMLFormElement).reset();
     } catch (e) {
       console.error(e);
       notifyError(msg("Error creating the note"));
     }
+    this.creatingNote = false;
   }
 
   renderNewNoteButton() {
@@ -154,6 +155,7 @@ export class NotebooksApp extends LitElement {
           variant="primary"
           type="submit"
           form="note-form"
+          .loading=${this.creatingNote}
         >
           ${msg("Create")}
         </sl-button>
@@ -161,30 +163,23 @@ export class NotebooksApp extends LitElement {
   }
 
   renderMyProfile() {
-    if (!this._myProfile) return html``;
-    switch (this._myProfile.value.status) {
-      case "pending":
-        return html``;
-      case "complete":
-        return html` <div
-          class="row"
-          style="align-items: center;"
-          slot="actionItems"
-        >
-          <agent-avatar
-            .agentPubKey=${this._profilesStore.client.client.myPubKey}
-          ></agent-avatar>
-          <span style="margin: 0 16px;"
-            >${this._myProfile.value.value?.nickname}</span
-          >
-        </div>`;
-      case "error":
-        return html`<display-error
-          tooltip
-          .headline=${msg("Error fetching your profile")}
-          .error=${this._myProfile.value.error.data.data}
-        ></display-error>`;
-    }
+    if (
+      this._myProfile.value.status !== "complete" ||
+      this._myProfile.value.value === undefined
+    )
+      return html``;
+    return html` <div
+      class="row"
+      style="align-items: center;"
+      slot="actionItems"
+    >
+      <agent-avatar
+        .agentPubKey=${this._profilesStore.client.client.myPubKey}
+      ></agent-avatar>
+      <span style="margin: 0 16px;"
+        >${this._myProfile.value.value?.nickname}</span
+      >
+    </div>`;
   }
 
   renderBackButton() {
@@ -193,13 +188,14 @@ export class NotebooksApp extends LitElement {
     return html`
       <sl-icon-button
         .src=${wrapPathInSvg(mdiArrowLeft)}
-        @click=${() => router.navigate("/")}
+        class="back-button"
+        @click=${() => (this._activeNoteHash = undefined)}
       ></sl-icon-button>
     `;
   }
 
   renderTitle() {
-    if (this._activeNote.value.status === "complete")
+    if (this._activeNote.value?.status === "complete")
       return (decode(this._activeNote.value.value.entry.meta!) as any).title;
     return msg("Notebooks");
   }
@@ -219,7 +215,8 @@ export class NotebooksApp extends LitElement {
           class="row"
           style="align-items: center; color:white; background-color: var(--sl-color-primary-900); padding: 0 16px; height: 65px;"
         >
-          ${this.renderBackButton()} ${this.renderTitle()}
+          ${this.renderBackButton()}
+          <div style="flex: 1">${this.renderTitle()}</div>
           ${this.renderMyProfile()}
         </div>
         <div class="fill row" style="width: 100vw; height: 100%;">
@@ -236,6 +233,14 @@ export class NotebooksApp extends LitElement {
       :host {
         display: flex;
         flex: 1;
+      }
+      .back-button {
+        color: white;
+        font-size: 22px;
+      }
+      .back-button:hover {
+        background: #ffffff65;
+        border-radius: 50%;
       }
     `,
     sharedStyles,

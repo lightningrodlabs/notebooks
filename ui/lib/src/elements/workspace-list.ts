@@ -1,4 +1,4 @@
-import { html, LitElement } from "lit";
+import { css, html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { consume } from "@lit-labs/context";
 import { RootStore, synRootContext, Workspace } from "@holochain-syn/core";
@@ -21,6 +21,9 @@ export class WorkspaceList extends LitElement {
   @property()
   rootStore!: RootStore<TextEditorGrammar>;
 
+  @property()
+  activeWorkspace!: string;
+
   _allWorkspaces = new StoreSubscriber(
     this,
     () => this.rootStore.allWorkspaces,
@@ -28,11 +31,13 @@ export class WorkspaceList extends LitElement {
   );
 
   renderWorkspace(workspace: EntryRecord<Workspace>) {
+    const alreadyJoined = this.activeWorkspace === workspace.entry.name;
     return html`
-      <div class="row" style="flex: 1; align-items: center">
+      <div class="row" style="margin-bottom: 8px; align-items: center">
         <span style="flex: 1;"> ${workspace.entry.name} </span>
 
         <sl-button
+          .disabled=${alreadyJoined}
           @click=${() => {
             this.dispatchEvent(
               new CustomEvent("join-workspace", {
@@ -45,7 +50,7 @@ export class WorkspaceList extends LitElement {
               })
             );
           }}
-          >${msg("Join")}</sl-button
+          >${alreadyJoined ? msg("Already Joined") : msg("Join")}</sl-button
         >
       </div>
     `;
@@ -63,12 +68,9 @@ export class WorkspaceList extends LitElement {
       case "complete":
         const workspaces = this._allWorkspaces.value.value;
         return html`
-          <mwc-card style="flex: 1;">
+          <sl-card style="flex: 1; display: flex">
+            <span slot="header" class="title">${msg("Workspaces")}</span>
             <div class="column" style="flex: 1;">
-              <span class="title" style="margin: 16px; margin-bottom: 0;"
-                >Workspaces</span
-              >
-
               ${workspaces.length === 0
                 ? html`
                     <div
@@ -79,20 +81,12 @@ export class WorkspaceList extends LitElement {
                     </div>
                   `
                 : html`
-                    <div class="flex-scrollable-parent">
-                      <div class="flex-scrollable-container">
-                        <div class="flex-scrollable-y">
-                          <mwc-list>
-                            ${workspaces.map((workspace) =>
-                              this.renderWorkspace(workspace)
-                            )}
-                          </mwc-list>
-                        </div>
-                      </div>
-                    </div>
+                    ${workspaces.map((workspace) =>
+                      this.renderWorkspace(workspace)
+                    )}
                   `}
             </div>
-          </mwc-card>
+          </sl-card>
         `;
 
       case "error":
@@ -103,7 +97,12 @@ export class WorkspaceList extends LitElement {
     }
   }
 
-  static get styles() {
-    return sharedStyles;
-  }
+  static styles = [
+    sharedStyles,
+    css`
+      :host {
+        display: flex;
+      }
+    `,
+  ];
 }

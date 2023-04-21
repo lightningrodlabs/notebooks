@@ -20,5 +20,7 @@ export class NotesStore {
       title,
     });
     await rootStore.createWorkspace("main", rootStore.root.entryHash);
+
+    return rootStore.root;
   }
 }
