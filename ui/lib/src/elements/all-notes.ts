@@ -1,29 +1,27 @@
 import { StoreSubscriber } from "@holochain-open-dev/stores";
 import { EntryRecord } from "@holochain-open-dev/utils";
-import { Commit } from "@holochain-syn/core";
+import { Commit, synContext, SynStore } from "@holochain-syn/core";
 import { consume } from "@lit-labs/context";
 import { css, html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
 import { decode } from "@msgpack/msgpack";
 import { localized, msg } from "@lit/localize";
+import { sharedStyles } from "@holochain-open-dev/elements";
 
 import "@holochain-open-dev/elements/dist/elements/display-error.js";
 import "@holochain-open-dev/profiles/dist/elements/agent-avatar.js";
 import "@shoelace-style/shoelace/dist/components/card/card.js";
 import "@shoelace-style/shoelace/dist/components/relative-time/relative-time.js";
 
-import { notesStoreContext } from "../context";
-import { NotesStore } from "../notes-store";
 import { sortByDescendantTimestamp } from "../utils";
-import { sharedStyles } from "@holochain-open-dev/elements";
 
 @localized()
 @customElement("all-notes")
 export class AllNotes extends LitElement {
-  @consume({ context: notesStoreContext })
-  notesStore!: NotesStore;
+  @consume({ context: synContext })
+  synStore!: SynStore;
 
-  allNotes = new StoreSubscriber(this, () => this.notesStore.allNotes);
+  allNotes = new StoreSubscriber(this, () => this.synStore.allRoots);
 
   renderNote(note: EntryRecord<Commit>) {
     return html`
@@ -51,7 +49,7 @@ export class AllNotes extends LitElement {
             style="justify-content: center; align-items: center;"
           >
             <span class="placeholder" style="flex: 1;"
-              >Created
+              >${msg("Created")}
               <sl-relative-time
                 .date=${new Date(note.action.timestamp)}
               ></sl-relative-time
@@ -63,7 +61,7 @@ export class AllNotes extends LitElement {
     `;
   }
 
-  renderContent() {
+  render() {
     switch (this.allNotes.value.status) {
       case "pending":
         return html` <div class="row" style="">
@@ -103,16 +101,6 @@ export class AllNotes extends LitElement {
           .error=${this.allNotes.value.error.data.data}
         ></display-error>`;
     }
-  }
-
-  render() {
-    return html`
-      <div class="column" style="flex: 1;">
-        <span class="title">${msg("All Notes")}</span>
-
-        ${this.renderContent()}
-      </div>
-    `;
   }
 
   static styles = [

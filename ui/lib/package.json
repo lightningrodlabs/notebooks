@@ -24,7 +24,7 @@
     "@holochain-open-dev/stores": "^0.4.0",
     "@holochain-open-dev/utils": "^0.13.0",
     "@holochain-syn/core": "^0.4.3",
-    "@holochain-syn/text-editor": "^0.4.1",
+    "@holochain-syn/text-editor": "^0.4.2",
     "@holochain/client": "^0.13.0",
     "@lightningrodlabs/notebooks": "0.0.1",
     "@lit-labs/context": "^0.2.0",

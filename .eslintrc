@@ -16,6 +16,7 @@
     "import/no-unresolved": "off",
     "consistent-return": "off",
     "default-case": "off",
-    "no-console": "off"
+    "no-console": "off",
+    "import/no-duplicates": "off"
   }
 }

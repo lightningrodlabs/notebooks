@@ -1,41 +1,189 @@
-import { WeApplet } from '@lightningrodlabs/we-applet';
-import { NotesStore } from '@lightningrodlabs/notebooks';
-import { CellClient, HolochainClient } from '@holochain-open-dev/cell-client';
-import { AppWebsocket, DnaHash } from '@holochain/client';
-import { html, render } from 'lit';
+import {
+  AppAgentClient,
+  CellType,
+  DnaHash,
+  EntryHash,
+} from "@holochain/client";
+import { html, render, TemplateResult } from "lit";
+import { msg } from "@lit/localize";
+import { wrapPathInSvg } from "@holochain-open-dev/elements";
+import { NoteMeta } from "@lightningrodlabs/notebooks";
+import { decode } from "@msgpack/msgpack";
 
-import { NotebooksApplet } from './notebooks-applet';
+import {
+  Hrl,
+  AppletViews,
+  CrossAppletViews,
+  WeApplet,
+  WeServices,
+} from "@lightningrodlabs/we-applet";
 
-const notebooksGame: WeApplet = {
-  async appletRenderers(appWs: AppWebsocket, adminWs, weServices, appletInfo) {
-    const notebooksCell = appletInfo[0].installedAppInfo.cell_data.find(
-      c => c.role_id === 'notebooks'
-    )!;
-    const synDnaHash = appletInfo[0].installedAppInfo.cell_data.find(
-      c => c.role_id === 'syn'
-    )?.cell_id[0];
+import "@lightningrodlabs/notebooks/dist/elements/all-notes.js";
+import "@lightningrodlabs/notebooks/dist/elements/markdown-note.js";
+import "@holochain-open-dev/profiles/dist/elements/profiles-context.js";
+import "@lightningrodlabs/we-applet/dist/elements/we-services-context.js";
+import "@lightningrodlabs/we-applet/dist/elements/hrl-link.js";
+import "@holochain-syn/core/dist/elements/syn-context.js";
 
-    const notesStore = new NotesStore(
-      new HolochainClient(appWs),
-      notebooksCell,
-      synDnaHash as DnaHash
-    );
+import { SynClient, SynStore } from "@holochain-syn/core";
 
-    return {
-      full: (rootElement: HTMLElement, registry: CustomElementRegistry) => {
-        registry.define('notebooks-applet', NotebooksApplet);
+import { createNote } from "@lightningrodlabs/notebooks";
+import { ProfilesClient, ProfilesStore } from "@holochain-open-dev/profiles";
+import { mdiNotebook } from "@mdi/js";
 
-        rootElement.innerHTML = `<notebooks-applet
-        id="applet"
-      ></notebooks-applet>`;
+import "./applet-main";
+import "./cross-applet-main";
 
-        const appletEl = rootElement.querySelector('#applet') as any;
-        appletEl.notesStore = notesStore;
-        appletEl.profilesStore = weServices.profilesStore;
+function wrapAppletView(
+  client: AppAgentClient,
+  profilesClient: ProfilesClient,
+  weServices: WeServices,
+  innerTemplate: TemplateResult
+): TemplateResult {
+  const synStore = new SynStore(new SynClient(client, "notebooks"));
+  return html`
+    <we-services-context .services=${weServices}>
+      <profiles-context .store=${new ProfilesStore(profilesClient)}>
+        <syn-context .synstore=${synStore}>
+          ${innerTemplate}
+        </syn-context></profiles-context
+      ></we-services-context
+    >
+  `;
+}
+
+function appletViews(
+  client: AppAgentClient,
+  _appletId: EntryHash,
+  profilesClient: ProfilesClient,
+  weServices: WeServices
+): AppletViews {
+  return {
+    main: (element) =>
+      render(
+        wrapAppletView(
+          client,
+          profilesClient,
+          weServices,
+          html`
+            <applet-main
+              @note-selected=${async (e: CustomEvent) => {
+                const appInfo = await client.appInfo();
+                const dnaHash = (appInfo.cell_info.notebooks[0] as any)[
+                  CellType.Provisioned
+                ].cell_id[0];
+                weServices.openViews.openHrl([dnaHash, e.detail.noteHash], {});
+              }}
+              @note-created=${async (e: CustomEvent) => {
+                const appInfo = await client.appInfo();
+                const dnaHash = (appInfo.cell_info.notebooks[0] as any)[
+                  CellType.Provisioned
+                ].cell_id[0];
+                weServices.openViews.openHrl([dnaHash, e.detail.noteHash], {});
+              }}
+            ></applet-main>
+          `
+        ),
+        element
+      ),
+    blocks: {},
+    entries: {
+      notebooks: {
+        syn_integrity: {
+          commit: {
+            info: async (hrl: Hrl) => {
+              const synClient = new SynClient(client, "notebooks");
+              const root = await synClient.getCommit(hrl[1]);
+
+              if (!root) return undefined;
+
+              return {
+                icon_src: wrapPathInSvg(mdiNotebook),
+                name: (decode(root.entry.meta!) as NoteMeta).title,
+              };
+            },
+            view: (element, hrl: Hrl, context) =>
+              render(
+                wrapAppletView(
+                  client,
+                  profilesClient,
+                  weServices,
+                  html`
+                    <markdown-note
+                      .noteHash=${hrl[1]}
+                      style="flex: 1"
+                    ></markdown-note>
+                  `
+                ),
+                element
+              ),
+          },
+        },
       },
-      blocks: [],
-    };
+    },
+  };
+}
+
+function crossAppletViews(
+  applets: ReadonlyMap<
+    EntryHash,
+    { profilesClient: ProfilesClient; appletClient: AppAgentClient }
+  >, // Segmented by groupId
+  weServices: WeServices
+): CrossAppletViews {
+  return {
+    main: (element) =>
+      render(
+        html`
+          <we-services-context .services=${weServices}>
+            <cross-applet-main .applets=${applets}></cross-applet-main>
+          </we-services-context>
+        `,
+        element
+      ),
+    blocks: {},
+  };
+}
+
+const applet: WeApplet = {
+  appletViews,
+  crossAppletViews,
+  attachmentTypes: async (appletClient: AppAgentClient) => ({
+    note: {
+      label: msg("Note"),
+      icon_src: wrapPathInSvg(mdiNotebook),
+      async create(attachToHrl: Hrl) {
+        const synStore = new SynStore(new SynClient(appletClient, "notebooks"));
+
+        const note = await createNote(synStore, msg(`Note`), attachToHrl);
+        const appInfo = await appletClient.appInfo();
+        const dnaHash = (appInfo.cell_info.notebooks[0] as any)[
+          CellType.Provisioned
+        ].cell_id[0];
+        return {
+          hrl: [dnaHash, note.entryHash],
+          context: {},
+        };
+      },
+    },
+  }),
+  search: async (appletClient: AppAgentClient, filter: string) => {
+    const client = new SynClient(appletClient, "notebooks");
+
+    const roots = await client.getAllRoots();
+    const appInfo = await appletClient.appInfo();
+    const dnaHash = (appInfo.cell_info.notebooks[0] as any)[
+      CellType.Provisioned
+    ].cell_id[0];
+
+    return roots
+      .filter((r) => {
+        const noteMeta = decode(r.entry.meta!) as NoteMeta;
+
+        return noteMeta.title.includes(filter);
+      })
+      .map((r) => ({ hrl: [dnaHash, r.entryHash], context: {} }));
   },
 };
 
-export default notebooksGame;
+export default applet;

@@ -7,6 +7,7 @@ import {
   ProfilesStore,
   profilesStoreContext,
 } from "@holochain-open-dev/profiles";
+import { SynStore, synContext, SynClient } from "@holochain-syn/core";
 
 import "@holochain-open-dev/elements/dist/elements/display-error.js";
 import "@holochain-open-dev/profiles/dist/elements/agent-avatar.js";
@@ -22,10 +23,8 @@ import { localized, msg } from "@lit/localize";
 
 import "@lightningrodlabs/notebooks/dist/elements/markdown-note.js";
 import "@lightningrodlabs/notebooks/dist/elements/all-notes.js";
-import { NotesStore, notesStoreContext } from "@lightningrodlabs/notebooks";
 
 import { AsyncStatus, StoreSubscriber } from "@holochain-open-dev/stores";
-import { SlDialog } from "@shoelace-style/shoelace";
 import {
   notifyError,
   onSubmit,
@@ -34,6 +33,8 @@ import {
 } from "@holochain-open-dev/elements";
 import { mdiArrowLeft } from "@mdi/js";
 import { decode } from "@msgpack/msgpack";
+import SlDialog from "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
+import { createNote } from "@lightningrodlabs/notebooks";
 
 @localized()
 @customElement("notebooks-app")
@@ -48,15 +49,15 @@ export class NotebooksApp extends LitElement {
   @property()
   _profilesStore!: ProfilesStore;
 
-  @provide({ context: notesStoreContext })
+  @provide({ context: synContext })
   @property()
-  _notesStore!: NotesStore;
+  _synStore!: SynStore;
 
   _activeNote = new StoreSubscriber(
     this,
     () =>
       this._activeNoteHash
-        ? this._notesStore.synStore.commits.get(this._activeNoteHash)
+        ? this._synStore.commits.get(this._activeNoteHash)
         : undefined,
     () => [this._activeNoteHash]
   );
@@ -75,7 +76,7 @@ export class NotebooksApp extends LitElement {
       () => this._profilesStore.myProfile
     );
 
-    this._notesStore = new NotesStore(client);
+    this._synStore = new SynStore(new SynClient(client, "notebooks"));
   }
 
   async firstUpdated() {
@@ -117,7 +118,8 @@ export class NotebooksApp extends LitElement {
     this.creatingNote = true;
 
     try {
-      const note = await this._notesStore.createNote(title);
+      const note = await createNote(this._synStore, title);
+
       this._activeNoteHash = note.entryHash;
       this._newNoteDialog.hide();
       (this.shadowRoot?.getElementById("note-form") as HTMLFormElement).reset();

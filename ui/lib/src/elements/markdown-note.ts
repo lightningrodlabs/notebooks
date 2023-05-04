@@ -1,5 +1,5 @@
-import { EntryRecord, RecordBag } from "@holochain-open-dev/utils";
-import { consume, provide } from "@lit-labs/context";
+import { EntryRecord } from "@holochain-open-dev/utils";
+import { consume } from "@lit-labs/context";
 import { css, html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
@@ -7,6 +7,8 @@ import {
   RootStore,
   WorkspaceStore,
   stateFromCommit,
+  SynStore,
+  synContext,
 } from "@holochain-syn/core";
 import { MarkdownRenderer } from "@scoped-elements/markdown-renderer";
 customElements.define("markdown-renderer", MarkdownRenderer);
@@ -21,6 +23,7 @@ import "@shoelace-style/shoelace/dist/components/input/input.js";
 import "@shoelace-style/shoelace/dist/components/button/button.js";
 import "@shoelace-style/shoelace/dist/components/card/card.js";
 import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
+import "./workspace-list";
 import "@shoelace-style/shoelace/dist/components/badge/badge.js";
 import "@shoelace-style/shoelace/dist/components/drawer/drawer.js";
 
@@ -31,10 +34,6 @@ import {
 } from "@holochain-syn/text-editor";
 import Automerge from "automerge";
 
-import { notesStoreContext } from "../context";
-import { NotesStore } from "../notes-store";
-
-import "./workspace-list";
 import {
   hashProperty,
   hashState,
@@ -52,23 +51,25 @@ import {
 } from "@holochain-open-dev/stores";
 import { SlDialog, SlDrawer } from "@shoelace-style/shoelace";
 import { msg } from "@lit/localize";
+import { decode } from "@msgpack/msgpack";
+import { NoteMeta } from "../types";
 
 @customElement("markdown-note")
 export class MarkdownNote extends LitElement {
   @property(hashProperty("note-hash"))
   noteHash!: EntryHash;
 
-  @consume({ context: notesStoreContext })
-  _notesStore!: NotesStore;
+  @consume({ context: synContext })
+  _synStore!: SynStore;
 
   _stores = new StoreSubscriber(
     this,
     () =>
       asyncDeriveStore(
-        this._notesStore.synStore.commits.get(this.noteHash),
+        this._synStore.commits.get(this.noteHash),
         (noteCommit) => {
           const rootStore = new RootStore(
-            this._notesStore.synStore,
+            this._synStore,
             textEditorGrammar,
             noteCommit
           );
@@ -131,7 +132,7 @@ export class MarkdownNote extends LitElement {
     this,
     () =>
       this._selectedCommitHash
-        ? this._notesStore.synStore.commits.get(this._selectedCommitHash)
+        ? this._synStore.commits.get(this._selectedCommitHash)
         : undefined,
     () => [this._selectedCommitHash]
   );
@@ -296,6 +297,15 @@ export class MarkdownNote extends LitElement {
     </div> `;
   }
 
+  renderTitle(rootStore: RootStore<TextEditorGrammar>) {
+    let meta = decode(rootStore.root.entry.meta!) as NoteMeta;
+    return html`<span style="margin-right: 8px">${meta.title}</span>
+      ${meta.attachedToHrl
+        ? html`<span>${msg(", for")}</span>
+            <hrl-link .hrl=${meta.attachedToHrl}></hrl-link> `
+        : html``} `;
+  }
+
   renderNoteWorkspace(rootStore: RootStore<TextEditorGrammar>) {
     switch (this._workspace.value.status) {
       case "pending":
@@ -317,12 +327,13 @@ export class MarkdownNote extends LitElement {
                 style="align-items: center; background-color: white; padding: 8px;
           box-shadow: var(--sl-shadow-x-large); z-index: 10"
               >
+                ${this.renderTitle(rootStore)}
+                <span style="flex: 1"></span>
                 <span style="margin: 0 8px">${msg("Participants:")}</span>
                 <workspace-participants
                   direction="row"
                   .workspacestore=${workspaceStore}
                 ></workspace-participants>
-                <span style="flex: 1"></span>
                 <span>${msg("Active Workspace:")}</span>
                 <sl-badge variant="primary" pill style="margin-left: 8px"
                   >${this._workspaceName}</sl-badge
