@@ -52,6 +52,10 @@ export default defineConfig({
           dest: path.resolve(__dirname, "dist"),
           rename: "styles.css",
         },
+        {
+          src: path.resolve(__dirname, "./icon.png"),
+          dest: path.resolve(__dirname, "dist"),
+        },
       ],
     }),
   ],
@@ -61,6 +65,7 @@ export default defineConfig({
       formats: ["es"],
       entry: path.resolve(__dirname, "src/index.ts"),
       name: "index",
+      fileName: () => "index.js",
     },
   },
 });

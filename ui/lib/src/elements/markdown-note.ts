@@ -301,7 +301,7 @@ export class MarkdownNote extends LitElement {
     let meta = decode(rootStore.root.entry.meta!) as NoteMeta;
     return html`<span style="margin-right: 8px">${meta.title}</span>
       ${meta.attachedToHrl
-        ? html`<span>${msg(", for")}</span>
+        ? html`<span>${msg(" for")}</span>
             <hrl-link .hrl=${meta.attachedToHrl}></hrl-link> `
         : html``} `;
   }
