@@ -93,16 +93,22 @@ export class NotebooksApp extends LitElement {
       ></markdown-note>`;
 
     return html`
-      <div class="column" style="flex: 1; margin: 16px">
-        <span class="title">${msg("All Notes")}</span>
-        <all-notes
-          style="flex: 1;"
-          @note-selected=${(e: CustomEvent) => {
-            this._activeNoteHash = e.detail.noteHash;
-          }}
-        ></all-notes>
-        ${this.renderNewNoteButton()}
+      <div class="flex-scrollable-parent">
+        <div class="flex-scrollable-container">
+          <div class="flex-scrollable-y">
+            <div class="column" style="flex: 1; margin: 16px">
+              <span class="title">${msg("All Notes")}</span>
+              <all-notes
+                style="flex: 1;"
+                @note-selected=${(e: CustomEvent) => {
+                  this._activeNoteHash = e.detail.noteHash;
+                }}
+              ></all-notes>
+            </div>
+          </div>
+        </div>
       </div>
+      ${this.renderNewNoteButton()}
     `;
   }
 

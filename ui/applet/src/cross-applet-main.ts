@@ -24,6 +24,7 @@ import {
   weServicesContext,
 } from "@lightningrodlabs/we-applet";
 import { consume } from "@lit-labs/context";
+import { CellType } from "@holochain/client";
 
 @localized()
 @customElement("cross-applet-main")
@@ -54,35 +55,57 @@ export class CrossAppletMain extends LitElement {
     groupsProfiles: ReadonlyMap<DnaHash, GroupProfile>
   ) {
     return html`
-      <div class="column" style="flex: 1;">
-        ${Array.from(this.applets.entries()).map(
-          ([appletId, { appletClient, profilesClient }]) =>
-            html`
-              <profiles-context .store=${new ProfilesStore(profilesClient)}>
-                <syn-context
-                  .synstore=${new SynStore(
-                    new SynClient(appletClient, "notebooks")
-                  )}
-                >
-                  <div class="row">
-                    <span class="title">${msg("Notes")} ${msg("in")} </span>
-                    ${applets
-                      .get(appletId)
-                      ?.groupsIds.map(
-                        (groupId) => html`
-                          <sl-icon
-                            .src=${groupsProfiles.get(groupId)?.logo_src}
-                            style="margin-right: 4px"
-                          ></sl-icon>
-                        `
-                      )}
-                    <span>${applets.get(appletId)?.appletName}</span>
-                  </div>
-                  <all-notes style="flex: 1; margin: 16px;"></all-notes>
-                </syn-context>
-              </profiles-context>
-            `
-        )}
+      <div class="flex-scrollable-parent" style="margin: 16px">
+        <div class="flex-scrollable-container">
+          <div class="flex-scrollable-y">
+            <div class="column" style="margin: 16px">
+              ${Array.from(this.applets.entries()).map(
+                ([appletId, { appletClient, profilesClient }]) =>
+                  html`
+                    <profiles-context
+                      .store=${new ProfilesStore(profilesClient)}
+                    >
+                      <syn-context
+                        .store=${new SynStore(
+                          new SynClient(appletClient, "notebooks")
+                        )}
+                      >
+                        <div class="row title" style="align-items: center">
+                          <span>${msg("Notes")} ${msg("in")} </span>
+                          ${applets
+                            .get(appletId)
+                            ?.groupsIds.map(
+                              (groupId) => html`
+                                <img
+                                  .src=${groupsProfiles.get(groupId)?.logo_src}
+                                  alt="group-${groupsProfiles.get(groupId)
+                                    ?.name}"
+                                  style="margin-right: 4px; height: 32px; width: 32px"
+                                />
+                              `
+                            )}
+                          <span>${applets.get(appletId)?.appletName}</span>
+                        </div>
+                        <all-notes
+                          style="margin: 16px; 0"
+                          @note-selected=${async (e: CustomEvent) => {
+                            const appInfo = await appletClient.appInfo();
+                            const dnaHash = (
+                              appInfo.cell_info.notebooks[0] as any
+                            )[CellType.Provisioned].cell_id[0];
+                            this.weServices.openViews.openHrl(
+                              [dnaHash, e.detail.noteHash],
+                              {}
+                            );
+                          }}
+                        ></all-notes>
+                      </syn-context>
+                    </profiles-context>
+                  `
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     `;
   }

@@ -18,10 +18,14 @@ import { sortByDescendantTimestamp } from "../utils";
 @localized()
 @customElement("all-notes")
 export class AllNotes extends LitElement {
-  @consume({ context: synContext })
+  @consume({ context: synContext, subscribe: true })
   synStore!: SynStore;
 
-  allNotes = new StoreSubscriber(this, () => this.synStore.allRoots);
+  allNotes = new StoreSubscriber(
+    this,
+    () => this.synStore.allRoots,
+    () => [this.synStore]
+  );
 
   renderNote(note: EntryRecord<Commit>) {
     return html`
@@ -75,24 +79,15 @@ export class AllNotes extends LitElement {
               style="flex: 1; justify-content: center; align-items: center"
             >
               <span class="placeholder" style="margin: 24px;"
-                >${msg("There are no notes yet")}</span
+                >${msg("There are no notes yet.")}</span
               >
             </div>
           `;
         return html`
-          <div class="flex-scrollable-parent">
-            <div class="flex-scrollable-container">
-              <div class="flex-scrollable-y">
-                <div
-                  class="row"
-                  style="flex: 1; flex-wrap: wrap; padding: 16px;"
-                >
-                  ${sortByDescendantTimestamp(this.allNotes.value.value).map(
-                    (note) => this.renderNote(note)
-                  )}
-                </div>
-              </div>
-            </div>
+          <div class="row" style="flex: 1; flex-wrap: wrap; padding: 16px;">
+            ${sortByDescendantTimestamp(this.allNotes.value.value).map((note) =>
+              this.renderNote(note)
+            )}
           </div>
         `;
       case "error":

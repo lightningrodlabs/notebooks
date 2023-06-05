@@ -44,7 +44,7 @@ function wrapAppletView(
   return html`
     <we-services-context .services=${weServices}>
       <profiles-context .store=${new ProfilesStore(profilesClient)}>
-        <syn-context .synstore=${synStore}>
+        <syn-context .store=${synStore}>
           ${innerTemplate}
         </syn-context></profiles-context
       ></we-services-context
@@ -52,12 +52,12 @@ function wrapAppletView(
   `;
 }
 
-function appletViews(
+async function appletViews(
   client: AppAgentClient,
   _appletId: EntryHash,
   profilesClient: ProfilesClient,
   weServices: WeServices
-): AppletViews {
+): Promise<AppletViews> {
   return {
     main: (element) =>
       render(
@@ -124,13 +124,13 @@ function appletViews(
   };
 }
 
-function crossAppletViews(
+async function crossAppletViews(
   applets: ReadonlyMap<
     EntryHash,
     { profilesClient: ProfilesClient; appletClient: AppAgentClient }
   >, // Segmented by groupId
   weServices: WeServices
-): CrossAppletViews {
+): Promise<CrossAppletViews> {
   return {
     main: (element) =>
       render(
@@ -167,7 +167,12 @@ const applet: WeApplet = {
       },
     },
   }),
-  search: async (appletClient: AppAgentClient, filter: string) => {
+  search: async (
+    appletClient: AppAgentClient,
+    _appletId: EntryHash,
+    _weServices: WeServices,
+    filter: string
+  ) => {
     const client = new SynClient(appletClient, "notebooks");
 
     const roots = await client.getAllRoots();
