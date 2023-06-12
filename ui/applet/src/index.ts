@@ -6,7 +6,10 @@ import {
 } from "@holochain/client";
 import { html, render, TemplateResult } from "lit";
 import { msg } from "@lit/localize";
-import { wrapPathInSvg } from "@holochain-open-dev/elements";
+import {
+  wrapPathInSvg,
+  wrapPathInSvgWithoutPrefix,
+} from "@holochain-open-dev/elements";
 import { NoteMeta } from "@lightningrodlabs/notebooks";
 import { decode } from "@msgpack/msgpack";
 
@@ -29,7 +32,7 @@ import { SynClient, SynStore } from "@holochain-syn/core";
 
 import { createNote } from "@lightningrodlabs/notebooks";
 import { ProfilesClient, ProfilesStore } from "@holochain-open-dev/profiles";
-import { mdiNotebook } from "@mdi/js";
+import { mdiNotebook, mdiNotebookMultiple } from "@mdi/js";
 
 import "./applet-main";
 import "./cross-applet-main";
@@ -86,7 +89,37 @@ async function appletViews(
         ),
         element
       ),
-    blocks: {},
+    blocks: {
+      all_notes: {
+        label: msg("All Notes"),
+        icon_src: wrapPathInSvgWithoutPrefix(mdiNotebookMultiple),
+        view(element) {
+          render(
+            wrapAppletView(
+              client,
+              profilesClient,
+              weServices,
+              html`
+                <all-notes
+                  style="flex: 1;"
+                  @note-selected=${async (e: CustomEvent) => {
+                    const appInfo = await client.appInfo();
+                    const dnaHash = (appInfo.cell_info.notebooks[0] as any)[
+                      CellType.Provisioned
+                    ].cell_id[0];
+                    weServices.openViews.openHrl(
+                      [dnaHash, e.detail.noteHash],
+                      {}
+                    );
+                  }}
+                ></all-notes>
+              `
+            ),
+            element
+          );
+        },
+      },
+    },
     entries: {
       notebooks: {
         syn_integrity: {

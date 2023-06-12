@@ -5,14 +5,14 @@
   "author": "lit-element",
   "version": "0.0.0",
   "scripts": {
-    "start": "vite --port $UI_PORT --clearScreen false",
+    "start": "vite --port $UI_PORT --clearScreen false demo",
     "build": "vite build",
     "lint": "eslint --ext .ts,.html . && prettier \"**/*.ts\" --check",
     "format": "eslint --ext .ts,.html . --fix && prettier \"**/*.ts\" --write",
     "package": "npm run build && cd dist && bestzip ../dist.zip * && cd .. && hc web-app pack workdir --recursive"
   },
   "dependencies": {
-    "@holochain-open-dev/elements": "^0.5.0",
+    "@holochain-open-dev/elements": "^0.5.8",
     "@holochain-open-dev/profiles": "^0.14.0",
     "@holochain-open-dev/stores": "^0.5.0",
     "@holochain-open-dev/utils": "^0.14.0",
