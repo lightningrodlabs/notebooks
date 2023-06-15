@@ -153,11 +153,16 @@ async function appletViews(
                   weServices,
                   html`
                     <markdown-note .noteHash=${hrl[1]} style="flex: 1">
-                      <attachments-bar
-                        .hash=${hrl[1]}
-                        style="margin-left: 16px;"
-                        slot="toolbar-action"
-                      ></attachments-bar>
+                      <div class="row" slot="toolbar-action">
+                        <sl-divider
+                          vertical
+                          style="margin-left: 8px;"
+                        ></sl-divider>
+                        <attachments-bar
+                          .hash=${hrl[1]}
+                          style="margin-left: 8px; margin-right: 8px"
+                        ></attachments-bar>
+                      </div>
                     </markdown-note>
                   `
                 ),
