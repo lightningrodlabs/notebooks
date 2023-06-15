@@ -26,6 +26,12 @@ import "@lightningrodlabs/notebooks/dist/elements/markdown-note.js";
 import "@holochain-open-dev/profiles/dist/elements/profiles-context.js";
 import "@lightningrodlabs/we-applet/dist/elements/we-services-context.js";
 import "@lightningrodlabs/we-applet/dist/elements/hrl-link.js";
+import "@lightningrodlabs/attachments/dist/elements/attachments-context.js";
+import "@lightningrodlabs/attachments/dist/elements/attachments-bar.js";
+import {
+  AttachmentsStore,
+  AttachmentsClient,
+} from "@lightningrodlabs/attachments";
 import "@holochain-syn/core/dist/elements/syn-context.js";
 
 import { SynClient, SynStore } from "@holochain-syn/core";
@@ -45,12 +51,16 @@ function wrapAppletView(
 ): TemplateResult {
   const synStore = new SynStore(new SynClient(client, "notebooks"));
   return html`
-    <we-services-context .services=${weServices}>
-      <profiles-context .store=${new ProfilesStore(profilesClient)}>
-        <syn-context .store=${synStore}>
-          ${innerTemplate}
-        </syn-context></profiles-context
-      ></we-services-context
+    <attachments-context
+      .store=${new AttachmentsStore(new AttachmentsClient(client, "notebooks"))}
+    >
+      <we-services-context .services=${weServices}>
+        <profiles-context .store=${new ProfilesStore(profilesClient)}>
+          <syn-context .store=${synStore}>
+            ${innerTemplate}
+          </syn-context></profiles-context
+        ></we-services-context
+      ></attachments-context
     >
   `;
 }
@@ -142,10 +152,13 @@ async function appletViews(
                   profilesClient,
                   weServices,
                   html`
-                    <markdown-note
-                      .noteHash=${hrl[1]}
-                      style="flex: 1"
-                    ></markdown-note>
+                    <markdown-note .noteHash=${hrl[1]} style="flex: 1">
+                      <attachments-bar
+                        .hash=${hrl[1]}
+                        style="margin-left: 16px;"
+                        slot="toolbar-action"
+                      ></attachments-bar>
+                    </markdown-note>
                   `
                 ),
                 element

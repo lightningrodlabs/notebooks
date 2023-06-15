@@ -329,6 +329,7 @@ export class MarkdownNote extends LitElement {
               >
                 ${this.renderTitle(rootStore)}
                 <span style="flex: 1"></span>
+
                 <span style="margin: 0 8px">${msg("Participants:")}</span>
                 <workspace-participants
                   direction="row"
@@ -346,6 +347,7 @@ export class MarkdownNote extends LitElement {
                 >
                   ${msg("Version Control")}
                 </sl-button>
+                <slot name="toolbar-action"></slot>
               </div>
               <div class="row" style="flex: 1;">
                 <div class="flex-scrollable-parent">

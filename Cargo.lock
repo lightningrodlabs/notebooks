@@ -59,6 +59,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
 
 [[package]]
+name = "attachments"
+version = "0.0.1"
+dependencies = [
+ "hc_zome_attachments_coordinator",
+ "hdk",
+ "serde",
+]
+
+[[package]]
+name = "attachments_integrity"
+version = "0.0.1"
+dependencies = [
+ "hc_zome_attachments_integrity",
+ "hdi",
+ "serde",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -573,6 +591,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 dependencies = [
  "ahash",
+]
+
+[[package]]
+name = "hc_zome_attachments_coordinator"
+version = "0.0.1"
+source = "git+https://github.com/lightningrodlabs/we?branch=main#c5e26aed8209ab46aa8f88616bdf5e05604ea6d7"
+dependencies = [
+ "hc_zome_attachments_integrity",
+ "hdk",
+ "serde",
+]
+
+[[package]]
+name = "hc_zome_attachments_integrity"
+version = "0.0.1"
+source = "git+https://github.com/lightningrodlabs/we?branch=main#c5e26aed8209ab46aa8f88616bdf5e05604ea6d7"
+dependencies = [
+ "hdi",
+ "serde",
 ]
 
 [[package]]

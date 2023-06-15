@@ -80,7 +80,7 @@ export class CrossAppletMain extends LitElement {
                                   .src=${groupsProfiles.get(groupId)?.logo_src}
                                   alt="group-${groupsProfiles.get(groupId)
                                     ?.name}"
-                                  style="margin-right: 4px; height: 32px; width: 32px"
+                                  style="margin-right: 4px; height: 32px; width: 32px; border-radius: 50%"
                                 />
                               `
                             )}
