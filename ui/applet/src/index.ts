@@ -154,6 +154,9 @@ async function appletViews(
                   html`
                     <markdown-note .noteHash=${hrl[1]} style="flex: 1">
                       <div class="row" slot="toolbar-action">
+                        <span style="margin-left: 8px"
+                          >${msg("Attachments:")}</span
+                        >
                         <sl-divider
                           vertical
                           style="margin-left: 8px;"
