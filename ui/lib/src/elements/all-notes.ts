@@ -12,6 +12,8 @@ import "@holochain-open-dev/elements/dist/elements/display-error.js";
 import "@holochain-open-dev/profiles/dist/elements/agent-avatar.js";
 import "@shoelace-style/shoelace/dist/components/card/card.js";
 import "@shoelace-style/shoelace/dist/components/relative-time/relative-time.js";
+import "@shoelace-style/shoelace/dist/components/skeleton/skeleton.js";
+
 
 import { sortByDescendantTimestamp } from "../utils";
 
@@ -29,7 +31,7 @@ export class AllNotes extends LitElement {
 
   renderNote(note: EntryRecord<Commit>) {
     return html`
-      <sl-card class="note">
+      <sl-card class="note" title=${msg("Open in Tab")}>
         <div
           class="column"
           style="flex: 1; "
@@ -69,7 +71,7 @@ export class AllNotes extends LitElement {
     switch (this.allNotes.value.status) {
       case "pending":
         return html` <div class="row" style="">
-          ${Array(3).map(() => html`<sl-skeleton class="note"></sl-skeleton>`)}
+          ${Array(3).map(() => html`<sl-skeleton effect="pulse" class="note"></sl-skeleton>`)}
         </div>`;
       case "complete":
         if (this.allNotes.value.value.length === 0)
@@ -107,6 +109,11 @@ export class AllNotes extends LitElement {
         margin-right: 16px;
         margin-bottom: 16px;
         display: flex;
+        cursor: pointer;
+        border-radius: 5px;
+      }
+      .note:hover {
+        box-shadow: 1px 1px 8px #a7a7a7;
       }
       sl-card::part(body) {
         display: flex;

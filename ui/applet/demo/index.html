@@ -58,7 +58,8 @@
             client,
             weServicesMock
           )
-        ).blocks["all_notes"].view(document.getElementById("content"));
+        ).main(document.getElementById("content"));
+        // ).blocks["all_notes"].view(document.getElementById("content"));
       }
 
       async function setupCrossAppletMain() {
