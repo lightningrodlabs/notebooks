@@ -3,16 +3,16 @@
   "private": true,
   "workspaces": ["ui/*"],
   "scripts": {
-    "start": "AGENTS=2 npm run network:app",
+    "start": "AGENTS=2 BOOTSTRAP_PORT=$(port) SIGNAL_PORT=$(port) npm run network:app",
     "network:app": "hc s clean && npm run build:happ && UI_PORT=8888 concurrently \"npm run build:watch -w @lightningrodlabs/notebooks\" \"npm run launch\" \"npm run start -w notebooks-app\"",
-    "start:applet": "AGENTS=2 npm run network:applet",
+    "start:applet": "AGENTS=2 BOOTSTRAP_PORT=$(port) SIGNAL_PORT=$(port) npm run network:applet",
     "network:applet": "hc s clean && npm run build -w @lightningrodlabs/notebooks && npm run build:happ && UI_PORT=8888 concurrently \"npm run build:watch -w @lightningrodlabs/notebooks\" \"npm run launch\" \"npm run start -w applet\"",
     "test": "npm run build:happ && cargo nextest run -j 1",
     "package:applet": "npm run build:happ && npm run build -w @lightningrodlabs/notebooks && npm run package -w applet",
     "package:app": "npm run build:happ && npm run build -w @lightningrodlabs/notebooks && npm run package -w notebooks-app",
     "build:happ": "npm run build:zomes && hc app pack workdir --recursive",
     "build:zomes": "CARGO_TARGET_DIR=target cargo build --release --target wasm32-unknown-unknown",
-    "launch": "echo \"pass\" | RUST_LOG=warn hc launch --piped -n $AGENTS workdir/notebooks.happ --ui-port $UI_PORT network mdns",
+    "launch": "concurrently \"hc run-local-services --bootstrap-port $BOOTSTRAP_PORT --signal-port $SIGNAL_PORT\" \"echo pass | RUST_LOG=warn hc launch --piped -n $AGENTS workdir/notebooks.happ --ui-port $UI_PORT network --bootstrap http://127.0.0.1:\"$BOOTSTRAP_PORT\" webrtc ws://127.0.0.1:\"$SIGNAL_PORT\"\"",
     "prepare": "npm run build -w @lightningrodlabs/notebooks",
     "playground": "holochain-playground"
   },
@@ -21,6 +21,7 @@
     "bestzip": "^2.2.0",
     "concurrently": "^6.2.1",
     "cross-env": "^7.0.3",
+    "new-port-cli": "^1.0.0",
     "rimraf": "^3.0.2"
   },
   "engines": {
