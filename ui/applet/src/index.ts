@@ -239,7 +239,7 @@ const applet: WeApplet = {
       .filter((r) => {
         const noteMeta = decode(r.entry.meta!) as NoteMeta;
 
-        return noteMeta.title.includes(filter);
+        return noteMeta.title.toLowerCase().includes(filter.toLowerCase());
       })
       .map((r) => ({ hrl: [dnaHash, r.entryHash], context: {} }));
   },
