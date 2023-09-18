@@ -35,6 +35,7 @@ export class AllNotes extends LitElement {
         <div
           class="column"
           style="flex: 1; "
+          tabindex="0"
           @click=${() =>
             this.dispatchEvent(
               new CustomEvent("note-selected", {
@@ -45,6 +46,21 @@ export class AllNotes extends LitElement {
                 },
               })
             )}
+          @keypress=${(e: KeyboardEvent) =>
+            {
+              if (e.key === "Enter") {
+                this.dispatchEvent(
+                  new CustomEvent("note-selected", {
+                    bubbles: true,
+                    composed: true,
+                    detail: {
+                      noteHash: note.entryHash,
+                    },
+                  })
+                )
+              }
+
+            }}
         >
           <span style="font-size: 18px;"
             >${(decode(note.entry.meta!) as any).title}</span
