@@ -65,7 +65,10 @@ export class NotebooksApp extends LitElement {
   _myProfile!: StoreSubscriber<AsyncStatus<Profile | undefined>>;
 
   async connectToHolochain() {
-    const client = await AppAgentWebsocket.connect(new URL(""), "notebooks");
+    const client = await AppAgentWebsocket.connect(
+      new URL("ws://localhost"),
+      "notebooks"
+    );
 
     this._profilesStore = new ProfilesStore(
       new ProfilesClient(client, "notebooks")
