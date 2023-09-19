@@ -260,7 +260,7 @@ export class MarkdownNote extends LitElement {
       case "error":
         return html`<display-error
           .headline=${msg("Error fetching the commit")}
-          .error=${this._selectedCommit.value.error.data.data}
+          .error=${this._selectedCommit.value.error}
         ></display-error>`;
     }
   }
@@ -382,7 +382,7 @@ export class MarkdownNote extends LitElement {
       case "error":
         return html`<display-error
           .headline=${msg("Error fetching the workspace for this note")}
-          .error=${this._workspace.value.error.data.data}
+          .error=${this._workspace.value.error}
         ></display-error>`;
     }
   }

@@ -14,7 +14,6 @@ import "@shoelace-style/shoelace/dist/components/card/card.js";
 import "@shoelace-style/shoelace/dist/components/relative-time/relative-time.js";
 import "@shoelace-style/shoelace/dist/components/skeleton/skeleton.js";
 
-
 import { sortByDescendantTimestamp } from "../utils";
 
 @localized()
@@ -46,21 +45,19 @@ export class AllNotes extends LitElement {
                 },
               })
             )}
-          @keypress=${(e: KeyboardEvent) =>
-            {
-              if (e.key === "Enter") {
-                this.dispatchEvent(
-                  new CustomEvent("note-selected", {
-                    bubbles: true,
-                    composed: true,
-                    detail: {
-                      noteHash: note.entryHash,
-                    },
-                  })
-                )
-              }
-
-            }}
+          @keypress=${(e: KeyboardEvent) => {
+            if (e.key === "Enter") {
+              this.dispatchEvent(
+                new CustomEvent("note-selected", {
+                  bubbles: true,
+                  composed: true,
+                  detail: {
+                    noteHash: note.entryHash,
+                  },
+                })
+              );
+            }
+          }}
         >
           <span style="font-size: 18px;"
             >${(decode(note.entry.meta!) as any).title}</span
@@ -87,7 +84,9 @@ export class AllNotes extends LitElement {
     switch (this.allNotes.value.status) {
       case "pending":
         return html` <div class="row" style="">
-          ${Array(3).map(() => html`<sl-skeleton effect="pulse" class="note"></sl-skeleton>`)}
+          ${Array(3).map(
+            () => html`<sl-skeleton effect="pulse" class="note"></sl-skeleton>`
+          )}
         </div>`;
       case "complete":
         if (this.allNotes.value.value.length === 0)
@@ -111,7 +110,7 @@ export class AllNotes extends LitElement {
       case "error":
         return html`<display-error
           .headline=${msg("Error fetching the notes")}
-          .error=${this.allNotes.value.error.data.data}
+          .error=${this.allNotes.value.error}
         ></display-error>`;
     }
   }

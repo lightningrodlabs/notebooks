@@ -19,13 +19,13 @@
     "format": "eslint --ext .ts,.html . --fix --ignore-path .gitignore && prettier \"**/*.ts\" --write --ignore-path .gitignore"
   },
   "dependencies": {
-    "@holochain-open-dev/elements": "^0.5.0",
-    "@holochain-open-dev/profiles": "^0.14.0",
-    "@holochain-open-dev/stores": "^0.5.0",
-    "@holochain-open-dev/utils": "^0.14.0",
-    "@holochain-syn/core": "^0.5.0",
-    "@holochain-syn/text-editor": "^0.5.0",
-    "@holochain/client": "^0.14.1",
+    "@holochain-open-dev/elements": "^0.7.0",
+    "@holochain-open-dev/profiles": "^0.16.1",
+    "@holochain-open-dev/stores": "^0.7.0",
+    "@holochain-open-dev/utils": "^0.15.0",
+    "@holochain-syn/core": "^0.6.0",
+    "@holochain-syn/text-editor": "^0.6.0",
+    "@holochain/client": "^0.16.1",
     "@koddsson/textarea-caret": "^4.0.1",
     "@lightningrodlabs/notebooks": "0.0.1",
     "@lit-labs/context": "^0.2.0",
@@ -59,13 +59,8 @@
   "customElements": "custom-elements.json",
   "eslintConfig": {
     "parser": "@typescript-eslint/parser",
-    "extends": [
-      "@open-wc",
-      "prettier"
-    ],
-    "plugins": [
-      "@typescript-eslint"
-    ],
+    "extends": ["@open-wc", "prettier"],
+    "plugins": ["@typescript-eslint"],
     "rules": {
       "no-unused-vars": "off",
       "no-useless-constructors": "off",
@@ -73,9 +68,7 @@
       "no-empty-function": "off",
       "class-methods-use-this": "off",
       "no-useless-constructor": "off",
-      "@typescript-eslint/no-unused-vars": [
-        "error"
-      ],
+      "@typescript-eslint/no-unused-vars": ["error"],
       "import/no-unresolved": "off",
       "import/extensions": "off"
     }
@@ -90,9 +83,6 @@
     }
   },
   "lint-staged": {
-    "*.ts": [
-      "eslint --fix",
-      "prettier --write"
-    ]
+    "*.ts": ["eslint --fix", "prettier --write"]
   }
 }

@@ -92,7 +92,7 @@ export class WorkspaceList extends LitElement {
       case "error":
         return html`<display-error
           .headline=${msg("Error fetching the workspaces")}
-          .error=${this._allWorkspaces.value.error.data.data}
+          .error=${this._allWorkspaces.value.error}
         ></display-error>`;
     }
   }
