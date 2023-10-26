@@ -4,18 +4,18 @@ import { css, html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
   Workspace,
-  RootStore,
+  DocumentStore,
   WorkspaceStore,
   stateFromCommit,
   SynStore,
   synContext,
+  synDocumentContext,
+  SessionStore,
 } from "@holochain-syn/core";
 import { MarkdownRenderer } from "@scoped-elements/markdown-renderer";
-customElements.define("markdown-renderer", MarkdownRenderer);
 
 import "@holochain-syn/core/dist/elements/syn-context.js";
-import "@holochain-syn/core/dist/elements/syn-root-context.js";
-import "@holochain-syn/core/dist/elements/workspace-participants.js";
+import "@holochain-syn/core/dist/elements/session-participants.js";
 import "@holochain-syn/core/dist/elements/commit-history.js";
 import "@holochain-syn/text-editor/dist/elements/syn-markdown-editor.js";
 import "@shoelace-style/shoelace/dist/components/spinner/spinner.js";
@@ -27,103 +27,68 @@ import "./workspace-list";
 import "@shoelace-style/shoelace/dist/components/badge/badge.js";
 import "@shoelace-style/shoelace/dist/components/drawer/drawer.js";
 
-import {
-  textEditorGrammar,
-  TextEditorGrammar,
-  TextEditorState,
-} from "@holochain-syn/text-editor";
-import Automerge from "automerge";
+import { TextEditorGrammar, TextEditorState } from "@holochain-syn/text-editor";
 
 import {
-  hashProperty,
   hashState,
   notifyError,
   onSubmit,
   sharedStyles,
 } from "@holochain-open-dev/elements";
 import { EntryHash } from "@holochain/client";
-import {
-  asyncDerived,
-  asyncDeriveStore,
-  AsyncStatus,
-  derived,
-  StoreSubscriber,
-} from "@holochain-open-dev/stores";
+import { pipe, StoreSubscriber } from "@holochain-open-dev/stores";
 import { SlDialog, SlDrawer } from "@shoelace-style/shoelace";
 import { msg } from "@lit/localize";
 import { decode } from "@msgpack/msgpack";
-import { NoteMeta } from "../types";
+
+import { NoteMeta } from "../types.js";
+
+customElements.define("markdown-renderer", MarkdownRenderer);
 
 @customElement("markdown-note")
 export class MarkdownNote extends LitElement {
-  @property(hashProperty("note-hash"))
-  noteHash!: EntryHash;
+  @consume({ context: synDocumentContext, subscribe: true })
+  @property()
+  documentStore!: DocumentStore<TextEditorGrammar>;
 
-  @consume({ context: synContext })
-  _synStore!: SynStore;
-
-  _stores = new StoreSubscriber(
+  _meta = new StoreSubscriber(
     this,
     () =>
-      asyncDeriveStore(
-        this._synStore.commits.get(this.noteHash),
-        (noteCommit) => {
-          const rootStore = new RootStore(
-            this._synStore,
-            textEditorGrammar,
-            noteCommit
-          );
-
-          return asyncDerived(
-            rootStore.allWorkspaces,
-            (allWorkspaces) =>
-              [rootStore, allWorkspaces] as [
-                RootStore<TextEditorGrammar>,
-                Array<EntryRecord<Workspace>>
-              ]
-          );
-        }
+      pipe(
+        this.documentStore.synStore.commits.get(this.documentStore.rootHash),
+        (commit) => decode(commit.entry.meta!) as NoteMeta
       ),
-    () => [this.noteHash]
+    () => [this.documentStore]
   );
 
-  @state()
-  _workspaceName: string = "main";
-
-  _workspace = new StoreSubscriber(
+  _session = new StoreSubscriber(
     this,
     () =>
-      asyncDeriveStore(
-        this._stores.store()!,
-        async ([rootStore, allWorkspaces]) => {
+      pipe(
+        this.documentStore.allWorkspaces,
+        (allWorkspaces) => {
           const workspace: EntryRecord<Workspace> | undefined =
             allWorkspaces.find((w) => w.entry.name === this._workspaceName);
 
           if (!workspace)
             throw new Error("The requested workspace was not found");
-
-          const workspaceStore = await rootStore.joinWorkspace(
+          return new WorkspaceStore(
+            this.documentStore,
             workspace.entryHash
-          );
-
-          return derived(
-            [workspaceStore.state, workspaceStore.currentTip],
-            ([state, tip]) =>
-              ({
-                status: "complete",
-                value: [workspaceStore, state, tip],
-              } as AsyncStatus<
-                [
-                  WorkspaceStore<TextEditorGrammar>,
-                  Automerge.FreezeObject<TextEditorState>,
-                  EntryHash
-                ]
-              >)
-          );
-        }
+          ).joinSession();
+        },
+        (sessionStore) => sessionStore.state,
+        (state, sessionStore) =>
+          [sessionStore, state] as [
+            SessionStore<TextEditorGrammar>,
+            TextEditorState
+          ]
       ),
-    () => [this._workspaceName]
+    () => [this.documentStore, this._workspaceName]
   );
+
+  @state()
+  _workspaceName: string = "main";
 
   @state(hashState())
   _selectedCommitHash: EntryHash | undefined;
@@ -132,7 +97,7 @@ export class MarkdownNote extends LitElement {
     this,
     () =>
       this._selectedCommitHash
-        ? this._synStore.commits.get(this._selectedCommitHash)
+        ? this.documentStore.synStore.commits.get(this._selectedCommitHash)
         : undefined,
     () => [this._selectedCommitHash]
   );
@@ -143,16 +108,15 @@ export class MarkdownNote extends LitElement {
   async createWorkspace(
     name: string,
     initialTipHash: EntryHash,
-    rootStore: RootStore<TextEditorGrammar>,
-    workspaceStore: WorkspaceStore<TextEditorGrammar>
+    sessionStore: SessionStore<TextEditorGrammar>
   ) {
     if (this.creatingWorkspace) return;
 
     this.creatingWorkspace = true;
 
-    if (workspaceStore) await workspaceStore.leaveWorkspace();
+    await sessionStore.leaveSession();
     try {
-      await rootStore.createWorkspace(name, initialTipHash);
+      await this.documentStore.createWorkspace(name, initialTipHash);
       (this.shadowRoot?.getElementById("drawer") as SlDrawer).hide();
       (
         this.shadowRoot?.getElementById("new-workspace-dialog") as SlDialog
@@ -165,10 +129,7 @@ export class MarkdownNote extends LitElement {
     this.creatingWorkspace = false;
   }
 
-  renderNewWorkspaceButton(
-    rootStore: RootStore<TextEditorGrammar>,
-    workspaceStore: WorkspaceStore<TextEditorGrammar>
-  ) {
+  renderNewWorkspaceButton(sessionStore: SessionStore<TextEditorGrammar>) {
     return html` <sl-button
         style="flex: 1"
         .disabled=${this._selectedCommitHash === undefined}
@@ -188,8 +149,7 @@ export class MarkdownNote extends LitElement {
             this.createWorkspace(
               f.name,
               this._selectedCommitHash!,
-              rootStore,
-              workspaceStore
+              sessionStore
             )
           )}
           id="new-workspace-form"
@@ -265,17 +225,14 @@ export class MarkdownNote extends LitElement {
     }
   }
 
-  renderVersionControlPanel(
-    rootStore: RootStore<TextEditorGrammar>,
-    workspaceStore: WorkspaceStore<TextEditorGrammar>
-  ) {
+  renderVersionControlPanel(sessionStore: SessionStore<TextEditorGrammar>) {
     return html`<div class="row" style="flex: 1;">
       <div class="column" style="width: 600px; margin-right: 16px">
         <workspace-list
           style="flex: 1; margin-bottom: 16px;"
           .activeWorkspace=${this._workspaceName}
           @join-workspace=${async (e: CustomEvent) => {
-            if (this._workspace.value) await workspaceStore.leaveWorkspace();
+            await sessionStore.leaveSession();
             this.drawer.hide();
             this._workspaceName = e.detail.workspace.entry.name;
           }}
@@ -290,15 +247,15 @@ export class MarkdownNote extends LitElement {
       </div>
       <div class="column" style="width: 800px">
         ${this.renderSelectedCommit()}
-        <div class="row">
-          ${this.renderNewWorkspaceButton(rootStore, workspaceStore)}
-        </div>
+        <div class="row">${this.renderNewWorkspaceButton(sessionStore)}</div>
       </div>
     </div> `;
   }
 
-  renderTitle(rootStore: RootStore<TextEditorGrammar>) {
-    let meta = decode(rootStore.root.entry.meta!) as NoteMeta;
+  renderTitle() {
+    if (this._meta.value.status !== "complete")
+      return html`<sl-skeleton></sl-skeleton>`;
+    const meta = this._meta.value.value;
     return html`<span style="margin-right: 8px">${meta.title}</span>
       ${meta.attachedToHrl
         ? html`<span>${msg(" for")}</span>
@@ -306,85 +263,70 @@ export class MarkdownNote extends LitElement {
         : html``} `;
   }
 
-  renderNoteWorkspace(rootStore: RootStore<TextEditorGrammar>) {
-    switch (this._workspace.value.status) {
-      case "pending":
-        return this.renderLoading();
-      case "complete":
-        const workspaceStore = this._workspace.value.value[0];
-        const state = this._workspace.value.value[1];
-        return html`
-          <syn-root-context .rootstore=${rootStore}>
-            <sl-drawer id="drawer" style="--size: auto">
-              ${this.renderVersionControlPanel(
-                rootStore,
-                workspaceStore
-              )}</sl-drawer
-            >
-            <div class="column" style="flex: 1; height: 100%;">
-              <div
-                class="row"
-                style="align-items: center; background-color: white; padding: 8px;
+  renderNoteWorkspace(
+    sessionStore: SessionStore<TextEditorGrammar>,
+    state: TextEditorState
+  ) {
+    return html`
+      <sl-drawer id="drawer" style="--size: auto">
+        ${this.renderVersionControlPanel(sessionStore)}</sl-drawer
+      >
+      <div class="column" style="flex: 1; height: 100%;">
+        <div
+          class="row"
+          style="align-items: center; background-color: white; padding: 8px;
           box-shadow: var(--sl-shadow-x-large); z-index: 10"
-              >
-                ${this.renderTitle(rootStore)}
-                <span style="flex: 1"></span>
+        >
+          ${this.renderTitle()}
+          <span style="flex: 1"></span>
 
-                <span style="margin: 0 8px">${msg("Participants:")}</span>
-                <workspace-participants
-                  direction="row"
-                  .workspacestore=${workspaceStore}
-                ></workspace-participants>
-                <span>${msg("Active Workspace:")}</span>
-                <sl-badge variant="primary" pill style="margin-left: 8px"
-                  >${this._workspaceName}</sl-badge
-                >
-                <sl-button
-                  style="margin-left: 16px;"
-                  @click=${() => {
-                    this.drawer.show();
-                  }}
-                >
-                  ${msg("Version Control")}
-                </sl-button>
-                <slot name="toolbar-action"></slot>
+          <span style="margin: 0 8px">${msg("Participants:")}</span>
+          <session-participants
+            direction="row"
+            .sessionstore=${sessionStore}
+          ></session-participants>
+          <span>${msg("Active Workspace:")}</span>
+          <sl-badge variant="primary" pill style="margin-left: 8px"
+            >${this._workspaceName}</sl-badge
+          >
+          <sl-button
+            style="margin-left: 16px;"
+            @click=${() => {
+              this.drawer.show();
+            }}
+          >
+            ${msg("Version Control")}
+          </sl-button>
+          <slot name="toolbar-action"></slot>
+        </div>
+        <div class="row" style="flex: 1;">
+          <div class="flex-scrollable-parent">
+            <div class="flex-scrollable-container">
+              <div class="flex-scrollable-y">
+                <syn-markdown-editor
+                  .slice=${sessionStore}
+                ></syn-markdown-editor>
               </div>
-              <div class="row" style="flex: 1;">
-                <div class="flex-scrollable-parent">
-                  <div class="flex-scrollable-container">
-                    <div class="flex-scrollable-y">
-                      <syn-markdown-editor
-                        .slice=${workspaceStore}
-                      ></syn-markdown-editor>
-                    </div>
-                  </div>
-                </div>
+            </div>
+          </div>
 
-                <div class="flex-scrollable-parent">
-                  <div class="flex-scrollable-container">
-                    <div class="flex-scrollable-y">
-                      <div style="margin: 8px">
-                        <sl-card style="width: 100%">
-                          <markdown-renderer
-                            style="flex: 1; "
-                            .markdown=${state.text.toString()}
-                          ></markdown-renderer>
-                        </sl-card>
-                      </div>
-                    </div>
-                  </div>
+          <div class="flex-scrollable-parent">
+            <div class="flex-scrollable-container">
+              <div class="flex-scrollable-y">
+                <div style="margin: 8px">
+                  <sl-card style="width: 100%">
+                    <markdown-renderer
+                      style="flex: 1; "
+                      .markdown=${state.text.toString()}
+                    ></markdown-renderer>
+                  </sl-card>
                 </div>
               </div>
             </div>
-          </syn-root-context>
-        `;
-
-      case "error":
-        return html`<display-error
-          .headline=${msg("Error fetching the workspace for this note")}
-          .error=${this._workspace.value.error}
-        ></display-error>`;
-    }
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   renderLoading() {
@@ -414,15 +356,14 @@ export class MarkdownNote extends LitElement {
   }
 
   render() {
-    switch (this._stores.value.status) {
+    switch (this._session.value.status) {
       case "pending":
         return this.renderLoading();
       case "complete":
-        const rootStore = this._stores.value.value[0];
-        const workspaces = this._stores.value.value[1];
-        if (workspaces && workspaces.length > 0)
-          return this.renderNoteWorkspace(rootStore);
-        return this.renderNoRootFound();
+        return this.renderNoteWorkspace(
+          this._session.value.value[0],
+          this._session.value.value[1]
+        );
       case "error":
         return this.renderNoRootFound();
     }
@@ -430,9 +371,10 @@ export class MarkdownNote extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    if (this._workspace.value.status === "complete")
-      this._workspace.value.value[0].leaveWorkspace();
+    if (this._session.value.status === "complete")
+      this._session.value.value[0].leaveSession();
   }
+
   static styles = [
     sharedStyles,
     css`

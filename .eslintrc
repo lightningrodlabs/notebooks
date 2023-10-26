@@ -17,6 +17,8 @@
     "consistent-return": "off",
     "default-case": "off",
     "no-console": "off",
-    "import/no-duplicates": "off"
+    "import/no-duplicates": "off",
+    "no-case-declarations": "off",
+    "no-shadow": "off"
   }
 }

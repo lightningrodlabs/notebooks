@@ -1,7 +1,11 @@
 import { css, html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { consume } from "@lit-labs/context";
-import { RootStore, synRootContext, Workspace } from "@holochain-syn/core";
+import {
+  DocumentStore,
+  synDocumentContext,
+  Workspace,
+} from "@holochain-syn/core";
 import { TextEditorGrammar } from "@holochain-syn/text-editor";
 
 import "@holochain-open-dev/profiles/dist/elements/agent-avatar.js";
@@ -17,16 +21,16 @@ import { EntryRecord } from "@holochain-open-dev/utils";
 @localized()
 @customElement("workspace-list")
 export class WorkspaceList extends LitElement {
-  @consume({ context: synRootContext, subscribe: true })
+  @consume({ context: synDocumentContext, subscribe: true })
   @property()
-  rootStore!: RootStore<TextEditorGrammar>;
+  documentStore!: DocumentStore<TextEditorGrammar>;
 
   @property()
   activeWorkspace!: string;
 
   _allWorkspaces = new StoreSubscriber(
     this,
-    () => this.rootStore.allWorkspaces,
+    () => this.documentStore.allWorkspaces,
     () => []
   );
 

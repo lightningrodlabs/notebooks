@@ -7,7 +7,12 @@ import {
   ProfilesStore,
   profilesStoreContext,
 } from "@holochain-open-dev/profiles";
-import { SynStore, synContext, SynClient } from "@holochain-syn/core";
+import {
+  SynStore,
+  synContext,
+  SynClient,
+  DocumentStore,
+} from "@holochain-syn/core";
 
 import "@holochain-open-dev/elements/dist/elements/display-error.js";
 import "@holochain-open-dev/profiles/dist/elements/agent-avatar.js";
@@ -17,12 +22,14 @@ import "@shoelace-style/shoelace/dist/components/spinner/spinner.js";
 import "@shoelace-style/shoelace/dist/components/icon-button/icon-button.js";
 import "@shoelace-style/shoelace/dist/components/button/button.js";
 import "@shoelace-style/shoelace/dist/components/alert/alert.js";
+import "@holochain-syn/core/dist/elements/syn-document-context.js";
+import {
+  textEditorGrammar,
+  TextEditorGrammar,
+} from "@holochain-syn/text-editor";
 
 import { provide } from "@lit-labs/context";
 import { localized, msg } from "@lit/localize";
-
-import "@lightningrodlabs/notebooks/dist/elements/markdown-note.js";
-import "@lightningrodlabs/notebooks/dist/elements/all-notes.js";
 
 import { AsyncStatus, StoreSubscriber } from "@holochain-open-dev/stores";
 import {
@@ -34,13 +41,16 @@ import {
 import { mdiArrowLeft } from "@mdi/js";
 import { decode } from "@msgpack/msgpack";
 import SlDialog from "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
-import { createNote } from "@lightningrodlabs/notebooks";
+
+import "./elements/markdown-note.js";
+import "./elements/all-notes.js";
+import { createNote } from "./index.js";
 
 @localized()
 @customElement("notebooks-app")
 export class NotebooksApp extends LitElement {
   @state()
-  _activeNoteHash: ActionHash | undefined;
+  _activeNote: DocumentStore<TextEditorGrammar> | undefined;
 
   @state()
   _loading = true;
@@ -53,13 +63,13 @@ export class NotebooksApp extends LitElement {
   @property()
   _synStore!: SynStore;
 
-  _activeNote = new StoreSubscriber(
+  _activeNoteCommit = new StoreSubscriber(
     this,
     () =>
-      this._activeNoteHash
-        ? this._synStore.commits.get(this._activeNoteHash)
+      this._activeNote
+        ? this._synStore.commits.get(this._activeNote.rootHash)
         : undefined,
-    () => [this._activeNoteHash]
+    () => [this._activeNote]
   );
 
   _myProfile!: StoreSubscriber<AsyncStatus<Profile | undefined>>;
@@ -89,11 +99,12 @@ export class NotebooksApp extends LitElement {
   }
 
   renderContent() {
-    if (this._activeNoteHash)
-      return html`<markdown-note
-        style="flex: 1;"
-        .noteHash=${this._activeNoteHash}
-      ></markdown-note>`;
+    if (this._activeNote)
+      return html`
+        <syn-document-context .documentstore=${this._activeNote}>
+          <markdown-note style="flex: 1;"></markdown-note>
+        </syn-document-context>
+      `;
 
     return html`
       <div class="flex-scrollable-parent">
@@ -104,7 +115,11 @@ export class NotebooksApp extends LitElement {
               <all-notes
                 style="flex: 1;"
                 @note-selected=${(e: CustomEvent) => {
-                  this._activeNoteHash = e.detail.noteHash;
+                  this._activeNote = new DocumentStore(
+                    this._synStore,
+                    textEditorGrammar,
+                    e.detail.noteHash
+                  );
                 }}
               ></all-notes>
             </div>
@@ -128,9 +143,13 @@ export class NotebooksApp extends LitElement {
     this.creatingNote = true;
 
     try {
-      const note = await createNote(this._synStore, title);
+      const noteHash = await createNote(this._synStore, title);
 
-      this._activeNoteHash = note.entryHash;
+      this._activeNote = new DocumentStore(
+        this._synStore,
+        textEditorGrammar,
+        noteHash
+      );
       this._newNoteDialog.hide();
       (this.shadowRoot?.getElementById("note-form") as HTMLFormElement).reset();
     } catch (e) {
@@ -195,20 +214,21 @@ export class NotebooksApp extends LitElement {
   }
 
   renderBackButton() {
-    if (!this._activeNoteHash) return html``;
+    if (!this._activeNote) return html``;
 
     return html`
       <sl-icon-button
         .src=${wrapPathInSvg(mdiArrowLeft)}
         class="back-button"
-        @click=${() => (this._activeNoteHash = undefined)}
+        @click=${() => (this._activeNote = undefined)}
       ></sl-icon-button>
     `;
   }
 
   renderTitle() {
-    if (this._activeNote.value?.status === "complete")
-      return (decode(this._activeNote.value.value.entry.meta!) as any).title;
+    if (this._activeNoteCommit.value?.status === "complete")
+      return (decode(this._activeNoteCommit.value.value.entry.meta!) as any)
+        .title;
     return msg("Notebooks");
   }
 
