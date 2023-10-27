@@ -45,6 +45,8 @@ import { NoteMeta } from "../types.js";
 
 customElements.define("markdown-renderer", MarkdownRenderer);
 
+const WORKSPACE_NOT_FOUND = "The requested workspace was not found";
+
 @customElement("markdown-note")
 export class MarkdownNote extends LitElement {
   @consume({ context: synDocumentContext, subscribe: true })
@@ -66,12 +68,11 @@ export class MarkdownNote extends LitElement {
     () =>
       pipe(
         this.documentStore.allWorkspaces,
-        (allWorkspaces) => {
+        async (allWorkspaces) => {
           const workspace: EntryRecord<Workspace> | undefined =
             allWorkspaces.find((w) => w.entry.name === this._workspaceName);
 
-          if (!workspace)
-            throw new Error("The requested workspace was not found");
+          if (!workspace) throw new Error(WORKSPACE_NOT_FOUND);
           return new WorkspaceStore(
             this.documentStore,
             workspace.entryHash
@@ -365,6 +366,14 @@ export class MarkdownNote extends LitElement {
           this._session.value.value[1]
         );
       case "error":
+        if (this._session.value.error.message === WORKSPACE_NOT_FOUND)
+          return html`<div
+            class="column center-content"
+            style="flex: 1; gap: 16px"
+          >
+            <sl-spinner style="font-size: 16px"></sl-spinner>
+            <span class="placeholder">${msg("Creating workspace...")}</span>
+          </div>`;
         return this.renderNoRootFound();
     }
   }
@@ -380,6 +389,10 @@ export class MarkdownNote extends LitElement {
     css`
       sl-drawer::part(body) {
         display: flex;
+      }
+      :host {
+        display: flex;
+        flex: 1;
       }
     `,
   ];

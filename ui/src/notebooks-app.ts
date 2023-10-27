@@ -1,6 +1,11 @@
 import { LitElement, css, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { ActionHash, AppAgentWebsocket } from "@holochain/client";
+import {
+  ActionHash,
+  AppAgentClient,
+  AppAgentWebsocket,
+  EntryHash,
+} from "@holochain/client";
 import {
   ProfilesClient,
   Profile,
@@ -23,10 +28,13 @@ import "@shoelace-style/shoelace/dist/components/icon-button/icon-button.js";
 import "@shoelace-style/shoelace/dist/components/button/button.js";
 import "@shoelace-style/shoelace/dist/components/alert/alert.js";
 import "@holochain-syn/core/dist/elements/syn-document-context.js";
+import { textEditorGrammar } from "@holochain-syn/text-editor";
 import {
-  textEditorGrammar,
-  TextEditorGrammar,
-} from "@holochain-syn/text-editor";
+  AppletServices,
+  isWeContext,
+  WeClient,
+} from "@lightningrodlabs/we-applet";
+import { LazyHoloHashMap } from "@holochain-open-dev/utils";
 
 import { provide } from "@lit-labs/context";
 import { localized, msg } from "@lit/localize";
@@ -45,12 +53,24 @@ import SlDialog from "@shoelace-style/shoelace/dist/components/dialog/dialog.js"
 import "./elements/markdown-note.js";
 import "./elements/all-notes.js";
 import { createNote } from "./index.js";
+import { appletServices } from "./we-applet.js";
+
+type View =
+  | {
+      type: "main";
+    }
+  | {
+      type: "note";
+      noteHash: EntryHash;
+    };
 
 @localized()
 @customElement("notebooks-app")
 export class NotebooksApp extends LitElement {
   @state()
-  _activeNote: DocumentStore<TextEditorGrammar> | undefined;
+  view: View = {
+    type: "main",
+  };
 
   @state()
   _loading = true;
@@ -66,30 +86,103 @@ export class NotebooksApp extends LitElement {
   _activeNoteCommit = new StoreSubscriber(
     this,
     () =>
-      this._activeNote
-        ? this._synStore.commits.get(this._activeNote.rootHash)
+      this.view.type === "note"
+        ? this._synStore.commits.get(this.view.noteHash)
         : undefined,
-    () => [this._activeNote]
+    () => [this.view.type]
   );
 
   _myProfile!: StoreSubscriber<AsyncStatus<Profile | undefined>>;
 
-  async connectToHolochain() {
+  documents = new LazyHoloHashMap(
+    (noteHash: EntryHash) =>
+      new DocumentStore(this._synStore, textEditorGrammar, noteHash)
+  );
+
+  async buildClient(): Promise<{
+    view: View;
+    client: AppAgentClient;
+    profilesClient: ProfilesClient;
+  }> {
+    if (isWeContext()) {
+      const weClient = await WeClient.connect(appletServices);
+
+      // Then handle all the different types of views that you offer
+      switch (weClient.renderInfo.type) {
+        case "applet-view":
+          switch (weClient.renderInfo.view.type) {
+            case "main":
+              // here comes your rendering logic for the main view
+              return {
+                view: {
+                  type: "main",
+                },
+                profilesClient: weClient.renderInfo.profilesClient,
+                client: weClient.renderInfo.appletClient,
+              };
+            case "block":
+              throw new Error("Unknown applet-view block type");
+            case "entry":
+              switch (weClient.renderInfo.view.roleName) {
+                case "notebooks":
+                  switch (weClient.renderInfo.view.integrityZomeName) {
+                    case "syn_integrity":
+                      switch (weClient.renderInfo.view.entryType) {
+                        case "commit":
+                          // here comes your rendering logic for that specific entry type
+                          return {
+                            view: {
+                              type: "note",
+                              noteHash: weClient.renderInfo.view.hrl[1],
+                            },
+                            client: weClient.renderInfo.appletClient,
+                            profilesClient: weClient.renderInfo.profilesClient,
+                          };
+                        default:
+                          throw new Error("Unknown entry type");
+                      }
+                    default:
+                      throw new Error("Unknown integrity zome");
+                  }
+                default:
+                  throw new Error("Unknown role name");
+              }
+
+            default:
+              throw new Error("Unknown applet-view type");
+          }
+
+        default:
+          throw new Error("Unknown render view type");
+      }
+    }
+
     const client = await AppAgentWebsocket.connect(
       new URL("ws://localhost"),
       "notebooks"
     );
+    const profilesClient = new ProfilesClient(client, "notebooks");
+    return {
+      view: {
+        type: "main",
+      },
+      client,
+      profilesClient,
+    };
+  }
 
-    this._profilesStore = new ProfilesStore(
-      new ProfilesClient(client, "notebooks")
-    );
+  async connectToHolochain() {
+    const { view, profilesClient, client } = await this.buildClient();
+    this._synStore = new SynStore(new SynClient(client, "notebooks"));
+
+    this._profilesStore = new ProfilesStore(profilesClient);
 
     this._myProfile = new StoreSubscriber(
       this,
       () => this._profilesStore.myProfile
     );
 
-    this._synStore = new SynStore(new SynClient(client, "notebooks"));
+    this.view = view;
   }
 
   async firstUpdated() {
@@ -99,9 +192,11 @@ export class NotebooksApp extends LitElement {
   }
 
   renderContent() {
-    if (this._activeNote)
+    if (this.view.type === "note")
       return html`
-        <syn-document-context .documentstore=${this._activeNote}>
+        <syn-document-context
+          .documentstore=${this.documents.get(this.view.noteHash)}
+        >
           <markdown-note style="flex: 1;"></markdown-note>
         </syn-document-context>
       `;
@@ -115,11 +210,10 @@ export class NotebooksApp extends LitElement {
               <all-notes
                 style="flex: 1;"
                 @note-selected=${(e: CustomEvent) => {
-                  this._activeNote = new DocumentStore(
-                    this._synStore,
-                    textEditorGrammar,
-                    e.detail.noteHash
-                  );
+                  this.view = {
+                    type: "note",
+                    noteHash: e.detail.noteHash,
+                  };
                 }}
               ></all-notes>
             </div>
@@ -145,13 +239,13 @@ export class NotebooksApp extends LitElement {
     try {
       const noteHash = await createNote(this._synStore, title);
 
-      this._activeNote = new DocumentStore(
-        this._synStore,
-        textEditorGrammar,
-        noteHash
-      );
       this._newNoteDialog.hide();
       (this.shadowRoot?.getElementById("note-form") as HTMLFormElement).reset();
+
+      this.view = {
+        type: "note",
+        noteHash,
+      };
     } catch (e) {
       console.error(e);
       notifyError(msg("Error creating the note"));
@@ -214,13 +308,17 @@ export class NotebooksApp extends LitElement {
   }
 
   renderBackButton() {
-    if (!this._activeNote) return html``;
+    if (this.view.type === "main") return html``;
 
     return html`
       <sl-icon-button
         .src=${wrapPathInSvg(mdiArrowLeft)}
         class="back-button"
-        @click=${() => (this._activeNote = undefined)}
+        @click=${() => {
+          this.view = {
+            type: "main",
+          };
+        }}
       ></sl-icon-button>
     `;
   }

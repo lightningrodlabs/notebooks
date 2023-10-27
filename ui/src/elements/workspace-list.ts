@@ -5,6 +5,7 @@ import {
   DocumentStore,
   synDocumentContext,
   Workspace,
+  WorkspaceStore,
 } from "@holochain-syn/core";
 import { TextEditorGrammar } from "@holochain-syn/text-editor";
 
@@ -13,10 +14,11 @@ import "@shoelace-style/shoelace/dist/components/button/button.js";
 import "@shoelace-style/shoelace/dist/components/relative-time/relative-time.js";
 import "@shoelace-style/shoelace/dist/components/skeleton/skeleton.js";
 import "@shoelace-style/shoelace/dist/components/card/card.js";
-import { StoreSubscriber } from "@holochain-open-dev/stores";
+import { joinAsync, pipe, StoreSubscriber } from "@holochain-open-dev/stores";
 import { localized, msg } from "@lit/localize";
 import { sharedStyles } from "@holochain-open-dev/elements";
 import { EntryRecord } from "@holochain-open-dev/utils";
+import { AgentPubKey } from "@holochain/client";
 
 @localized()
 @customElement("workspace-list")
@@ -30,16 +32,38 @@ export class WorkspaceList extends LitElement {
 
   _allWorkspaces = new StoreSubscriber(
     this,
-    () => this.documentStore.allWorkspaces,
+    () =>
+      pipe(
+        this.documentStore.allWorkspaces,
+        (workspaces) =>
+          joinAsync(
+            workspaces.map(
+              (w) =>
+                new WorkspaceStore(this.documentStore, w.entryHash)
+                  .sessionParticipants
+            )
+          ),
+        (participants, workspaces) =>
+          [workspaces, participants] as [
+            Array<EntryRecord<Workspace>>,
+            Array<Array<AgentPubKey>>
+          ]
+      ),
     () => []
   );
 
-  renderWorkspace(workspace: EntryRecord<Workspace>) {
+  renderWorkspace(
+    workspace: EntryRecord<Workspace>,
+    participants: AgentPubKey[]
+  ) {
     const alreadyJoined = this.activeWorkspace === workspace.entry.name;
     return html`
-      <div class="row" style="margin-bottom: 8px; align-items: center">
+      <div class="row" style="align-items: center; gap: 8px;">
         <span style="flex: 1;"> ${workspace.entry.name} </span>
 
+        ${participants.map(
+          (p) => html`<agent-avatar .agentPubKey=${p}></agent-avatar>`
+        )}
         <sl-button
           .disabled=${alreadyJoined}
           @click=${() => {
@@ -70,11 +94,12 @@ export class WorkspaceList extends LitElement {
         `;
 
       case "complete":
-        const workspaces = this._allWorkspaces.value.value;
+        const workspaces = this._allWorkspaces.value.value[0];
+        const participants = this._allWorkspaces.value.value[1];
         return html`
           <sl-card style="flex: 1; display: flex">
             <span slot="header" class="title">${msg("Workspaces")}</span>
-            <div class="column" style="flex: 1;">
+            <div class="column" style="flex: 1; gap: 8px">
               ${workspaces.length === 0
                 ? html`
                     <div
@@ -85,8 +110,8 @@ export class WorkspaceList extends LitElement {
                     </div>
                   `
                 : html`
-                    ${workspaces.map((workspace) =>
-                      this.renderWorkspace(workspace)
+                    ${workspaces.map((workspace, i) =>
+                      this.renderWorkspace(workspace, participants[i])
                     )}
                   `}
             </div>
