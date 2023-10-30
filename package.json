@@ -6,11 +6,14 @@
     "start": "AGENTS=2 BOOTSTRAP_PORT=$(port) SIGNAL_PORT=$(port) npm run network",
     "network": "hc s clean && npm run build:happ && UI_PORT=8888 concurrently \"npm run launch\" \"npm run start -w app\"",
     "test": "npm run build:happ && cargo nextest run -j 1",
-    "package": "npm run build:happ && npm run build -w @lightningrodlabs/notebooks && npm run package -w app",
+    "package": "npm run build:happ && npm run package -w app && hc web-app pack workdir --recursive",
     "build:happ": "npm run build:zomes && hc app pack workdir --recursive",
     "build:zomes": "CARGO_TARGET_DIR=target cargo build --release --target wasm32-unknown-unknown",
-    "launch": "concurrently \"hc run-local-services --bootstrap-port $BOOTSTRAP_PORT --signal-port $SIGNAL_PORT\" \"echo pass | RUST_LOG=warn hc launch --piped -n $AGENTS workdir/notebooks.happ --ui-port $UI_PORT network --bootstrap http://127.0.0.1:\"$BOOTSTRAP_PORT\" webrtc ws://127.0.0.1:\"$SIGNAL_PORT\"\"",
-    "playground": "holochain-playground"
+    "launch": "concurrently \"npm run local-services\" \"echo pass | RUST_LOG=warn hc launch --piped -n $AGENTS workdir/notebooks.happ --ui-port $UI_PORT network --bootstrap http://127.0.0.1:\"$BOOTSTRAP_PORT\" webrtc ws://127.0.0.1:\"$SIGNAL_PORT\"\"",
+    "local-services": "hc run-local-services --bootstrap-port $BOOTSTRAP_PORT --signal-port $SIGNAL_PORT",
+    "playground": "holochain-playground",
+    "test:applet": "cross-env BOOTSTRAP_PORT=$(port) SIGNAL_PORT=$(port) concurrently -k \"npm run local-services\" \"npm run launch:applet\" \"npm run launch:applet\"",
+    "launch:applet": "we-alpha --test-applets workdir/notebooks.webhapp --test-applets-network-seed test "
   },
   "devDependencies": {
     "@holochain-playground/cli": "^0.1.1",

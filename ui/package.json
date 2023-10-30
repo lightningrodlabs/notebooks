@@ -7,9 +7,9 @@
   "scripts": {
     "start": "vite --port $UI_PORT --clearScreen false",
     "build": "vite build",
+    "package": "npm run build && cd dist && bestzip ../dist.zip *",
     "lint": "eslint --ext .ts,.html . && prettier \"**/*.ts\" --check",
-    "format": "eslint --ext .ts,.html . --fix && prettier \"**/*.ts\" --write",
-    "package": "npm run build && cd dist && bestzip ../dist.zip *"
+    "format": "eslint --ext .ts,.html . --fix && prettier \"**/*.ts\" --write"
   },
   "dependencies": {
     "@holochain-open-dev/elements": "^0.7.0",
