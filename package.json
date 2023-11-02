@@ -13,7 +13,7 @@
     "local-services": "hc run-local-services --bootstrap-port $BOOTSTRAP_PORT --signal-port $SIGNAL_PORT",
     "playground": "holochain-playground",
     "test:applet": "cross-env BOOTSTRAP_PORT=$(port) SIGNAL_PORT=$(port) concurrently -k \"npm run local-services\" \"npm run launch:applet\" \"npm run launch:applet\"",
-    "launch:applet": "we-alpha --test-applets workdir/notebooks.webhapp --test-applets-network-seed test "
+    "launch:applet": "we-alpha --test-applets workdir/notebooks.webhapp --network-seed test "
   },
   "devDependencies": {
     "@holochain-playground/cli": "^0.1.1",
