@@ -1,5 +1,5 @@
 import { EntryRecord } from "@holochain-open-dev/utils";
-import { consume } from "@lit-labs/context";
+import { consume } from "@lit/context";
 import { css, html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
@@ -33,10 +33,17 @@ import {
   hashState,
   notifyError,
   onSubmit,
+  renderAsyncStatus,
   sharedStyles,
 } from "@holochain-open-dev/elements";
 import { EntryHash } from "@holochain/client";
-import { pipe, StoreSubscriber } from "@holochain-open-dev/stores";
+import {
+  completed,
+  joinAsyncMap,
+  pipe,
+  StoreSubscriber,
+  subscribe,
+} from "@holochain-open-dev/stores";
 import { SlDialog, SlDrawer } from "@shoelace-style/shoelace";
 import { msg } from "@lit/localize";
 import { decode } from "@msgpack/msgpack";
@@ -57,8 +64,8 @@ export class MarkdownNote extends LitElement {
     this,
     () =>
       pipe(
-        this.documentStore.synStore.commits.get(this.documentStore.rootHash),
-        (commit) => decode(commit.entry.meta!) as NoteMeta
+        this.documentStore.document,
+        (document) => decode(document.entry.meta!) as NoteMeta
       ),
     () => [this.documentStore]
   );
@@ -68,9 +75,11 @@ export class MarkdownNote extends LitElement {
     () =>
       pipe(
         this.documentStore.allWorkspaces,
+        (map) => joinAsyncMap(map),
         async (allWorkspaces) => {
-          const workspace: EntryRecord<Workspace> | undefined =
-            allWorkspaces.find((w) => w.entry.name === this._workspaceName);
+          const workspace: EntryRecord<Workspace> | undefined = Array.from(
+            allWorkspaces.values()
+          ).find((w) => w.entry.name === this._workspaceName);
 
           if (!workspace) throw new Error(WORKSPACE_NOT_FOUND);
           return new WorkspaceStore(
@@ -94,14 +103,14 @@ export class MarkdownNote extends LitElement {
   @state(hashState())
   _selectedCommitHash: EntryHash | undefined;
 
-  _selectedCommit = new StoreSubscriber(
-    this,
-    () =>
-      this._selectedCommitHash
-        ? this.documentStore.synStore.commits.get(this._selectedCommitHash)
-        : undefined,
-    () => [this._selectedCommitHash]
-  );
+  // _selectedCommit = new StoreSubscriber(
+  //   this,
+  //   () =>
+  //     this._selectedCommitHash
+  //       ? this.documentStore.commits.get(this._selectedCommitHash)
+  //       : completed(undefined),
+  //   () => [this._selectedCommitHash]
+  // );
 
   @state()
   creatingWorkspace = false;
@@ -196,34 +205,30 @@ export class MarkdownNote extends LitElement {
         <span>${msg("Select a commit to see its contents")}</span>
       </div>`;
 
-    switch (this._selectedCommit.value.status) {
-      case "pending":
-        return this.renderLoading();
-      case "complete":
-        return html`
-          <div class="flex-scrollable-parent">
-            <div class="flex-scrollable-container">
-              <div class="flex-scrollable-y" style="padding: 0 8px;">
-                <sl-card>
-                  <markdown-renderer
-                    style="flex: 1;"
-                    .markdown=${(
-                      stateFromCommit(
-                        this._selectedCommit.value.value.entry
-                      ) as TextEditorState
-                    ).text.toString()}
-                  ></markdown-renderer>
-                </sl-card>
-              </div>
+    return html`${subscribe(
+      this.documentStore.commits.get(this._selectedCommitHash),
+      renderAsyncStatus({
+        complete: (v) => html` <div class="flex-scrollable-parent">
+          <div class="flex-scrollable-container">
+            <div class="flex-scrollable-y" style="padding: 0 8px;">
+              <sl-card>
+                <markdown-renderer
+                  style="flex: 1;"
+                  .markdown=${(
+                    stateFromCommit(v.entry) as TextEditorState
+                  ).text.toString()}
+                ></markdown-renderer>
+              </sl-card>
             </div>
           </div>
-        `;
-      case "error":
-        return html`<display-error
+        </div>`,
+        pending: () => this.renderLoading(),
+        error: (e) => html`<display-error
           .headline=${msg("Error fetching the commit")}
-          .error=${this._selectedCommit.value.error}
-        ></display-error>`;
-    }
+          .error=${e}
+        ></display-error>`,
+      })
+    )}`;
   }
 
   renderVersionControlPanel(sessionStore: SessionStore<TextEditorGrammar>) {

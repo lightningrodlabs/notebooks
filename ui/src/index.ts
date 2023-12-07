@@ -1,4 +1,3 @@
-import { EntryRecord } from "@holochain-open-dev/utils";
 import { Commit, DocumentStore, SynStore } from "@holochain-syn/core";
 import { textEditorGrammar } from "@holochain-syn/text-editor";
 import { EntryHash } from "@holochain/client";
@@ -11,18 +10,22 @@ export async function createNote(
   title: string,
   attachedToHrl: Hrl | undefined = undefined
 ): Promise<EntryHash> {
-  const rootHash = await synStore.createDocument(textEditorGrammar, {
-    title,
-    author: synStore.client.client.myPubKey,
-    timestamp: Date.now(),
-    attachedToHrl,
-  } as NoteMeta);
+  const { documentHash, firstCommitHash } = await synStore.createDocument(
+    textEditorGrammar,
+    {
+      title,
+      author: synStore.client.client.myPubKey,
+      timestamp: Date.now(),
+      attachedToHrl,
+    } as NoteMeta
+  );
   const documentStore = new DocumentStore(
     synStore,
     textEditorGrammar,
-    rootHash
+    documentHash
   );
-  await documentStore.createWorkspace("main", rootHash);
+  await documentStore.synStore.client.tagDocument(documentHash, "note");
+  await documentStore.createWorkspace("main", firstCommitHash);
 
-  return rootHash;
+  return documentHash;
 }

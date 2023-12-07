@@ -1,6 +1,6 @@
 import { css, html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import { consume } from "@lit-labs/context";
+import { consume } from "@lit/context";
 import {
   DocumentStore,
   synDocumentContext,
@@ -14,11 +14,17 @@ import "@shoelace-style/shoelace/dist/components/button/button.js";
 import "@shoelace-style/shoelace/dist/components/relative-time/relative-time.js";
 import "@shoelace-style/shoelace/dist/components/skeleton/skeleton.js";
 import "@shoelace-style/shoelace/dist/components/card/card.js";
-import { joinAsync, pipe, StoreSubscriber } from "@holochain-open-dev/stores";
+import {
+  AsyncReadable,
+  joinAsync,
+  joinAsyncMap,
+  pipe,
+  StoreSubscriber,
+} from "@holochain-open-dev/stores";
 import { localized, msg } from "@lit/localize";
 import { sharedStyles } from "@holochain-open-dev/elements";
 import { EntryRecord } from "@holochain-open-dev/utils";
-import { AgentPubKey } from "@holochain/client";
+import { AgentPubKey, EntryHash } from "@holochain/client";
 
 @localized()
 @customElement("workspace-list")
@@ -35,17 +41,17 @@ export class WorkspaceList extends LitElement {
     () =>
       pipe(
         this.documentStore.allWorkspaces,
+        (map) => joinAsyncMap(map),
         (workspaces) =>
           joinAsync(
-            workspaces.map(
+            Array.from(workspaces.keys()).map(
               (w) =>
-                new WorkspaceStore(this.documentStore, w.entryHash)
-                  .sessionParticipants
+                new WorkspaceStore(this.documentStore, w).sessionParticipants
             )
           ),
         (participants, workspaces) =>
           [workspaces, participants] as [
-            Array<EntryRecord<Workspace>>,
+            ReadonlyMap<EntryHash, EntryRecord<Workspace>>,
             Array<Array<AgentPubKey>>
           ]
       ),
@@ -100,7 +106,7 @@ export class WorkspaceList extends LitElement {
           <sl-card style="flex: 1; display: flex">
             <span slot="header" class="title">${msg("Workspaces")}</span>
             <div class="column" style="flex: 1; gap: 8px">
-              ${workspaces.length === 0
+              ${workspaces.size === 0
                 ? html`
                     <div
                       class="row"
@@ -110,7 +116,7 @@ export class WorkspaceList extends LitElement {
                     </div>
                   `
                 : html`
-                    ${workspaces.map((workspace, i) =>
+                    ${Array.from(workspaces.values()).map((workspace, i) =>
                       this.renderWorkspace(workspace, participants[i])
                     )}
                   `}

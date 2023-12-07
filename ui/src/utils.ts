@@ -1,8 +1,8 @@
 import { EntryRecord } from "@holochain-open-dev/utils";
-import { Commit } from "@holochain-syn/core";
+import { Document } from "@holochain-syn/core";
 
 export function sortByDescendantTimestamp(
-  notes: EntryRecord<Commit>[]
-): Array<EntryRecord<Commit>> {
+  notes: EntryRecord<Document>[]
+): Array<EntryRecord<Document>> {
   return notes.sort((a, b) => b.action.timestamp - a.action.timestamp);
 }

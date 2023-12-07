@@ -1,7 +1,11 @@
-import { StoreSubscriber } from "@holochain-open-dev/stores";
+import {
+  joinAsyncMap,
+  pipe,
+  StoreSubscriber,
+} from "@holochain-open-dev/stores";
 import { EntryRecord } from "@holochain-open-dev/utils";
-import { Commit, synContext, SynStore } from "@holochain-syn/core";
-import { consume } from "@lit-labs/context";
+import { Commit, synContext, SynStore, Document } from "@holochain-syn/core";
+import { consume } from "@lit/context";
 import { css, html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
 import { decode } from "@msgpack/msgpack";
@@ -24,11 +28,14 @@ export class AllNotes extends LitElement {
 
   allNotes = new StoreSubscriber(
     this,
-    () => this.synStore.allRoots,
+    () =>
+      pipe(this.synStore.documentsByTag.get("note"), (map) =>
+        joinAsyncMap(map)
+      ),
     () => [this.synStore]
   );
 
-  renderNote(note: EntryRecord<Commit>) {
+  renderNote(note: EntryRecord<Document>) {
     return html`
       <sl-card class="note" title=${msg("Open in Tab")}>
         <div
@@ -41,7 +48,7 @@ export class AllNotes extends LitElement {
                 bubbles: true,
                 composed: true,
                 detail: {
-                  noteHash: note.entryHash,
+                  noteHash: note.actionHash,
                 },
               })
             )}
@@ -52,7 +59,7 @@ export class AllNotes extends LitElement {
                   bubbles: true,
                   composed: true,
                   detail: {
-                    noteHash: note.entryHash,
+                    noteHash: note.actionHash,
                   },
                 })
               );
@@ -89,7 +96,7 @@ export class AllNotes extends LitElement {
           )}
         </div>`;
       case "complete":
-        if (this.allNotes.value.value.length === 0)
+        if (this.allNotes.value.value.size === 0)
           return html`
             <div
               class="row"
@@ -102,9 +109,9 @@ export class AllNotes extends LitElement {
           `;
         return html`
           <div class="row" style="flex: 1; flex-wrap: wrap; padding: 16px;">
-            ${sortByDescendantTimestamp(this.allNotes.value.value).map((note) =>
-              this.renderNote(note)
-            )}
+            ${sortByDescendantTimestamp(
+              Array.from(this.allNotes.value.value.values())
+            ).map((note) => this.renderNote(note))}
           </div>
         `;
       case "error":

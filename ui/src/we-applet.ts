@@ -76,16 +76,16 @@ export const appletServices: AppletServices = {
   ): Promise<Array<HrlWithContext>> => {
     const client = new SynClient(appletClient, "notebooks");
 
-    const rootsHashes = await client.getAllRoots();
-    const roots = await Promise.all(
-      rootsHashes.map((rh) => client.getCommit(rh))
+    const documentsLinks = await client.getDocumentsWithTag("note");
+    const documents = await Promise.all(
+      documentsLinks.map((rh) => client.getDocument(rh.target))
     );
     const appInfo = await appletClient.appInfo();
     const dnaHash = (appInfo.cell_info.notebooks[0] as any)[
       CellType.Provisioned
     ].cell_id[0];
 
-    return roots
+    return documents
       .filter((r) => !!r)
       .filter((r) => {
         const noteMeta = decode(r!.entry.meta!) as NoteMeta;
@@ -94,6 +94,6 @@ export const appletServices: AppletServices = {
           .toLowerCase()
           .includes(searchFilter.toLowerCase());
       })
-      .map((r) => ({ hrl: [dnaHash, r!.entryHash], context: {} }));
+      .map((r) => ({ hrl: [dnaHash, r!.actionHash], context: {} }));
   },
 };

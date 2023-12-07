@@ -34,15 +34,20 @@ import {
   isWeContext,
   WeClient,
 } from "@lightningrodlabs/we-applet";
-import { LazyHoloHashMap } from "@holochain-open-dev/utils";
+import { EntryRecord, LazyHoloHashMap } from "@holochain-open-dev/utils";
 
-import { provide } from "@lit-labs/context";
+import { provide } from "@lit/context";
 import { localized, msg } from "@lit/localize";
 
-import { AsyncStatus, StoreSubscriber } from "@holochain-open-dev/stores";
+import {
+  AsyncStatus,
+  StoreSubscriber,
+  subscribe,
+} from "@holochain-open-dev/stores";
 import {
   notifyError,
   onSubmit,
+  renderAsyncStatus,
   sharedStyles,
   wrapPathInSvg,
 } from "@holochain-open-dev/elements";
@@ -83,16 +88,16 @@ export class NotebooksApp extends LitElement {
   @property()
   _synStore!: SynStore;
 
-  _activeNoteCommit = new StoreSubscriber(
-    this,
-    () =>
-      this.view.type === "note"
-        ? this._synStore.commits.get(this.view.noteHash)
-        : undefined,
-    () => [this.view.type]
-  );
+  // _activeNote = new StoreSubscriber(
+  //   this,
+  //   () =>
+  //     this.view.type === "note"
+  //       ? this._synStore.documents.get(this.view.noteHash)
+  //       : undefined,
+  //   () => [this.view.type]
+  // );
 
-  _myProfile!: StoreSubscriber<AsyncStatus<Profile | undefined>>;
+  _myProfile!: StoreSubscriber<AsyncStatus<EntryRecord<Profile> | undefined>>;
 
   documents = new LazyHoloHashMap(
     (noteHash: EntryHash) =>
@@ -117,7 +122,7 @@ export class NotebooksApp extends LitElement {
                 view: {
                   type: "main",
                 },
-                profilesClient: weClient.renderInfo.profilesClient,
+                profilesClient: weClient.renderInfo.profilesClient as any,
                 client: weClient.renderInfo.appletClient,
               };
             case "block":
@@ -136,7 +141,8 @@ export class NotebooksApp extends LitElement {
                               noteHash: weClient.renderInfo.view.hrl[1],
                             },
                             client: weClient.renderInfo.appletClient,
-                            profilesClient: weClient.renderInfo.profilesClient,
+                            profilesClient: weClient.renderInfo
+                              .profilesClient as any,
                           };
                         default:
                           throw new Error("Unknown entry type");
@@ -302,7 +308,7 @@ export class NotebooksApp extends LitElement {
         .agentPubKey=${this._profilesStore.client.client.myPubKey}
       ></agent-avatar>
       <span style="margin: 0 16px;"
-        >${this._myProfile.value.value?.nickname}</span
+        >${this._myProfile.value.value?.entry.nickname}</span
       >
     </div>`;
   }
@@ -324,9 +330,20 @@ export class NotebooksApp extends LitElement {
   }
 
   renderTitle() {
-    if (this._activeNoteCommit.value?.status === "complete")
-      return (decode(this._activeNoteCommit.value.value.entry.meta!) as any)
-        .title;
+    if (this.view.type === "note")
+      return html`${subscribe(
+        this._synStore.documents.get(this.view.noteHash),
+        renderAsyncStatus({
+          complete: (v) => html`${(decode(v.entry.meta!) as any).title}`,
+          error: (e) =>
+            html`<display-error
+              toolitp
+              .error=${e}
+              .headline=${msg("Error fetching the title")}
+            ></display-error>`,
+          pending: () => html``,
+        })
+      )}`;
     return msg("Notebooks");
   }
 
