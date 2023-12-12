@@ -111,7 +111,11 @@ export class NotebooksApp extends LitElement {
     profilesClient: ProfilesClient;
   }> {
     if ((import.meta as any).env.DEV) {
-      await initializeHotReload();
+      try {
+        await initializeHotReload();
+      } catch (e) {
+        console.warn("Could not initialize applet hot-reloading. This is only expected to work in a We context in dev mode.")
+      }
     }
     if (isWeContext()) {
       const weClient = await WeClient.connect(appletServices);
