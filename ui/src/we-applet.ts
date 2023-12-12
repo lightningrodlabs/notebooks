@@ -59,7 +59,7 @@ export const appletServices: AppletServices = {
     hrl: Hrl
   ): Promise<EntryInfo | undefined> => {
     const synClient = new SynClient(appletClient, "notebooks");
-    const root = await synClient.getCommit(hrl[1]);
+    const root = await synClient.getDocument(hrl[1]);
 
     if (!root) return undefined;
 
