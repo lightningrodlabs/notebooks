@@ -31,6 +31,7 @@ import "@holochain-syn/core/dist/elements/syn-document-context.js";
 import { textEditorGrammar } from "@holochain-syn/text-editor";
 import {
   AppletServices,
+  initializeHotReload,
   isWeContext,
   WeClient,
 } from "@lightningrodlabs/we-applet";
@@ -109,6 +110,9 @@ export class NotebooksApp extends LitElement {
     client: AppAgentClient;
     profilesClient: ProfilesClient;
   }> {
+    if ((import.meta as any).env.DEV) {
+      await initializeHotReload();
+    }
     if (isWeContext()) {
       const weClient = await WeClient.connect(appletServices);
 
