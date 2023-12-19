@@ -10,8 +10,8 @@ export async function createNote(
   title: string,
   attachedToHrl: Hrl | undefined = undefined
 ): Promise<EntryHash> {
-  const { documentHash, firstCommitHash } = await synStore.createDocument(
-    textEditorGrammar,
+  const documentStore = await synStore.createDocument(
+    textEditorGrammar.initialState(),
     {
       title,
       author: synStore.client.client.myPubKey,
@@ -19,13 +19,11 @@ export async function createNote(
       attachedToHrl,
     } as NoteMeta
   );
-  const documentStore = new DocumentStore(
-    synStore,
-    textEditorGrammar,
-    documentHash
+  await documentStore.synStore.client.tagDocument(
+    documentStore.documentHash,
+    "note"
   );
-  await documentStore.synStore.client.tagDocument(documentHash, "note");
-  await documentStore.createWorkspace("main", firstCommitHash);
+  await documentStore.createWorkspace("main", undefined);
 
-  return documentHash;
+  return documentStore.documentHash;
 }

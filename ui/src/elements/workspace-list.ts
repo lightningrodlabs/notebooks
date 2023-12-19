@@ -7,7 +7,6 @@ import {
   Workspace,
   WorkspaceStore,
 } from "@holochain-syn/core";
-import { TextEditorGrammar } from "@holochain-syn/text-editor";
 
 import "@holochain-open-dev/profiles/dist/elements/agent-avatar.js";
 import "@shoelace-style/shoelace/dist/components/button/button.js";
@@ -25,13 +24,17 @@ import { localized, msg } from "@lit/localize";
 import { sharedStyles } from "@holochain-open-dev/elements";
 import { EntryRecord } from "@holochain-open-dev/utils";
 import { AgentPubKey, EntryHash } from "@holochain/client";
+import {
+  TextEditorEphemeralState,
+  TextEditorState,
+} from "@holochain-syn/text-editor";
 
 @localized()
 @customElement("workspace-list")
 export class WorkspaceList extends LitElement {
   @consume({ context: synDocumentContext, subscribe: true })
   @property()
-  documentStore!: DocumentStore<TextEditorGrammar>;
+  documentStore!: DocumentStore<TextEditorState, TextEditorEphemeralState>;
 
   @property()
   activeWorkspace!: string;
@@ -41,31 +44,33 @@ export class WorkspaceList extends LitElement {
     () =>
       pipe(
         this.documentStore.allWorkspaces,
-        (map) => joinAsyncMap(map),
         (workspaces) =>
           joinAsync(
-            Array.from(workspaces.keys()).map(
-              (w) =>
-                new WorkspaceStore(this.documentStore, w).sessionParticipants
+            Array.from(workspaces.values()).map((w) =>
+              joinAsync([w.sessionParticipants, w.name])
             )
           ),
         (participants, workspaces) =>
           [workspaces, participants] as [
-            ReadonlyMap<EntryHash, EntryRecord<Workspace>>,
-            Array<Array<AgentPubKey>>
+            ReadonlyMap<
+              EntryHash,
+              WorkspaceStore<TextEditorState, TextEditorEphemeralState>
+            >,
+            Array<[Array<AgentPubKey>, string]>
           ]
       ),
     () => []
   );
 
   renderWorkspace(
-    workspace: EntryRecord<Workspace>,
-    participants: AgentPubKey[]
+    workspace: WorkspaceStore<TextEditorState, TextEditorEphemeralState>,
+    participants: AgentPubKey[],
+    name: string
   ) {
-    const alreadyJoined = this.activeWorkspace === workspace.entry.name;
+    const alreadyJoined = this.activeWorkspace === name;
     return html`
       <div class="row" style="align-items: center; gap: 8px;">
-        <span style="flex: 1;"> ${workspace.entry.name} </span>
+        <span style="flex: 1;"> ${name} </span>
 
         ${participants.map(
           (p) => html`<agent-avatar .agentPubKey=${p}></agent-avatar>`
@@ -76,8 +81,8 @@ export class WorkspaceList extends LitElement {
             this.dispatchEvent(
               new CustomEvent("join-workspace", {
                 detail: {
-                  workspaceHash: workspace.entryHash,
-                  workspace,
+                  workspaceHash: workspace.workspaceHash,
+                  workspaceName: name,
                 },
                 composed: true,
                 bubbles: true,
@@ -117,7 +122,11 @@ export class WorkspaceList extends LitElement {
                   `
                 : html`
                     ${Array.from(workspaces.values()).map((workspace, i) =>
-                      this.renderWorkspace(workspace, participants[i])
+                      this.renderWorkspace(
+                        workspace,
+                        participants[i][0],
+                        participants[i][1]
+                      )
                     )}
                   `}
             </div>

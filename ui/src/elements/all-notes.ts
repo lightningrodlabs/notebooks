@@ -1,10 +1,11 @@
 import {
   joinAsyncMap,
+  mapAndJoin,
   pipe,
   StoreSubscriber,
 } from "@holochain-open-dev/stores";
 import { EntryRecord } from "@holochain-open-dev/utils";
-import { Commit, synContext, SynStore, Document } from "@holochain-syn/core";
+import { synContext, SynStore, Document } from "@holochain-syn/core";
 import { consume } from "@lit/context";
 import { css, html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
@@ -30,7 +31,7 @@ export class AllNotes extends LitElement {
     this,
     () =>
       pipe(this.synStore.documentsByTag.get("note"), (map) =>
-        joinAsyncMap(map)
+        mapAndJoin(map, (d) => d.record)
       ),
     () => [this.synStore]
   );

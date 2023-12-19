@@ -99,11 +99,6 @@ export class NotebooksApp extends LitElement {
 
   _myProfile!: StoreSubscriber<AsyncStatus<EntryRecord<Profile> | undefined>>;
 
-  documents = new LazyHoloHashMap(
-    (noteHash: EntryHash) =>
-      new DocumentStore(this._synStore, textEditorGrammar, noteHash)
-  );
-
   async buildClient(): Promise<{
     view: View;
     client: AppAgentClient;
@@ -201,7 +196,7 @@ export class NotebooksApp extends LitElement {
     if (this.view.type === "note")
       return html`
         <syn-document-context
-          .documentstore=${this.documents.get(this.view.noteHash)}
+          .documentstore=${this._synStore.documents.get(this.view.noteHash)}
         >
           <markdown-note style="flex: 1;"></markdown-note>
         </syn-document-context>
@@ -332,7 +327,7 @@ export class NotebooksApp extends LitElement {
   renderTitle() {
     if (this.view.type === "note")
       return html`${subscribe(
-        this._synStore.documents.get(this.view.noteHash),
+        this._synStore.documents.get(this.view.noteHash).record,
         renderAsyncStatus({
           complete: (v) => html`${(decode(v.entry.meta!) as any).title}`,
           error: (e) =>

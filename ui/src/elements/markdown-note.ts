@@ -27,7 +27,10 @@ import "./workspace-list";
 import "@shoelace-style/shoelace/dist/components/badge/badge.js";
 import "@shoelace-style/shoelace/dist/components/drawer/drawer.js";
 
-import { TextEditorGrammar, TextEditorState } from "@holochain-syn/text-editor";
+import {
+  TextEditorEphemeralState,
+  TextEditorState,
+} from "@holochain-syn/text-editor";
 
 import {
   hashState,
@@ -36,10 +39,11 @@ import {
   renderAsyncStatus,
   sharedStyles,
 } from "@holochain-open-dev/elements";
-import { EntryHash } from "@holochain/client";
+import { ActionHash, EntryHash } from "@holochain/client";
 import {
   completed,
   joinAsyncMap,
+  mapAndJoin,
   pipe,
   StoreSubscriber,
   subscribe,
@@ -58,13 +62,13 @@ const WORKSPACE_NOT_FOUND = "The requested workspace was not found";
 export class MarkdownNote extends LitElement {
   @consume({ context: synDocumentContext, subscribe: true })
   @property()
-  documentStore!: DocumentStore<TextEditorGrammar>;
+  documentStore!: DocumentStore<TextEditorState, TextEditorEphemeralState>;
 
   _meta = new StoreSubscriber(
     this,
     () =>
       pipe(
-        this.documentStore.document,
+        this.documentStore.record,
         (document) => decode(document.entry.meta!) as NoteMeta
       ),
     () => [this.documentStore]
@@ -75,22 +79,21 @@ export class MarkdownNote extends LitElement {
     () =>
       pipe(
         this.documentStore.allWorkspaces,
-        (map) => joinAsyncMap(map),
-        async (allWorkspaces) => {
-          const workspace: EntryRecord<Workspace> | undefined = Array.from(
-            allWorkspaces.values()
-          ).find((w) => w.entry.name === this._workspaceName);
+        (map) => mapAndJoin(map, (w) => w.name),
+        (allWorkspaces) => {
+          const workspace: [EntryHash, String] | undefined = Array.from(
+            allWorkspaces.entries()
+          ).find(([hash, name]) => name === this._workspaceName);
 
           if (!workspace) throw new Error(WORKSPACE_NOT_FOUND);
-          return new WorkspaceStore(
-            this.documentStore,
-            workspace.entryHash
-          ).joinSession();
+          return this.documentStore.workspaces.get(workspace[0]);
         },
-        (sessionStore) => sessionStore.state,
+        (workspaceStore) => workspaceStore.session,
+        (sessionStore, w) => (sessionStore ? sessionStore : w.joinSession()),
+        (s) => s.state,
         (state, sessionStore) =>
           [sessionStore, state] as [
-            SessionStore<TextEditorGrammar>,
+            SessionStore<TextEditorState, TextEditorEphemeralState>,
             TextEditorState
           ]
       ),
@@ -101,7 +104,7 @@ export class MarkdownNote extends LitElement {
   _workspaceName: string = "main";
 
   @state(hashState())
-  _selectedCommitHash: EntryHash | undefined;
+  _selectedCommitHash: ActionHash | undefined;
 
   // _selectedCommit = new StoreSubscriber(
   //   this,
@@ -118,7 +121,7 @@ export class MarkdownNote extends LitElement {
   async createWorkspace(
     name: string,
     initialTipHash: EntryHash,
-    sessionStore: SessionStore<TextEditorGrammar>
+    sessionStore: SessionStore<TextEditorState, TextEditorEphemeralState>
   ) {
     if (this.creatingWorkspace) return;
 
@@ -139,7 +142,9 @@ export class MarkdownNote extends LitElement {
     this.creatingWorkspace = false;
   }
 
-  renderNewWorkspaceButton(sessionStore: SessionStore<TextEditorGrammar>) {
+  renderNewWorkspaceButton(
+    sessionStore: SessionStore<TextEditorState, TextEditorEphemeralState>
+  ) {
     return html` <sl-button
         style="flex: 1"
         .disabled=${this._selectedCommitHash === undefined}
@@ -231,7 +236,9 @@ export class MarkdownNote extends LitElement {
     )}`;
   }
 
-  renderVersionControlPanel(sessionStore: SessionStore<TextEditorGrammar>) {
+  renderVersionControlPanel(
+    sessionStore: SessionStore<TextEditorState, TextEditorEphemeralState>
+  ) {
     return html`<div class="row" style="flex: 1;">
       <div class="column" style="width: 600px; margin-right: 16px">
         <workspace-list
@@ -240,7 +247,7 @@ export class MarkdownNote extends LitElement {
           @join-workspace=${async (e: CustomEvent) => {
             await sessionStore.leaveSession();
             this.drawer.hide();
-            this._workspaceName = e.detail.workspace.entry.name;
+            this._workspaceName = e.detail.workspaceName;
           }}
         ></workspace-list>
         <commit-history
@@ -270,7 +277,7 @@ export class MarkdownNote extends LitElement {
   }
 
   renderNoteWorkspace(
-    sessionStore: SessionStore<TextEditorGrammar>,
+    sessionStore: SessionStore<TextEditorState, TextEditorEphemeralState>,
     state: TextEditorState
   ) {
     return html`

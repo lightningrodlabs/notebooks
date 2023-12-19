@@ -3,6 +3,7 @@
   "extends": ["@open-wc", "prettier"],
   "plugins": ["@typescript-eslint"],
   "rules": {
+    "no-unneeded-ternary": "off",
     "prefer-destructuring": "off",
     "camelcase": "off",
     "no-empty-function": "off",
