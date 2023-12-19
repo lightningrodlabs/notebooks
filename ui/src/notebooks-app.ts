@@ -31,6 +31,7 @@ import "@holochain-syn/core/dist/elements/syn-document-context.js";
 import { textEditorGrammar } from "@holochain-syn/text-editor";
 import {
   AppletServices,
+  initializeHotReload,
   isWeContext,
   WeClient,
 } from "@lightningrodlabs/we-applet";
@@ -104,6 +105,13 @@ export class NotebooksApp extends LitElement {
     client: AppAgentClient;
     profilesClient: ProfilesClient;
   }> {
+    if ((import.meta as any).env.DEV) {
+      try {
+        await initializeHotReload();
+      } catch (e) {
+        console.warn("Could not initialize applet hot-reloading. This is only expected to work in a We context in dev mode.")
+      }
+    }
     if (isWeContext()) {
       const weClient = await WeClient.connect(appletServices);
 
