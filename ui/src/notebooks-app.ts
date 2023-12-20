@@ -136,7 +136,7 @@ export class NotebooksApp extends LitElement {
                   switch (weClient.renderInfo.view.integrityZomeName) {
                     case "syn_integrity":
                       switch (weClient.renderInfo.view.entryType) {
-                        case "commit":
+                        case "document":
                           // here comes your rendering logic for that specific entry type
                           return {
                             view: {
@@ -148,21 +148,21 @@ export class NotebooksApp extends LitElement {
                               .profilesClient as any,
                           };
                         default:
-                          throw new Error("Unknown entry type");
+                          throw new Error(`Unknown entry type: ${weClient.renderInfo.view.entryType}`);
                       }
                     default:
-                      throw new Error("Unknown integrity zome");
+                      throw new Error(`Unknown integrity zome ${weClient.renderInfo.view.integrityZomeName}`);
                   }
                 default:
-                  throw new Error("Unknown role name");
+                  throw new Error(`Unknown role name: ${weClient.renderInfo.view.roleName}`);
               }
 
             default:
-              throw new Error("Unknown applet-view type");
+              throw new Error(`Unknown applet-view type: ${(weClient.renderInfo.view as any).type}`);
           }
 
         default:
-          throw new Error("Unknown render view type");
+          throw new Error(`Unknown render view type: ${weClient.renderInfo.type}`);
       }
     }
 
