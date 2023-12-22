@@ -49,7 +49,7 @@ export class AllNotes extends LitElement {
                 bubbles: true,
                 composed: true,
                 detail: {
-                  noteHash: note.actionHash,
+                  note,
                 },
               })
             )}
