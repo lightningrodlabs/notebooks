@@ -1,5 +1,4 @@
 import {
-  joinAsyncMap,
   mapAndJoin,
   pipe,
   StoreSubscriber,
@@ -12,6 +11,7 @@ import { customElement } from "lit/decorators.js";
 import { decode } from "@msgpack/msgpack";
 import { localized, msg } from "@lit/localize";
 import { sharedStyles } from "@holochain-open-dev/elements";
+import { isWeContext } from "@lightningrodlabs/we-applet";
 
 import "@holochain-open-dev/elements/dist/elements/display-error.js";
 import "@holochain-open-dev/profiles/dist/elements/agent-avatar.js";
@@ -38,7 +38,7 @@ export class AllNotes extends LitElement {
 
   renderNote(note: EntryRecord<Document>) {
     return html`
-      <sl-card class="note" title=${msg("Open in Tab")}>
+      <sl-card class="note" title=${isWeContext() ? msg("Open in Tab") : undefined}>
         <div
           class="column"
           style="flex: 1; "
