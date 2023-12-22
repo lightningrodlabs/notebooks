@@ -4,6 +4,8 @@ import {
   ActionHash,
   AppAgentClient,
   AppAgentWebsocket,
+  CellType,
+  DnaHash,
   EntryHash,
 } from "@holochain/client";
 import {
@@ -16,7 +18,7 @@ import {
   SynStore,
   synContext,
   SynClient,
-  DocumentStore,
+  Document,
 } from "@holochain-syn/core";
 
 import "@holochain-open-dev/elements/dist/elements/display-error.js";
@@ -89,6 +91,12 @@ export class NotebooksApp extends LitElement {
   @property()
   _synStore!: SynStore;
 
+  @state()
+  _weClient!: WeClient | undefined;
+
+  @state()
+  _dnaHash!: DnaHash;
+
   // _activeNote = new StoreSubscriber(
   //   this,
   //   () =>
@@ -104,6 +112,7 @@ export class NotebooksApp extends LitElement {
     view: View;
     client: AppAgentClient;
     profilesClient: ProfilesClient;
+    weClient?: WeClient;
   }> {
     if ((import.meta as any).env.DEV) {
       try {
@@ -127,6 +136,7 @@ export class NotebooksApp extends LitElement {
                 },
                 profilesClient: weClient.renderInfo.profilesClient as any,
                 client: weClient.renderInfo.appletClient,
+                weClient,
               };
             case "block":
               throw new Error("Unknown applet-view block type");
@@ -146,6 +156,7 @@ export class NotebooksApp extends LitElement {
                             client: weClient.renderInfo.appletClient,
                             profilesClient: weClient.renderInfo
                               .profilesClient as any,
+                            weClient,
                           };
                         default:
                           throw new Error(`Unknown entry type: ${weClient.renderInfo.view.entryType}`);
@@ -181,7 +192,15 @@ export class NotebooksApp extends LitElement {
   }
 
   async connectToHolochain() {
-    const { view, profilesClient, client } = await this.buildClient();
+    const { view, profilesClient, client, weClient } = await this.buildClient();
+
+    this._weClient = weClient;
+
+    const appInfo = await client.appInfo();
+    this._dnaHash = (appInfo.cell_info.notebooks[0] as any)[
+      CellType.Provisioned
+    ].cell_id[0];
+
     this._synStore = new SynStore(new SynClient(client, "notebooks"));
 
     this._profilesStore = new ProfilesStore(profilesClient);
@@ -218,11 +237,15 @@ export class NotebooksApp extends LitElement {
               <span class="title">${msg("All Notes")}</span>
               <all-notes
                 style="flex: 1;"
-                @note-selected=${(e: CustomEvent) => {
-                  this.view = {
-                    type: "note",
-                    noteHash: e.detail.noteHash,
-                  };
+                @note-selected=${(e: CustomEvent<{ note: EntryRecord<Document>}>) => {
+                  if (isWeContext() && this._weClient) {
+                    this._weClient.openHrl([this._dnaHash, e.detail.note.actionHash], {})
+                  } else {
+                    this.view = {
+                      type: "note",
+                      noteHash: e.detail.note.actionHash,
+                    };
+                  }
                 }}
               ></all-notes>
             </div>
@@ -251,10 +274,14 @@ export class NotebooksApp extends LitElement {
       this._newNoteDialog.hide();
       (this.shadowRoot?.getElementById("note-form") as HTMLFormElement).reset();
 
-      this.view = {
-        type: "note",
-        noteHash,
-      };
+      if (isWeContext() && this._weClient) {
+        this._weClient.openHrl([this._dnaHash, noteHash], {})
+      } else {
+        this.view = {
+          type: "note",
+          noteHash,
+        };
+      }
     } catch (e) {
       console.error(e);
       notifyError(msg("Error creating the note"));
@@ -365,7 +392,7 @@ export class NotebooksApp extends LitElement {
           class="row"
           style="align-items: center; color:white; background-color: var(--sl-color-primary-900); padding: 0 16px; height: 65px;"
         >
-          ${this.renderBackButton()}
+          ${isWeContext() ? html`` : this.renderBackButton()}
           <div style="flex: 1">${this.renderTitle()}</div>
           ${this.renderMyProfile()}
         </div>

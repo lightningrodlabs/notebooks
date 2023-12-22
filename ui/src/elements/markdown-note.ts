@@ -41,8 +41,6 @@ import {
 } from "@holochain-open-dev/elements";
 import { ActionHash, EntryHash } from "@holochain/client";
 import {
-  completed,
-  joinAsyncMap,
   mapAndJoin,
   pipe,
   StoreSubscriber,
