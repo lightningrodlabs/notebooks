@@ -274,10 +274,14 @@ export class NotebooksApp extends LitElement {
       this._newNoteDialog.hide();
       (this.shadowRoot?.getElementById("note-form") as HTMLFormElement).reset();
 
-      this.view = {
-        type: "note",
-        noteHash,
-      };
+      if (isWeContext() && this._weClient) {
+        this._weClient.openHrl([this._dnaHash, noteHash], {})
+      } else {
+        this.view = {
+          type: "note",
+          noteHash,
+        };
+      }
     } catch (e) {
       console.error(e);
       notifyError(msg("Error creating the note"));
