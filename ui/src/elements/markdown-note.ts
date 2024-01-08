@@ -51,8 +51,27 @@ import {
 import { SlDialog, SlDrawer } from "@shoelace-style/shoelace";
 import { msg } from "@lit/localize";
 import { decode } from "@msgpack/msgpack";
-
+import { Marked } from "@ts-stack/markdown";
+import hljs from 'highlight.js';
 import { NoteMeta } from "../types.js";
+import { HilightRenderer } from "../utils";
+
+Marked.setOptions
+({
+  renderer: new HilightRenderer,
+  highlight: (code, lang) =>  {
+    if (lang)
+      return hljs.highlight(lang, code).value
+    return code
+  },
+  gfm: true,
+  tables: true,
+  breaks: false,
+  pedantic: false,
+  sanitize: true,
+  smartLists: true,
+  smartypants: false
+});
 
 customElements.define("markdown-renderer", MarkdownRenderer);
 
@@ -217,12 +236,11 @@ export class MarkdownNote extends LitElement {
           <div class="flex-scrollable-container">
             <div class="flex-scrollable-y" style="padding: 0 8px;">
               <sl-card>
-                <markdown-renderer
-                  style="flex: 1;"
-                  .markdown=${(
-                    stateFromCommit(v.entry) as TextEditorState
-                  ).text.toString()}
-                ></markdown-renderer>
+                <div>
+                  ${Marked.parse((
+                      stateFromCommit(v.entry) as TextEditorState
+                    ).text.toString())}
+                </div>
               </sl-card>
             </div>
           </div>

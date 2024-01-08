@@ -60,6 +60,7 @@ import "./elements/markdown-note.js";
 import "./elements/all-notes.js";
 import { createNote } from "./index.js";
 import { appletServices } from "./we-applet.js";
+import 'highlight.js/styles/github.css';
 
 type View =
   | {

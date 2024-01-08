@@ -2,7 +2,6 @@ import { Commit, DocumentStore, SynStore } from "@holochain-syn/core";
 import { textEditorGrammar } from "@holochain-syn/text-editor";
 import { EntryHash } from "@holochain/client";
 import { Hrl } from "@lightningrodlabs/we-applet";
-
 import { NoteMeta } from "./types";
 
 export async function createNote(
