@@ -2,6 +2,7 @@ import { LitElement, css, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
   ActionHash,
+  AdminWebsocket,
   AppAgentClient,
   AppAgentWebsocket,
   EntryHash,
@@ -60,7 +61,12 @@ import "./elements/markdown-note.js";
 import "./elements/all-notes.js";
 import { createNote } from "./index.js";
 import { appletServices } from "./we-applet.js";
-import 'highlight.js/styles/github.css';
+
+// @ts-ignore
+const appPort = import.meta.env.VITE_APP_PORT ? import.meta.env.VITE_APP_PORT : 8888
+// @ts-ignore
+const adminPort = import.meta.env.VITE_ADMIN_PORT
+const url = `ws://localhost:${appPort}`;
 
 type View =
   | {
@@ -166,9 +172,19 @@ export class NotebooksApp extends LitElement {
           throw new Error(`Unknown render view type: ${weClient.renderInfo.type}`);
       }
     }
+    if (adminPort) {
+      console.log("adminPort is", adminPort)
+      const adminWebsocket = await AdminWebsocket.connect(new URL(`ws://localhost:${adminPort}`))
+      const x = await adminWebsocket.listApps({})
+      console.log("apps", x)
+      const cellIds = await adminWebsocket.listCellIds()
+      console.log("CELL IDS",cellIds)
+      await adminWebsocket.authorizeSigningCredentials(cellIds[0])
+    }
+
 
     const client = await AppAgentWebsocket.connect(
-      new URL("ws://localhost"),
+      new URL(url),
       "notebooks"
     );
     const profilesClient = new ProfilesClient(client, "notebooks");
