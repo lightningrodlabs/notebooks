@@ -1,7 +1,8 @@
 import { LitElement, css, html } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { customElement, property, query, state } from "lit/decorators.js";
 import {
   ActionHash,
+  AdminWebsocket,
   AppAgentClient,
   AppAgentWebsocket,
   EntryHash,
@@ -43,7 +44,9 @@ import { localized, msg } from "@lit/localize";
 import {
   AsyncStatus,
   StoreSubscriber,
+  get,
   subscribe,
+  toPromise,
 } from "@holochain-open-dev/stores";
 import {
   notifyError,
@@ -52,7 +55,7 @@ import {
   sharedStyles,
   wrapPathInSvg,
 } from "@holochain-open-dev/elements";
-import { mdiArrowLeft } from "@mdi/js";
+import { mdiArrowLeft, mdiCog } from "@mdi/js";
 import { decode } from "@msgpack/msgpack";
 import SlDialog from "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
 
@@ -60,6 +63,14 @@ import "./elements/markdown-note.js";
 import "./elements/all-notes.js";
 import { createNote } from "./index.js";
 import { appletServices } from "./we-applet.js";
+import { NoteMeta, NoteWorkspace, Notebook, noteMetaB64ToRaw, noteMetaToB64 } from "./types.js";
+import { deserializeExport, exportNotes } from "./export.js";
+
+// @ts-ignore
+const appPort = import.meta.env.VITE_APP_PORT ? import.meta.env.VITE_APP_PORT : 8888
+// @ts-ignore
+const adminPort = import.meta.env.VITE_ADMIN_PORT
+const url = `ws://localhost:${appPort}`;
 
 type View =
   | {
@@ -81,6 +92,12 @@ export class NotebooksApp extends LitElement {
   @state()
   _loading = true;
 
+  @state()
+  importing = false
+
+  @state()
+  exporting = false
+
   @provide({ context: profilesStoreContext })
   @property()
   _profilesStore!: ProfilesStore;
@@ -88,6 +105,12 @@ export class NotebooksApp extends LitElement {
   @provide({ context: synContext })
   @property()
   _synStore!: SynStore;
+
+  @query('#settings')
+  private _settings!: SlDialog;
+
+  @query("#file-input")
+  _fileInput!: HTMLElement
 
   // _activeNote = new StoreSubscriber(
   //   this,
@@ -165,9 +188,18 @@ export class NotebooksApp extends LitElement {
           throw new Error(`Unknown render view type: ${weClient.renderInfo.type}`);
       }
     }
+    if (adminPort) {
+      console.log("adminPort is", adminPort)
+      const adminWebsocket = await AdminWebsocket.connect(new URL(`ws://localhost:${adminPort}`))
+      const x = await adminWebsocket.listApps({})
+      console.log("apps", x)
+      const cellIds = await adminWebsocket.listCellIds()
+      console.log("CELL IDS",cellIds)
+      await adminWebsocket.authorizeSigningCredentials(cellIds[0])
+    }
 
     const client = await AppAgentWebsocket.connect(
-      new URL("ws://localhost"),
+      new URL(url),
       "notebooks"
     );
     const profilesClient = new ProfilesClient(client, "notebooks");
@@ -200,6 +232,48 @@ export class NotebooksApp extends LitElement {
     this._loading = false;
   }
 
+  async doExport() {
+    const notes: Array<Notebook> = []
+    this.exporting = true
+    const docs = await toPromise(this._synStore.documentsByTag.get("note"))
+    for (const docStore of Array.from(docs.values())) {
+      const record = await toPromise(docStore.record)
+      const noteMeta : NoteMeta = decode(record.entry.meta!) as NoteMeta
+      const workspaceStores = await toPromise(docStore.allWorkspaces)
+      const workspaces: Array<NoteWorkspace> = []
+      for (const wsStore of Array.from(workspaceStores.values())) {
+        const name = await toPromise(wsStore.name)
+        const note = await toPromise(wsStore.latestSnapshot)
+        workspaces.push({name, note})
+      }
+      notes.push({
+        meta: noteMetaToB64(noteMeta),
+        workspaces
+      })
+    }
+    exportNotes(notes)
+    this.exporting = false
+  }
+  
+  onFileSelected = (e: any)=>{
+    const file = e.target.files[0];
+    const reader = new FileReader();
+
+    reader.addEventListener("load", async () => {
+      this.importing = true
+
+        const importedNotebooks = deserializeExport(reader.result as string)
+        if ( importedNotebooks.length > 0) {
+            for (const n of importedNotebooks) {
+              const noteMeta = noteMetaB64ToRaw(n.meta)
+              const _noteHash = await createNote(this._synStore, noteMeta.title, noteMeta.attachedToHrl, n.workspaces[0].note);
+            }
+        }
+        this.importing = false
+    }, false);
+    reader.readAsText(file);
+};
+
   renderContent() {
     if (this.view.type === "note")
       return html`
@@ -209,13 +283,31 @@ export class NotebooksApp extends LitElement {
           <markdown-note style="flex: 1;"></markdown-note>
         </syn-document-context>
       `;
-
     return html`
+      <input id="file-input" style="display:none" type="file" accept=".json" @change=${(e:any)=>{this.onFileSelected(e)}} >
+
       <div class="flex-scrollable-parent">
         <div class="flex-scrollable-container">
           <div class="flex-scrollable-y">
             <div class="column" style="flex: 1; margin: 16px">
-              <span class="title">${msg("All Notes")}</span>
+              <span class="title">${msg("All Notes")}
+                <sl-icon-button class="settings-button" .src=${wrapPathInSvg(mdiCog)} @click=${() => {this._settings.show()}}></sl-icon-button>
+              </span>
+              <sl-dialog id="settings" label="Settings">
+                  <sl-button
+                    @click=${async ()=>{await this.doExport()}}
+                    .loading=${this.exporting}
+                    >
+                    Export All Notes
+                  </sl-button>
+                  <sl-button
+                    @click=${()=>this._fileInput.click()}
+                    .loading=${this.importing}
+                    >
+                    Import Notes
+                  </sl-button> 
+
+                  </sl-dialog>
               <all-notes
                 style="flex: 1;"
                 @note-selected=${(e: CustomEvent) => {
@@ -384,11 +476,22 @@ export class NotebooksApp extends LitElement {
         display: flex;
         flex: 1;
       }
+      .title {
+        display:flex;
+        align-items: center;
+      }
       .back-button {
         color: white;
         font-size: 22px;
       }
       .back-button:hover {
+        background: #ffffff65;
+        border-radius: 50%;
+      }
+      .settings-button {
+        font-size: 22px;
+      }
+      .settings-button:hover {
         background: #ffffff65;
         border-radius: 50%;
       }

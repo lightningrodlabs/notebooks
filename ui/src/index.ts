@@ -8,10 +8,15 @@ import { NoteMeta } from "./types";
 export async function createNote(
   synStore: SynStore,
   title: string,
-  attachedToHrl: Hrl | undefined = undefined
+  attachedToHrl: Hrl | undefined = undefined,
+  text: string | undefined = undefined,
 ): Promise<EntryHash> {
+  const initialState = textEditorGrammar.initialState()
+  if (text !== undefined)
+    initialState.text.insertAt!(0,text)
+
   const documentStore = await synStore.createDocument(
-    textEditorGrammar.initialState(),
+    initialState,
     {
       title,
       author: synStore.client.client.myPubKey,
