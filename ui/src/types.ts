@@ -1,6 +1,5 @@
 import { AgentPubKey, AgentPubKeyB64, decodeHashFromBase64, encodeHashToBase64 } from "@holochain/client";
 import { Hrl, HrlB64 } from "@lightningrodlabs/we-applet";
-import { times } from "lodash-es";
 
 export interface NoteMeta {
   title: string;
@@ -41,7 +40,6 @@ export const noteMetaB64ToRaw = (noteMetaB64: NoteMetaB64) : NoteMeta => {
   }
   return noteMeta
 }
-
 
 export interface NoteWorkspace {
   name: string,

@@ -21,6 +21,8 @@ import "@holochain-syn/text-editor/dist/elements/syn-markdown-editor.js";
 import "@shoelace-style/shoelace/dist/components/spinner/spinner.js";
 import "@shoelace-style/shoelace/dist/components/input/input.js";
 import "@shoelace-style/shoelace/dist/components/button/button.js";
+import "@shoelace-style/shoelace/dist/components/icon-button/icon-button.js";
+import "@shoelace-style/shoelace/dist/components/button-group/button-group.js";
 import "@shoelace-style/shoelace/dist/components/card/card.js";
 import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
 import "./workspace-list";
@@ -38,6 +40,7 @@ import {
   onSubmit,
   renderAsyncStatus,
   sharedStyles,
+  wrapPathInSvg,
 } from "@holochain-open-dev/elements";
 import { ActionHash, EntryHash } from "@holochain/client";
 import {
@@ -51,8 +54,14 @@ import {
 import { SlDialog, SlDrawer } from "@shoelace-style/shoelace";
 import { msg } from "@lit/localize";
 import { decode } from "@msgpack/msgpack";
-
+import { mdiBookOpenOutline, mdiEye, mdiPencil } from "@mdi/js";
 import { NoteMeta } from "../types.js";
+
+enum View {
+  Edit,
+  Both,
+  View
+}
 
 customElements.define("markdown-renderer", MarkdownRenderer);
 
@@ -102,6 +111,9 @@ export class MarkdownNote extends LitElement {
 
   @state()
   _workspaceName: string = "main";
+
+  @state()
+  _view : View = View.Both
 
   @state(hashState())
   _selectedCommitHash: ActionHash | undefined;
@@ -291,7 +303,13 @@ export class MarkdownNote extends LitElement {
           box-shadow: var(--sl-shadow-x-large); z-index: 10"
         >
           ${this.renderTitle()}
-          <span style="flex: 1"></span>
+          <span style="flex: 1">
+            <sl-button-group  label="View Options">
+            <sl-button variant=${this._view===View.Edit?"primary":"neutral"} @click=${() => {this._view=View.Edit}}><sl-icon .src=${wrapPathInSvg(mdiPencil)} label="Edit"></sl-icon></sl-button>
+            <sl-button variant=${this._view===View.Both?"primary":"neutral"} @click=${() => {this._view=View.Both}}><sl-icon .src=${wrapPathInSvg(mdiBookOpenOutline)} label="Both"></sl-icon></sl-button>
+            <sl-button variant=${this._view===View.View?"primary":"neutral"} @click=${() => {this._view=View.View}}><sl-icon .src=${wrapPathInSvg(mdiEye)} label="View"></sl-icon></sl-button>
+            </sl-button-group>
+          </span>
 
           <span style="margin: 0 8px">${msg("Participants:")}</span>
           <session-participants
@@ -313,6 +331,8 @@ export class MarkdownNote extends LitElement {
           <slot name="toolbar-action"></slot>
         </div>
         <div class="row" style="flex: 1;">
+
+          ${this._view === View.Both || this._view === View.Edit ? html`
           <div class="flex-scrollable-parent">
             <div class="flex-scrollable-container">
               <div class="flex-scrollable-y">
@@ -321,8 +341,9 @@ export class MarkdownNote extends LitElement {
                 ></syn-markdown-editor>
               </div>
             </div>
-          </div>
+          </div>` : ""}
 
+          ${this._view === View.Both || this._view === View.View ? html`
           <div class="flex-scrollable-parent">
             <div class="flex-scrollable-container">
               <div class="flex-scrollable-y">
@@ -336,7 +357,7 @@ export class MarkdownNote extends LitElement {
                 </div>
               </div>
             </div>
-          </div>
+          </div>` : ""}
         </div>
       </div>
     `;

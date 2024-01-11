@@ -244,7 +244,8 @@ export class NotebooksApp extends LitElement {
       for (const wsStore of Array.from(workspaceStores.values())) {
         const name = await toPromise(wsStore.name)
         const note = await toPromise(wsStore.latestSnapshot)
-        workspaces.push({name, note})
+        const text = note.text as string
+        workspaces.push({name, note:text})
       }
       notes.push({
         meta: noteMetaToB64(noteMeta),
@@ -266,6 +267,7 @@ export class NotebooksApp extends LitElement {
         if ( importedNotebooks.length > 0) {
             for (const n of importedNotebooks) {
               const noteMeta = noteMetaB64ToRaw(n.meta)
+              console.log(n)
               const _noteHash = await createNote(this._synStore, noteMeta.title, noteMeta.attachedToHrl, n.workspaces[0].note);
             }
         }
@@ -439,7 +441,7 @@ export class NotebooksApp extends LitElement {
           pending: () => html``,
         })
       )}`;
-    return msg("Notebooks v0.0.11");
+    return msg("Notebooks v0.0.12");
   }
 
   render() {

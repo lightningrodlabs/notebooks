@@ -16,10 +16,10 @@ const download = (filename: string, text: string) => {
     document.body.removeChild(element);
 }
 
-const _exportNotes = (fileName:string, boards: Array<Notebook>) => {
+const _exportNotes = (fileName:string, notes: Array<Notebook>) => {
     const exportObject = {
         version: EXPORT_FORMAT_VERSION,
-        boards,
+        notes,
     }
     download(fileName, JSON.stringify(exportObject))
 }
@@ -30,14 +30,14 @@ export const exportNote = (state: Notebook) => {
     alert(`Your board was exported to your Downloads folder as: '${fileName}'`)
 }
 
-export const exportNotes = (boards: Array<Notebook>) => {
+export const exportNotes = (notebooks: Array<Notebook>) => {
     const date = new Date();
     const formattedDate = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}-`
         + date.getHours() + "_" + ("00" + date.getMinutes()).slice(-2) +"_"+ ("00" + date.getSeconds()).slice(-2)
 
     const fileName = sanitize(`${PREFIX}_export_${formattedDate}.json`)
-    _exportNotes(fileName, boards)
-    alert(`Your board was exported to your Downloads folder as: '${fileName}'`)
+    _exportNotes(fileName, notebooks)
+    alert(`Exported to your Downloads folder as: '${fileName}'`)
 }
 
 export const deserializeExport = (jsonExport:string) : Array<Notebook> => {
@@ -46,10 +46,10 @@ export const deserializeExport = (jsonExport:string) : Array<Notebook> => {
         if (!exportObject.version) {
             throw( new Error("Expected export to have a version number"))
         }
-        return exportObject.boards
+        return exportObject.notes
 
     } catch (e) {
-        console.log("Error importing boards:", e)
+        console.log("Error importing notebooks:", e)
         return []
     }
 }
