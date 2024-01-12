@@ -441,7 +441,7 @@ export class NotebooksApp extends LitElement {
           pending: () => html``,
         })
       )}`;
-    return msg("Notebooks v0.0.12");
+    return msg("Notebooks v0.0.1x");
   }
 
   render() {
