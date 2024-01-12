@@ -16,6 +16,8 @@ const download = (filename: string, text: string) => {
     document.body.removeChild(element);
 }
 
+
+
 const _exportNotes = (fileName:string, notes: Array<Notebook>) => {
     const exportObject = {
         version: EXPORT_FORMAT_VERSION,
@@ -27,7 +29,6 @@ const _exportNotes = (fileName:string, notes: Array<Notebook>) => {
 export const exportNote = (state: Notebook) => {
     const fileName = sanitize(`${PREFIX}_export_${state.meta.title}.json`)
     _exportNotes(fileName, [state])
-    alert(`Your board was exported to your Downloads folder as: '${fileName}'`)
 }
 
 export const exportNotes = (notebooks: Array<Notebook>) => {
@@ -37,7 +38,6 @@ export const exportNotes = (notebooks: Array<Notebook>) => {
 
     const fileName = sanitize(`${PREFIX}_export_${formattedDate}.json`)
     _exportNotes(fileName, notebooks)
-    alert(`Exported to your Downloads folder as: '${fileName}'`)
 }
 
 export const deserializeExport = (jsonExport:string) : Array<Notebook> => {
