@@ -11,9 +11,10 @@ import {
   WeClient,
   AppletServices,
   HrlWithContext,
-  EntryInfo,
+  AttachableInfo,
   AppletHash,
   WeServices,
+  HrlLocation,
 } from "@lightningrodlabs/we-applet";
 import { msg } from "@lit/localize";
 import { mdiNotebook } from "@mdi/js";
@@ -34,32 +35,33 @@ export const appletServices: AppletServices = {
     note: {
       label: msg("Note"),
       icon_src: wrapPathInSvg(mdiNotebook),
-      async create(attachToHrl: Hrl) {
+      async create(attachToHrlWithContext: HrlWithContext) {
         const synStore = new SynStore(new SynClient(appletClient, "notebooks"));
 
-        const noteHash = await createNote(synStore, msg(`Note`), attachToHrl);
+        const noteHash = await createNote(synStore, msg(`Note`), attachToHrlWithContext.hrl);
         const appInfo = await appletClient.appInfo();
         const dnaHash = (appInfo.cell_info.notebooks[0] as any)[
           CellType.Provisioned
         ].cell_id[0];
-        return {
+        const hrlWithContext: HrlWithContext = {
           hrl: [dnaHash, noteHash],
           context: {},
-        };
+        }
+        return hrlWithContext
       },
     },
   }),
   // Types of UI widgets/blocks that this Applet supports
   blockTypes: {},
-  getEntryInfo: async (
+  getAttachableInfo: async (
     appletClient: AppAgentClient,
     roleName: RoleName,
     integrityZomeName: ZomeName,
     entryType: string,
-    hrl: Hrl
-  ): Promise<EntryInfo | undefined> => {
+    hrlWithContext: HrlWithContext
+  ): Promise<AttachableInfo | undefined> => {
     const synClient = new SynClient(appletClient, "notebooks");
-    const root = await synClient.getDocument(hrl[1]);
+    const root = await synClient.getDocument(hrlWithContext.hrl[1]);
 
     if (!root) return undefined;
 

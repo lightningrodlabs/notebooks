@@ -153,7 +153,7 @@ export class NotebooksApp extends LitElement {
               };
             case "block":
               throw new Error("Unknown applet-view block type");
-            case "entry":
+            case "attachable":
               switch (weClient.renderInfo.view.roleName) {
                 case "notebooks":
                   switch (weClient.renderInfo.view.integrityZomeName) {
@@ -164,7 +164,7 @@ export class NotebooksApp extends LitElement {
                           return {
                             view: {
                               type: "note",
-                              noteHash: weClient.renderInfo.view.hrl[1],
+                              noteHash: weClient.renderInfo.view.hrlWithContext.hrl[1],
                             },
                             client: weClient.renderInfo.appletClient,
                             profilesClient: weClient.renderInfo
