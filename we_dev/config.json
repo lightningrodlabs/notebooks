@@ -76,7 +76,7 @@
         },
         "source": {
           "type": "https",
-          "url": "https://github.com/holochain-apps/gamez/releases/download/v0.3.6/gamez.webhapp"
+          "url": "https://github.com/holochain-apps/gamez/releases/download/v0.3.8/gamez.webhapp"
         }
       },
       {
@@ -89,7 +89,7 @@
         },
         "source": {
           "type": "https",
-          "url": "https://github.com/holochain-apps/kando/releases/download/v0.8.11/kando.webhapp"
+          "url": "https://github.com/holochain-apps/kando/releases/download/v0.8.12/kando.webhapp"
         }
       }
     ]
