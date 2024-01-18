@@ -209,7 +209,7 @@ const applet: WeApplet = {
       async create(attachToHrl: Hrl) {
         const synStore = new SynStore(new SynClient(appletClient, "notebooks"));
 
-        const note = await createNote(synStore, msg(`Note`), attachToHrl);
+        const note = await createNote(synStore, msg(`Note`), attachToHrl, undefined);
         const appInfo = await appletClient.appInfo();
         const dnaHash = (appInfo.cell_info.notebooks[0] as any)[
           CellType.Provisioned

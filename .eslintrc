@@ -20,6 +20,9 @@
     "no-console": "off",
     "import/no-duplicates": "off",
     "no-case-declarations": "off",
-    "no-shadow": "off"
+    "no-shadow": "off",
+    "no-alert": "off",
+    "prefer-template": "off",
+    "no-await-in-loop": "off"
   }
 }

@@ -1,0 +1,96 @@
+{
+    "groups": [
+      {
+        "name": "Lightning Rod Labs",
+        "networkSeed": "098rc1m-09384u-crm-29384u-cmkj",
+        "icon": {
+          "type": "filesystem",
+          "path": "/home/eric/code/metacurrency/holochain/notebooks/we_dev/lrl-icon.png"
+        },
+        "creatingAgent": {
+          "agentNum": 1,
+          "agentProfile": {
+            "nickname": "Zippy",
+            "avatar": {
+              "type": "filesystem",
+              "path": "/home/eric/code/metacurrency/holochain/notebooks/we_dev/zippy.jpg"
+            }
+          }
+        },
+        "joiningAgents": [
+          {
+            "agentNum": 2,
+            "agentProfile": {
+              "nickname": "Zerbina",
+              "avatar": {
+                "type": "filesystem",
+                "path": "./we_dev/zerbina.jpg"
+              }
+            }
+          }
+        ],
+        "applets": [
+          {
+            "name": "Notebooks Hot Reload",
+            "instanceName": "Notebooks Hot Reload",
+            "registeringAgent": 1,
+            "joiningAgents": [2]
+          },
+          {
+            "name": "gamez",
+            "instanceName": "gamez",
+            "registeringAgent": 1,
+            "joiningAgents": [2]
+          },
+          {
+            "name": "kando",
+            "instanceName": "kando",
+            "registeringAgent": 1,
+            "joiningAgents": [2]
+          }
+        ]
+      }
+    ],
+    "applets": [
+      {
+        "name": "Notebooks Hot Reload",
+        "subtitle": "Real-tiem stickies boards",
+        "description": "Let's do it!",
+        "icon": {
+          "type": "https",
+          "url": "https://lightningrodlabs.org/projects/notebooks.png"
+        },
+        "source": {
+          "type": "localhost",
+          "happPath": "/home/eric/code/metacurrency/holochain/notebooks/workdir/notebooks.happ",
+          "uiPort": 8888
+        }
+      },
+      {
+        "name": "gamez",
+        "subtitle": "games!",
+        "description": "Real-time games based on syn",
+        "icon": {
+          "type": "filesystem",
+          "path": "/home/eric/code/metacurrency/holochain/gamez/we_dev/gamez_icon.svg"
+        },
+        "source": {
+          "type": "https",
+          "url": "https://github.com/holochain-apps/gamez/releases/download/v0.3.9/gamez.webhapp"
+        }
+      },
+      {
+        "name": "kando",
+        "subtitle": "kanban boards",
+        "description": "Real-time kanban boards based on syn",
+        "icon": {
+          "type": "filesystem",
+          "path": "/home/eric/code/metacurrency/holochain/kando/we_dev/kando_icon.png"
+        },
+        "source": {
+          "type": "https",
+          "url": "https://github.com/holochain-apps/kando/releases/download/v0.8.13/kando.webhapp"
+        }
+      }
+    ]
+  }

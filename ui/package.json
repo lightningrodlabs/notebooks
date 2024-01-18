@@ -19,17 +19,18 @@
     "@holochain/client": "^0.16.1",
     "@holochain-syn/core": "^0.12.1",
     "@holochain-syn/text-editor": "^0.12.0",
-    "@lightningrodlabs/we-applet": "^0.12.2",
+    "@lightningrodlabs/we-applet": "^0.14.0",
     "@lit/context": "^1.0.0",
     "@lit/localize": "^0.12.0",
     "@mdi/js": "^7.2.96",
     "@msgpack/msgpack": "^3.0.0-beta2",
     "@scoped-elements/markdown-renderer": "^0.0.3",
-    "@shoelace-style/shoelace": "^2.3.0",
+    "@shoelace-style/shoelace": "^2.12.0",
     "lit": "^3.0.0",
     "lodash-es": "^4.17.21",
     "@ts-stack/markdown": "^1.5.0",
-    "highlight.js": "^11.9.0"
+    "highlight.js": "^11.9.0",
+    "sanitize-filename": "1.6.3"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.15.0",
