@@ -28,6 +28,7 @@ import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
 import "./workspace-list";
 import "@shoelace-style/shoelace/dist/components/badge/badge.js";
 import "@shoelace-style/shoelace/dist/components/drawer/drawer.js";
+import {unsafeHTML} from "lit/directives/unsafe-html.js";
 
 import {
   TextEditorEphemeralState,
@@ -230,10 +231,10 @@ export class MarkdownNote extends LitElement {
           <div class="flex-scrollable-container">
             <div class="flex-scrollable-y" style="padding: 0 8px;">
               <sl-card>
-                <div>
-                  ${Marked.parse((
-                      stateFromCommit(v.entry) as TextEditorState
-                    ).text.toString())}
+                <div class="markd">
+                  ${unsafeHTML(Marked.parse(
+                      (stateFromCommit(v.entry) as TextEditorState
+                    ).text.toString()))}
                 </div>
               </sl-card>
             </div>
@@ -349,10 +350,9 @@ export class MarkdownNote extends LitElement {
               <div class="flex-scrollable-y">
                 <div style="margin: 8px">
                   <sl-card style="width: 100%">
-                    <markdown-renderer
-                      style="flex: 1; "
-                      .markdown=${state.text.toString()}
-                    ></markdown-renderer>
+                  <div class="markd">
+                    ${unsafeHTML(Marked.parse(state.text.toString()))}
+                  </div>
                   </sl-card>
                 </div>
               </div>
@@ -426,6 +426,13 @@ export class MarkdownNote extends LitElement {
       :host {
         display: flex;
         flex: 1;
+      }
+      .marked {
+        display:block;
+        word-wrap: normal;
+      }
+      .CodeMirror-wrap pre {
+          word-break: break-word;
       }
     `,
   ];

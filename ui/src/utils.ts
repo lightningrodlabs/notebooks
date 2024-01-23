@@ -13,8 +13,9 @@ Marked.setOptions
 ({
   renderer: new HilightRenderer,
   highlight: (code, lang) =>  {
-    if (lang)
+    if (lang) {
       return hljs.highlight(lang, code).value
+    }
     return code
   },
   gfm: true,
