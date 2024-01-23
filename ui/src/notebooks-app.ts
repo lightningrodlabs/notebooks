@@ -28,6 +28,7 @@ import "@shoelace-style/shoelace/dist/components/spinner/spinner.js";
 import "@shoelace-style/shoelace/dist/components/icon-button/icon-button.js";
 import "@shoelace-style/shoelace/dist/components/button/button.js";
 import "@shoelace-style/shoelace/dist/components/alert/alert.js";
+import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
 import "@holochain-syn/core/dist/elements/syn-document-context.js";
 import { textEditorGrammar } from "@holochain-syn/text-editor";
 import {
@@ -55,7 +56,7 @@ import {
   sharedStyles,
   wrapPathInSvg,
 } from "@holochain-open-dev/elements";
-import { mdiArrowLeft, mdiCog } from "@mdi/js";
+import { mdiArrowLeft, mdiCog, mdiInformation } from "@mdi/js";
 import { decode } from "@msgpack/msgpack";
 import SlDialog from "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
 
@@ -111,6 +112,10 @@ export class NotebooksApp extends LitElement {
 
   @query("#file-input")
   _fileInput!: HTMLElement
+
+  @query("#about-dialog")
+  _aboutDialog!: SlDialog
+
 
   // _activeNote = new StoreSubscriber(
   //   this,
@@ -441,7 +446,14 @@ export class NotebooksApp extends LitElement {
           pending: () => html``,
         })
       )}`;
-    return msg("Notebooks v0.0.1x");
+    return  html`
+      <h3>${msg("Notebooks")} <sl-icon-button 
+      style="color:white;"
+      .src=${wrapPathInSvg(mdiInformation)}
+      @click=${()=>{
+        this._aboutDialog.show()
+      }}>
+      </sl-icon-button></h3>`
   }
 
   render() {
@@ -454,6 +466,17 @@ export class NotebooksApp extends LitElement {
       </div>`;
 
     return html`
+      <sl-dialog label="Notebooks: UI v0.0.14 for DNA v0.1.0" id="about-dialog" width={600} >
+          <div class="about">
+              <p>Notebooks is a demonstration Holochain app built by Lighning Rod Labs.</p>
+              <p> <b>Developers:</b>
+                  Check out this hApp's source-code <a href="https://github.com/lightningrodlabs/notebooks">in our github repo</a>.
+                  This project's real-time syncronization is powered by <a href="https://github.com/holochain/syn">Syn</a>, 
+                  a library that makes it really easy to build this kind of real-time collaboaration into Holochain apps.
+              </p>
+              <p class="small">Copyright © 2023-2024 Harris-Braun Enterprises, LLC.  This software is distributed under the MIT License</p>
+          </div>
+      </sl-dialog>
       <div class="column" style="flex: 1; display: flex;">
         <div
           class="row"
@@ -497,6 +520,17 @@ export class NotebooksApp extends LitElement {
         background: #ffffff65;
         border-radius: 50%;
       }
+      .about {
+        background-color: white;
+      }
+      .about p {
+
+          margin-bottom:10px;
+      }
+      .small {
+          font-size: 80%;
+      }
+
     `,
     sharedStyles,
   ];
