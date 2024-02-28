@@ -466,11 +466,11 @@ export class NotebooksApp extends LitElement {
       </div>`;
 
     return html`
-      <sl-dialog label="Notebooks: UI v0.0.14 for DNA v0.1.0" id="about-dialog" width={600} >
+      <sl-dialog label="Notebooks: UI v0.2.0 for DNA v0.2.0" id="about-dialog" width={600} >
           <div class="about">
               <p>Notebooks is a demonstration Holochain app built by Lighning Rod Labs.</p>
               <p> <b>Developers:</b>
-                  Check out this hApp's source-code <a href="https://github.com/lightningrodlabs/notebooks">in our github repo</a>.
+                  Check out this hApp's source-code <a target="_blank" href="https://github.com/lightningrodlabs/notebooks">in our github repo</a>.
                   This project's real-time syncronization is powered by <a href="https://github.com/holochain/syn">Syn</a>, 
                   a library that makes it really easy to build this kind of real-time collaboaration into Holochain apps.
               </p>

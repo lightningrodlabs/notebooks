@@ -7,8 +7,8 @@
     "x": "hc s clean &&  npm run build:happ && UI_PORT=8888 concurrently \"npm start -w ui\" \"npm run start:happ\" \"hc run-local-services -b $BOOTSTRAP_PORT -s $SIGNAL_PORT\"",
     "applet-dev": " UI_PORT=8888 npm run applet-devx",
     "applet-devx": "BPORT=46263 SPORT=46262; concurrently \"hc run-local-services -b $BPORT -s $SPORT\" \"npm start -w ui\" \"./we_dev/we.AppImage  --dev-config we_dev/config.json --agent-num 1 -b http://127.0.0.1:$BPORT -s ws://127.0.0.1:$SPORT\" \"sleep 10 && ./we_dev/we.AppImage --dev-config we_dev/config.json --agent-num 2 -b http://127.0.0.1:$BPORT -s ws://127.0.0.1:$SPORT\"",
-    "start": "AGENTS=2 BOOTSTRAP_PORT=$(port) SIGNAL_PORT=$(port) npm run network",
-    "network": "hc s clean && npm run build:happ && UI_PORT=8888 concurrently \"npm run launch\" \"npm run start -w app\"",
+    "start": "VITE_ADMIN_PORT=$(port) VITE_APP_PORT=$(port) UI_PORT=8888 npm run network",
+    "network": "hc s clean && npm run build:happ && npm run start -w ui && hc-spin -n 2 --ui-port $UI_PORT 8888 ./workdir/notebooks.webhapp",
     "test": "npm run build:happ && cargo nextest run -j 1",
     "package": "npm run build:happ && npm run package -w app && hc web-app pack workdir --recursive",
     "start:happ": "echo \"starting with admin $VITE_ADMIN_PORT\" && RUST_LOG=warn echo \"pass\" | hc s -f=$VITE_ADMIN_PORT --piped generate workdir/notebooks.happ --run=$VITE_APP_PORT -a notebooks network -b \"http://127.0.0.1:$BOOTSTRAP_PORT\"  webrtc \"ws://127.0.0.1:$SIGNAL_PORT\"",
@@ -26,7 +26,8 @@
     "concurrently": "^6.2.1",
     "cross-env": "^7.0.3",
     "new-port-cli": "^1.0.0",
-    "rimraf": "^3.0.2"
+    "rimraf": "^3.0.2",
+    "@holochain/hc-spin": "^0.100.3"
   },
   "engines": {
     "npm": ">=7.0.0"
