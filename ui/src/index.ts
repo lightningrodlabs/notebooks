@@ -10,9 +10,9 @@ export async function createNote(
   attachedToHrl: Hrl | undefined = undefined,
   text: string | undefined = undefined,
 ): Promise<EntryHash> {
-  const initialState = textEditorGrammar.initialState()
+  const initialState = textEditorGrammar.initialState();
   if (text !== undefined)
-    initialState.text.insertAt!(0,text)
+    initialState.text.insertAt!(0, ...text);
 
   const documentStore = await synStore.createDocument(
     initialState,
