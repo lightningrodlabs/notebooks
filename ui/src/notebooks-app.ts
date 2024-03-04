@@ -345,7 +345,7 @@ export class NotebooksApp extends LitElement {
     this.creatingNote = true;
 
     try {
-      const noteHash = await createNote(this._synStore, title);
+      const noteHash = await createNote(this._synStore, title, undefined, `# ${title}\n\n`);
 
       this._newNoteDialog.hide();
       (this.shadowRoot?.getElementById("note-form") as HTMLFormElement).reset();

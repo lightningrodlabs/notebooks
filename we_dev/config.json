@@ -57,8 +57,8 @@
         "subtitle": "Real-time markdown editing",
         "description": "Let's do it!",
         "icon": {
-          "type": "https",
-          "url": "https://lightningrodlabs.org/projects/notebooks.png"
+          "type": "filesystem",
+          "path": "./we_dev/notebooks_logo.svg"
         },
         "source": {
           "type": "localhost",
