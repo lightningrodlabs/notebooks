@@ -5,6 +5,7 @@ import {
   AdminWebsocket,
   AppAgentClient,
   AppAgentWebsocket,
+  CellType,
   EntryHash,
 } from "@holochain/client";
 import {
@@ -23,7 +24,6 @@ import {
 import "@holochain-open-dev/elements/dist/elements/display-error.js";
 import "@holochain-open-dev/profiles/dist/elements/agent-avatar.js";
 import "@holochain-open-dev/profiles/dist/elements/profile-prompt.js";
-import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
 import "@shoelace-style/shoelace/dist/components/spinner/spinner.js";
 import "@shoelace-style/shoelace/dist/components/icon-button/icon-button.js";
 import "@shoelace-style/shoelace/dist/components/button/button.js";
@@ -33,6 +33,7 @@ import "@holochain-syn/core/dist/elements/syn-document-context.js";
 import { textEditorGrammar } from "@holochain-syn/text-editor";
 import {
   AppletServices,
+  HrlWithContext,
   initializeHotReload,
   isWeContext,
   WeClient,
@@ -59,6 +60,7 @@ import {
 import { mdiArrowLeft, mdiCog, mdiInformation } from "@mdi/js";
 import { decode } from "@msgpack/msgpack";
 import SlDialog from "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
+import SlInput from "@shoelace-style/shoelace/dist/components/input/input.js";
 
 import "./elements/markdown-note.js";
 import "./elements/all-notes.js";
@@ -80,6 +82,10 @@ type View =
   | {
       type: "note";
       noteHash: EntryHash;
+    }
+  | {
+      type: "create";
+      data: any
     };
 
 @localized()
@@ -115,6 +121,13 @@ export class NotebooksApp extends LitElement {
 
   @query("#about-dialog")
   _aboutDialog!: SlDialog
+
+  @query("#create-title")
+  _createTitle!: SlInput
+
+
+  @state()
+  disabled: boolean = true
 
 
   // _activeNote = new StoreSubscriber(
@@ -184,7 +197,20 @@ export class NotebooksApp extends LitElement {
                 default:
                   throw new Error(`Unknown role name: ${weClient.renderInfo.view.roleName}`);
               }
-
+            case "creatable":
+              switch (weClient.renderInfo.view.name) {
+                case "note":
+                  return {
+                    view: {
+                      type: "create",
+                      data: weClient.renderInfo.view
+                    },
+                    client: weClient.renderInfo.appletClient,
+                    profilesClient: weClient.renderInfo
+                      .profilesClient as any,
+                  };
+                default: throw new Error(`Unknown creatable type: ${weClient.renderInfo.view.name}`);
+              }              
             default:
               throw new Error(`Unknown applet-view type: ${(weClient.renderInfo.view as any).type}`);
           }
@@ -282,6 +308,46 @@ export class NotebooksApp extends LitElement {
 };
 
   renderContent() {
+    if (this.view.type === "create")
+      return html`
+      <div style="display:flex; flex-direction:column;padding:20px;">
+        <sl-input
+          id="create-title"
+          @sl-input=${(e:any)=> this.disabled = !e.target.value}
+          .label=${msg("Title")}></sl-input>
+          <div style="margin-top:10px;display:flex;justify-content:flex-end;width:400px">
+            <sl-button @click=${()=>{
+                // @ts-ignore
+                this.view.data.cancel()
+              }}>Cancel</sl-button>
+
+            <sl-button 
+              style="margin-left:10px;"
+              variant="primary"
+              .disabled=${this.disabled}
+              @click=${async ()=>{
+              try {
+                const title = this._createTitle.value
+                const noteHash = await createNote(this._synStore, title, undefined, `# ${title}\n\n`);
+                const appInfo = await this._synStore.client.client.appInfo();
+                const dnaHash = (appInfo.cell_info.notebooks[0] as any)[
+                  CellType.Provisioned
+                ].cell_id[0];
+                const hrlWithContext: HrlWithContext = {
+                  hrl: [dnaHash, noteHash],
+                  context: {},
+                }
+                // @ts-ignore
+                this.view.data.resolve(hrlWithContext)
+              } catch(e) {
+                console.log("ERR",e)
+                // @ts-ignore
+                this.view.reject(e)
+              }
+            }}>Create</sl-button>
+          </div>
+        </div>
+      `;
     if (this.view.type === "note")
       return html`
         <syn-document-context
@@ -464,9 +530,12 @@ export class NotebooksApp extends LitElement {
       >
         <sl-spinner style="font-size: 2rem"></sl-spinner>
       </div>`;
+    if (this.view.type!=="main") {
+      return this.renderContent()
+    }
 
     return html`
-      <sl-dialog label="Notebooks: UI v0.2.1 for DNA v0.2.0" id="about-dialog" width={600} >
+      <sl-dialog label="Notebooks: UI v0.2.2 for DNA v0.2.0" id="about-dialog" width={600} >
           <div class="about">
               <p>Notebooks is a demonstration Holochain app built by Lighning Rod Labs.</p>
               <p> <b>Developers:</b>

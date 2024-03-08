@@ -19,40 +19,25 @@ import {
 import { msg } from "@lit/localize";
 import { mdiNotebook } from "@mdi/js";
 import { decode } from "@msgpack/msgpack";
-import { createNote } from ".";
 import { NoteMeta } from "./types";
 
 // First define your AppletServices that We can call on your applet
 // to do things like search your applet or get information
 // about the available block views etc.
 export const appletServices: AppletServices = {
-  // Types of attachment that this Applet offers for other Applets to attach
-  attachmentTypes: async (
-    appletClient: AppAgentClient,
-    appletHash: AppletHash,
-    weServices: WeServices
-  ) => ({
-    note: {
+  // Types of attachment that this Applet offers for other Applets to be created
+  creatables: {
+    'note': {
       label: msg("Note"),
       icon_src: wrapPathInSvg(mdiNotebook),
-      async create(attachToHrlWithContext: HrlWithContext) {
-        const synStore = new SynStore(new SynClient(appletClient, "notebooks"));
-
-        const noteHash = await createNote(synStore, msg(`Note`), attachToHrlWithContext.hrl);
-        const appInfo = await appletClient.appInfo();
-        const dnaHash = (appInfo.cell_info.notebooks[0] as any)[
-          CellType.Provisioned
-        ].cell_id[0];
-        const hrlWithContext: HrlWithContext = {
-          hrl: [dnaHash, noteHash],
-          context: {},
-        }
-        return hrlWithContext
-      },
-    },
-  }),
-  // Types of UI widgets/blocks that this Applet supports
+    }
+  },  // Types of UI widgets/blocks that this Applet supports
   blockTypes: {},
+  bindAsset: async (appletClient: AppAgentClient,
+    srcWal: HrlWithContext, dstWal: HrlWithContext): Promise<void> => {
+    console.log("Bind requested.  Src:", srcWal, "  Dst:", dstWal)
+  },
+
   getAttachableInfo: async (
     appletClient: AppAgentClient,
     roleName: RoleName,
