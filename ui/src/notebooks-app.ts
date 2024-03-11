@@ -84,6 +84,10 @@ type View =
       noteHash: EntryHash;
     }
   | {
+      type: "standalone-note";
+      noteHash: EntryHash;
+    }
+  | {
       type: "create";
       data: any
     };
@@ -181,7 +185,7 @@ export class NotebooksApp extends LitElement {
                           // here comes your rendering logic for that specific entry type
                           return {
                             view: {
-                              type: "note",
+                              type: "standalone-note",
                               noteHash: weClient.renderInfo.view.hrlWithContext.hrl[1],
                             },
                             client: weClient.renderInfo.appletClient,
@@ -348,7 +352,7 @@ export class NotebooksApp extends LitElement {
           </div>
         </div>
       `;
-    if (this.view.type === "note")
+    if (this.view.type === "note" || this.view.type === "standalone-note")
       return html`
         <syn-document-context
           .documentstore=${this._synStore.documents.get(this.view.noteHash)}
@@ -530,12 +534,12 @@ export class NotebooksApp extends LitElement {
       >
         <sl-spinner style="font-size: 2rem"></sl-spinner>
       </div>`;
-    if (this.view.type!=="main") {
+    if (this.view.type==="standalone-note") {
       return this.renderContent()
     }
 
     return html`
-      <sl-dialog label="Notebooks: UI v0.2.2 for DNA v0.2.0" id="about-dialog" width={600} >
+      <sl-dialog label="Notebooks: UI v0.2.3 for DNA v0.2.0" id="about-dialog" width={600} >
           <div class="about">
               <p>Notebooks is a demonstration Holochain app built by Lighning Rod Labs.</p>
               <p> <b>Developers:</b>
