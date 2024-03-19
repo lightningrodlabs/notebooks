@@ -28,7 +28,7 @@ import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
 import "./workspace-list";
 import "@shoelace-style/shoelace/dist/components/badge/badge.js";
 import "@shoelace-style/shoelace/dist/components/drawer/drawer.js";
-import {unsafeHTML} from "lit/directives/unsafe-html.js";
+import { unsafeHTML } from "lit/directives/unsafe-html.js";
 
 import {
   TextEditorEphemeralState,
@@ -115,19 +115,10 @@ export class MarkdownNote extends LitElement {
   _workspaceName: string = "main";
 
   @state()
-  _view : View = View.Both
+  _view: View = View.Both
 
   @state(hashState())
   _selectedCommitHash: ActionHash | undefined;
-
-  // _selectedCommit = new StoreSubscriber(
-  //   this,
-  //   () =>
-  //     this._selectedCommitHash
-  //       ? this.documentStore.commits.get(this._selectedCommitHash)
-  //       : completed(undefined),
-  //   () => [this._selectedCommitHash]
-  // );
 
   @state()
   creatingWorkspace = false;
@@ -164,10 +155,10 @@ export class MarkdownNote extends LitElement {
         .disabled=${this._selectedCommitHash === undefined}
         variant="primary"
         @click=${() => {
-          (
-            this.shadowRoot?.getElementById("new-workspace-dialog") as SlDialog
-          ).show();
-        }}
+        (
+          this.shadowRoot?.getElementById("new-workspace-dialog") as SlDialog
+        ).show();
+      }}
       >
         ${msg("Create Workspace From This Commit")}
       </sl-button>
@@ -175,12 +166,12 @@ export class MarkdownNote extends LitElement {
       <sl-dialog .label=${msg("Create Workspace")} id="new-workspace-dialog"
         ><form
           ${onSubmit((f) =>
-            this.createWorkspace(
-              f.name,
-              this._selectedCommitHash!,
-              sessionStore
-            )
-          )}
+        this.createWorkspace(
+          f.name,
+          this._selectedCommitHash!,
+          sessionStore
+        )
+      )}
           id="new-workspace-form"
         >
           <sl-input
@@ -194,11 +185,11 @@ export class MarkdownNote extends LitElement {
         <sl-button
           slot="footer"
           @click=${() =>
-            (
-              this.shadowRoot?.getElementById(
-                "new-workspace-dialog"
-              ) as SlDialog
-            ).hide()}
+        (
+          this.shadowRoot?.getElementById(
+            "new-workspace-dialog"
+          ) as SlDialog
+        ).hide()}
         >
           ${msg("Cancel")}
         </sl-button>
@@ -233,8 +224,8 @@ export class MarkdownNote extends LitElement {
               <sl-card>
                 <div class="markd">
                   ${unsafeHTML(Marked.parse(
-                      (stateFromCommit(v.entry) as TextEditorState
-                    ).text.toString()))}
+          (stateFromCommit(v.entry) as TextEditorState
+          ).text.toString()))}
                 </div>
               </sl-card>
             </div>
@@ -258,17 +249,17 @@ export class MarkdownNote extends LitElement {
           style="flex: 1; margin-bottom: 16px;"
           .activeWorkspace=${this._workspaceName}
           @join-workspace=${async (e: CustomEvent) => {
-            await sessionStore.leaveSession();
-            this.drawer.hide();
-            this._workspaceName = e.detail.workspaceName;
-          }}
+        await sessionStore.leaveSession();
+        this.drawer.hide();
+        this._workspaceName = e.detail.workspaceName;
+      }}
         ></workspace-list>
         <commit-history
           style="flex: 1"
           .selectedCommitHash=${this._selectedCommitHash}
           @commit-selected=${(e: CustomEvent) => {
-            this._selectedCommitHash = e.detail.commitHash;
-          }}
+        this._selectedCommitHash = e.detail.commitHash;
+      }}
         ></commit-history>
       </div>
       <div class="column" style="width: 800px">
@@ -306,9 +297,9 @@ export class MarkdownNote extends LitElement {
           ${this.renderTitle()}
           <span style="flex: 1">
             <sl-button-group  label="View Options">
-            <sl-button variant=${this._view===View.Edit?"primary":"neutral"} @click=${() => {this._view=View.Edit}}><sl-icon .src=${wrapPathInSvg(mdiPencil)} label="Edit"></sl-icon></sl-button>
-            <sl-button variant=${this._view===View.Both?"primary":"neutral"} @click=${() => {this._view=View.Both}}><sl-icon .src=${wrapPathInSvg(mdiBookOpenOutline)} label="Both"></sl-icon></sl-button>
-            <sl-button variant=${this._view===View.View?"primary":"neutral"} @click=${() => {this._view=View.View}}><sl-icon .src=${wrapPathInSvg(mdiEye)} label="View"></sl-icon></sl-button>
+            <sl-button variant=${this._view === View.Edit ? "primary" : "neutral"} @click=${() => { this._view = View.Edit }}><sl-icon .src=${wrapPathInSvg(mdiPencil)} label="Edit"></sl-icon></sl-button>
+            <sl-button variant=${this._view === View.Both ? "primary" : "neutral"} @click=${() => { this._view = View.Both }}><sl-icon .src=${wrapPathInSvg(mdiBookOpenOutline)} label="Both"></sl-icon></sl-button>
+            <sl-button variant=${this._view === View.View ? "primary" : "neutral"} @click=${() => { this._view = View.View }}><sl-icon .src=${wrapPathInSvg(mdiEye)} label="View"></sl-icon></sl-button>
             </sl-button-group>
           </span>
 
@@ -324,8 +315,8 @@ export class MarkdownNote extends LitElement {
           <sl-button
             style="margin-left: 16px;"
             @click=${() => {
-              this.drawer.show();
-            }}
+        this.drawer.show();
+      }}
           >
             ${msg("Version Control")}
           </sl-button>
@@ -382,8 +373,8 @@ export class MarkdownNote extends LitElement {
       >
         <span class="placeholder"
           >${msg(
-            "The note was not found. Try again when one of its past contributors is online."
-          )}</span
+      "The note was not found. Try again when one of its past contributors is online."
+    )}</span
         >
       </div>
     `;

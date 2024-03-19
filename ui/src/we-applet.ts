@@ -68,7 +68,7 @@ export const appletServices: AppletServices = {
       documentsLinks.map((rh) => client.getDocument(rh.target))
     );
     const appInfo = await appletClient.appInfo();
-    const dnaHash = (appInfo.cell_info.notebooks[0] as any)[
+    const dnaHash = (appInfo?.cell_info.notebooks[0] as any)[
       CellType.Provisioned
     ].cell_id[0];
 

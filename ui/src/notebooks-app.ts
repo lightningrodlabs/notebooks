@@ -77,20 +77,20 @@ const url = `ws://localhost:${appPort}`;
 
 type View =
   | {
-      type: "main";
-    }
+    type: "main";
+  }
   | {
-      type: "note";
-      noteHash: EntryHash;
-    }
+    type: "note";
+    noteHash: EntryHash;
+  }
   | {
-      type: "standalone-note";
-      noteHash: EntryHash;
-    }
+    type: "standalone-note";
+    noteHash: EntryHash;
+  }
   | {
-      type: "create";
-      data: any
-    };
+    type: "create";
+    data: any
+  };
 
 @localized()
 @customElement("notebooks-app")
@@ -214,7 +214,7 @@ export class NotebooksApp extends LitElement {
                       .profilesClient as any,
                   };
                 default: throw new Error(`Unknown creatable type: ${weClient.renderInfo.view.name}`);
-              }              
+              }
             default:
               throw new Error(`Unknown applet-view type: ${(weClient.renderInfo.view as any).type}`);
           }
@@ -225,18 +225,23 @@ export class NotebooksApp extends LitElement {
     }
     if (adminPort) {
       console.log("adminPort is", adminPort)
-      const adminWebsocket = await AdminWebsocket.connect(new URL(`ws://localhost:${adminPort}`))
+      const adminWebsocket = await AdminWebsocket.connect({
+        url: new URL(`ws://localhost:${adminPort}`)
+      })
       const x = await adminWebsocket.listApps({})
       console.log("apps", x)
       const cellIds = await adminWebsocket.listCellIds()
-      console.log("CELL IDS",cellIds)
+      console.log("CELL IDS", cellIds)
       await adminWebsocket.authorizeSigningCredentials(cellIds[0])
     }
 
     const client = await AppAgentWebsocket.connect(
-      new URL(url),
-      "notebooks"
-    );
+      "notebooks",
+      {
+        url: new URL(url),
+
+      })
+      ;
     const profilesClient = new ProfilesClient(client, "notebooks");
     return {
       view: {
@@ -273,14 +278,14 @@ export class NotebooksApp extends LitElement {
     const docs = await toPromise(this._synStore.documentsByTag.get("note"))
     for (const docStore of Array.from(docs.values())) {
       const record = await toPromise(docStore.record)
-      const noteMeta : NoteMeta = decode(record.entry.meta!) as NoteMeta
+      const noteMeta: NoteMeta = decode(record.entry.meta!) as NoteMeta
       const workspaceStores = await toPromise(docStore.allWorkspaces)
       const workspaces: Array<NoteWorkspace> = []
       for (const wsStore of Array.from(workspaceStores.values())) {
         const name = await toPromise(wsStore.name)
         const note = await toPromise(wsStore.latestSnapshot)
         const text = note.text as string
-        workspaces.push({name, note:text})
+        workspaces.push({ name, note: text })
       }
       notes.push({
         meta: noteMetaToB64(noteMeta),
@@ -290,26 +295,26 @@ export class NotebooksApp extends LitElement {
     exportNotes(notes)
     this.exporting = false
   }
-  
-  onFileSelected = (e: any)=>{
+
+  onFileSelected = (e: any) => {
     const file = e.target.files[0];
     const reader = new FileReader();
 
     reader.addEventListener("load", async () => {
       this.importing = true
 
-        const importedNotebooks = deserializeExport(reader.result as string)
-        if ( importedNotebooks.length > 0) {
-            for (const n of importedNotebooks) {
-              const noteMeta = noteMetaB64ToRaw(n.meta)
-              console.log(n)
-              const _noteHash = await createNote(this._synStore, noteMeta.title, noteMeta.attachedToHrl, n.workspaces[0].note);
-            }
+      const importedNotebooks = deserializeExport(reader.result as string)
+      if (importedNotebooks.length > 0) {
+        for (const n of importedNotebooks) {
+          const noteMeta = noteMetaB64ToRaw(n.meta)
+          console.log(n)
+          const _noteHash = await createNote(this._synStore, noteMeta.title, noteMeta.attachedToHrl, n.workspaces[0].note);
         }
-        this.importing = false
+      }
+      this.importing = false
     }, false);
     reader.readAsText(file);
-};
+  };
 
   renderContent() {
     if (this.view.type === "create")
@@ -317,38 +322,38 @@ export class NotebooksApp extends LitElement {
       <div style="display:flex; flex-direction:column;padding:20px;">
         <sl-input
           id="create-title"
-          @sl-input=${(e:any)=> this.disabled = !e.target.value}
+          @sl-input=${(e: any) => this.disabled = !e.target.value}
           .label=${msg("Title")}></sl-input>
           <div style="margin-top:10px;display:flex;justify-content:flex-end;width:400px">
-            <sl-button @click=${()=>{
-                // @ts-ignore
-                this.view.data.cancel()
-              }}>Cancel</sl-button>
+            <sl-button @click=${() => {
+          // @ts-ignore
+          this.view.data.cancel()
+        }}>Cancel</sl-button>
 
             <sl-button 
               style="margin-left:10px;"
               variant="primary"
               .disabled=${this.disabled}
-              @click=${async ()=>{
-              try {
-                const title = this._createTitle.value
-                const noteHash = await createNote(this._synStore, title, undefined, `# ${title}\n\n`);
-                const appInfo = await this._synStore.client.client.appInfo();
-                const dnaHash = (appInfo.cell_info.notebooks[0] as any)[
-                  CellType.Provisioned
-                ].cell_id[0];
-                const hrlWithContext: HrlWithContext = {
-                  hrl: [dnaHash, noteHash],
-                  context: {},
-                }
-                // @ts-ignore
-                this.view.data.resolve(hrlWithContext)
-              } catch(e) {
-                console.log("ERR",e)
-                // @ts-ignore
-                this.view.reject(e)
-              }
-            }}>Create</sl-button>
+              @click=${async () => {
+          try {
+            const title = this._createTitle.value
+            const noteHash = await createNote(this._synStore, title, undefined, `# ${title}\n\n`);
+            const appInfo = await this._synStore.client.client.appInfo();
+            const dnaHash = (appInfo?.cell_info.notebooks[0] as any)[
+              CellType.Provisioned
+            ].cell_id[0];
+            const hrlWithContext: HrlWithContext = {
+              hrl: [dnaHash, noteHash],
+              context: {},
+            }
+            // @ts-ignore
+            this.view.data.resolve(hrlWithContext)
+          } catch (e) {
+            console.log("ERR", e)
+            // @ts-ignore
+            this.view.reject(e)
+          }
+        }}>Create</sl-button>
           </div>
         </div>
       `;
@@ -361,24 +366,24 @@ export class NotebooksApp extends LitElement {
         </syn-document-context>
       `;
     return html`
-      <input id="file-input" style="display:none" type="file" accept=".json" @change=${(e:any)=>{this.onFileSelected(e)}} >
+      <input id="file-input" style="display:none" type="file" accept=".json" @change=${(e: any) => { this.onFileSelected(e) }} >
 
       <div class="flex-scrollable-parent">
         <div class="flex-scrollable-container">
           <div class="flex-scrollable-y">
             <div class="column" style="flex: 1; margin: 16px">
               <span class="title">${msg("All Notes")}
-                <sl-icon-button class="settings-button" .src=${wrapPathInSvg(mdiCog)} @click=${() => {this._settings.show()}}></sl-icon-button>
+                <sl-icon-button class="settings-button" .src=${wrapPathInSvg(mdiCog)} @click=${() => { this._settings.show() }}></sl-icon-button>
               </span>
               <sl-dialog id="settings" label="Settings">
                   <sl-button
-                    @click=${async ()=>{await this.doExport()}}
+                    @click=${async () => { await this.doExport() }}
                     .loading=${this.exporting}
                     >
                     Export All Notes
                   </sl-button>
                   <sl-button
-                    @click=${()=>this._fileInput.click()}
+                    @click=${() => this._fileInput.click()}
                     .loading=${this.importing}
                     >
                     Import Notes
@@ -388,11 +393,11 @@ export class NotebooksApp extends LitElement {
               <all-notes
                 style="flex: 1;"
                 @note-selected=${(e: CustomEvent) => {
-                  this.view = {
-                    type: "note",
-                    noteHash: e.detail.noteHash,
-                  };
-                }}
+        this.view = {
+          type: "note",
+          noteHash: e.detail.noteHash,
+        };
+      }}
               ></all-notes>
             </div>
           </div>
@@ -493,10 +498,10 @@ export class NotebooksApp extends LitElement {
         .src=${wrapPathInSvg(mdiArrowLeft)}
         class="back-button"
         @click=${() => {
-          this.view = {
-            type: "main",
-          };
-        }}
+        this.view = {
+          type: "main",
+        };
+      }}
       ></sl-icon-button>
     `;
   }
@@ -516,11 +521,11 @@ export class NotebooksApp extends LitElement {
           pending: () => html``,
         })
       )}`;
-    return  html`
+    return html`
       <h3>${msg("Notebooks")} <sl-icon-button 
       style="color:white;"
       .src=${wrapPathInSvg(mdiInformation)}
-      @click=${()=>{
+      @click=${() => {
         this._aboutDialog.show()
       }}>
       </sl-icon-button></h3>`
@@ -534,7 +539,7 @@ export class NotebooksApp extends LitElement {
       >
         <sl-spinner style="font-size: 2rem"></sl-spinner>
       </div>`;
-    if (this.view.type==="standalone-note") {
+    if (this.view.type === "standalone-note") {
       return this.renderContent()
     }
 
