@@ -33,7 +33,7 @@ import "@holochain-syn/core/dist/elements/syn-document-context.js";
 import { textEditorGrammar } from "@holochain-syn/text-editor";
 import {
   AppletServices,
-  HrlWithContext,
+  WAL,
   initializeHotReload,
   isWeContext,
   WeClient,
@@ -175,7 +175,7 @@ export class NotebooksApp extends LitElement {
               };
             case "block":
               throw new Error("Unknown applet-view block type");
-            case "attachable":
+            case "asset":
               switch (weClient.renderInfo.view.roleName) {
                 case "notebooks":
                   switch (weClient.renderInfo.view.integrityZomeName) {
@@ -186,7 +186,7 @@ export class NotebooksApp extends LitElement {
                           return {
                             view: {
                               type: "standalone-note",
-                              noteHash: weClient.renderInfo.view.hrlWithContext.hrl[1],
+                              noteHash: weClient.renderInfo.view.wal.hrl[1],
                             },
                             client: weClient.renderInfo.appletClient,
                             profilesClient: weClient.renderInfo
@@ -342,7 +342,7 @@ export class NotebooksApp extends LitElement {
             const dnaHash = (appInfo?.cell_info.notebooks[0] as any)[
               CellType.Provisioned
             ].cell_id[0];
-            const hrlWithContext: HrlWithContext = {
+            const hrlWithContext: WAL = {
               hrl: [dnaHash, noteHash],
               context: {},
             }

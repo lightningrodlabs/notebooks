@@ -63,36 +63,37 @@ export default defineConfig({
         path: './we_dev/notebooks_logo.svg',
       },
       source: {
-        type: 'localhost',
-        happPath: './workdir/notebooks.happ',
-        uiPort: 8888,
+        type: 'filesystem',
+        path: './workdir/notebooks.webhapp'
+        // happPath: './workdir/notebooks.happ',
+        // uiPort: 8888,
       },
     },
-    {
-        name: 'gamez',
-        subtitle: 'play!',
-        description: 'Real-time games based on syn',
-        icon: {
-          type: "https",
-          url: "https://raw.githubusercontent.com/holochain-apps/gamez/main/we_dev/gamez_icon.svg"
-        },
-        source: {
-          type: "https",
-          url: "https://github.com/holochain-apps/gamez/releases/download/v0.3.100/gamez.webhapp"
-        },
-      },
-      {
-      name: 'kando',
-      subtitle: 'kanban boards',
-      description: 'Real-time kanban based on syn',
-      icon: {
-        type: 'https',
-        url: 'https://raw.githubusercontent.com/holochain-apps/kando/main/we_dev/kando_icon.png',
-      },
-      source: {
-        type: 'https',
-        url: 'https://github.com/holochain-apps/kando/releases/download/v0.8.101/kando.webhapp',
-      },
-    },
+    // {
+    //     name: 'gamez',
+    //     subtitle: 'play!',
+    //     description: 'Real-time games based on syn',
+    //     icon: {
+    //       type: "https",
+    //       url: "https://raw.githubusercontent.com/holochain-apps/gamez/main/we_dev/gamez_icon.svg"
+    //     },
+    //     source: {
+    //       type: "https",
+    //       url: "https://github.com/holochain-apps/gamez/releases/download/v0.3.100/gamez.webhapp"
+    //     },
+    //   },
+    //   {
+    //   name: 'kando',
+    //   subtitle: 'kanban boards',
+    //   description: 'Real-time kanban based on syn',
+    //   icon: {
+    //     type: 'https',
+    //     url: 'https://raw.githubusercontent.com/holochain-apps/kando/main/we_dev/kando_icon.png',
+    //   },
+    //   source: {
+    //     type: 'https',
+    //     url: 'https://github.com/holochain-apps/kando/releases/download/v0.8.101/kando.webhapp',
+    //   },
+    // },
   ],
 });

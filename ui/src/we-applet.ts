@@ -10,11 +10,11 @@ import {
 import {
   WeClient,
   AppletServices,
-  HrlWithContext,
-  AttachableInfo,
+  WAL,
   AppletHash,
   WeServices,
   HrlLocation,
+  AssetInfo,
 } from "@lightningrodlabs/we-applet";
 import { msg } from "@lit/localize";
 import { mdiNotebook } from "@mdi/js";
@@ -34,17 +34,17 @@ export const appletServices: AppletServices = {
   },  // Types of UI widgets/blocks that this Applet supports
   blockTypes: {},
   bindAsset: async (appletClient: AppAgentClient,
-    srcWal: HrlWithContext, dstWal: HrlWithContext): Promise<void> => {
+    srcWal: WAL, dstWal: WAL): Promise<void> => {
     console.log("Bind requested.  Src:", srcWal, "  Dst:", dstWal)
   },
 
-  getAttachableInfo: async (
+  getAssetInfo: async (
     appletClient: AppAgentClient,
     roleName: RoleName,
     integrityZomeName: ZomeName,
     entryType: string,
-    hrlWithContext: HrlWithContext
-  ): Promise<AttachableInfo | undefined> => {
+    hrlWithContext: WAL
+  ): Promise<AssetInfo | undefined> => {
     const synClient = new SynClient(appletClient, "notebooks");
     const root = await synClient.getDocument(hrlWithContext.hrl[1]);
 
@@ -60,7 +60,7 @@ export const appletServices: AppletServices = {
     appletHash: AppletHash,
     weServices: WeServices,
     searchFilter: string
-  ): Promise<Array<HrlWithContext>> => {
+  ): Promise<Array<WAL>> => {
     const client = new SynClient(appletClient, "notebooks");
 
     const documentsLinks = await client.getDocumentsWithTag("note");
