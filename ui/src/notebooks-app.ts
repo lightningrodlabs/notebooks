@@ -558,7 +558,7 @@ export class NotebooksApp extends LitElement {
     }
 
     return html`
-      <sl-dialog label="Notebooks: UI v0.2.3 for DNA v0.2.0" id="about-dialog" width={600} >
+      <sl-dialog label="Notebooks: UI v0.2.5 for DNA v0.2.0" id="about-dialog" width={600} >
           <div class="about">
               <p>Notebooks is a demonstration Holochain app built by Lighning Rod Labs.</p>
               <p> <b>Developers:</b>
