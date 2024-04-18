@@ -68,6 +68,7 @@ import { createNote } from "./index.js";
 import { appletServices } from "./we-applet.js";
 import { NoteMeta, NoteWorkspace, Notebook, noteMetaB64ToRaw, noteMetaToB64 } from "./types.js";
 import { deserializeExport, exportNotes } from "./export.js";
+import { NotebooksStore, notebooksContext } from "./store.js";
 
 // @ts-ignore
 const appPort = import.meta.env.VITE_APP_PORT ? import.meta.env.VITE_APP_PORT : 8888
@@ -117,6 +118,10 @@ export class NotebooksApp extends LitElement {
   @property()
   _synStore!: SynStore;
 
+  @provide({ context: notebooksContext })
+  @property()
+  _notebooksStore!: NotebooksStore;
+
   @query('#settings')
   private _settings!: SlDialog;
 
@@ -149,6 +154,7 @@ export class NotebooksApp extends LitElement {
     view: View;
     client: AppAgentClient;
     profilesClient: ProfilesClient;
+    weClient: WeClient | undefined;
   }> {
     if ((import.meta as any).env.DEV) {
       try {
@@ -157,8 +163,9 @@ export class NotebooksApp extends LitElement {
         console.warn("Could not initialize applet hot-reloading. This is only expected to work in a We context in dev mode.")
       }
     }
+    let weClient: WeClient | undefined
     if (isWeContext()) {
-      const weClient = await WeClient.connect(appletServices);
+      weClient = await WeClient.connect(appletServices);
 
       // Then handle all the different types of views that you offer
       switch (weClient.renderInfo.type) {
@@ -172,6 +179,7 @@ export class NotebooksApp extends LitElement {
                 },
                 profilesClient: weClient.renderInfo.profilesClient as any,
                 client: weClient.renderInfo.appletClient,
+                weClient
               };
             case "block":
               throw new Error("Unknown applet-view block type");
@@ -191,6 +199,7 @@ export class NotebooksApp extends LitElement {
                             client: weClient.renderInfo.appletClient,
                             profilesClient: weClient.renderInfo
                               .profilesClient as any,
+                            weClient
                           };
                         default:
                           throw new Error(`Unknown entry type: ${weClient.renderInfo.view.entryType}`);
@@ -212,6 +221,7 @@ export class NotebooksApp extends LitElement {
                     client: weClient.renderInfo.appletClient,
                     profilesClient: weClient.renderInfo
                       .profilesClient as any,
+                    weClient
                   };
                 default: throw new Error(`Unknown creatable type: ${weClient.renderInfo.view.name}`);
               }
@@ -249,13 +259,20 @@ export class NotebooksApp extends LitElement {
       },
       client,
       profilesClient,
+      weClient
     };
   }
 
   async connectToHolochain() {
-    const { view, profilesClient, client } = await this.buildClient();
+    const { view, profilesClient, client, weClient } = await this.buildClient();
     this._synStore = new SynStore(new SynClient(client, "notebooks"));
 
+
+    const appInfo = await this._synStore.client.client.appInfo();
+    const dnaHash = (appInfo?.cell_info.notebooks[0] as any)[
+      CellType.Provisioned
+    ].cell_id[0];
+    this._notebooksStore = new NotebooksStore(dnaHash, weClient)
     this._profilesStore = new ProfilesStore(profilesClient);
 
     this._myProfile = new StoreSubscriber(
@@ -338,12 +355,9 @@ export class NotebooksApp extends LitElement {
           try {
             const title = this._createTitle.value
             const noteHash = await createNote(this._synStore, title, undefined, `# ${title}\n\n`);
-            const appInfo = await this._synStore.client.client.appInfo();
-            const dnaHash = (appInfo?.cell_info.notebooks[0] as any)[
-              CellType.Provisioned
-            ].cell_id[0];
+
             const hrlWithContext: WAL = {
-              hrl: [dnaHash, noteHash],
+              hrl: [this._notebooksStore.dnaHash, noteHash],
               context: {},
             }
             // @ts-ignore
@@ -362,7 +376,7 @@ export class NotebooksApp extends LitElement {
         <syn-document-context
           .documentstore=${this._synStore.documents.get(this.view.noteHash)}
         >
-          <markdown-note style="flex: 1;"></markdown-note>
+          <markdown-note .standalone=${this.view.type === "standalone-note"} style="flex: 1;"></markdown-note>
         </syn-document-context>
       `;
     return html`
