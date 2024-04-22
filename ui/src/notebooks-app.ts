@@ -134,7 +134,6 @@ export class NotebooksApp extends LitElement {
   @query("#create-title")
   _createTitle!: SlInput
 
-
   @state()
   disabled: boolean = true
 
@@ -463,9 +462,15 @@ export class NotebooksApp extends LitElement {
       >
         ${msg("Create Note")}
       </sl-button>
-      <sl-dialog .label=${msg("Create Note")} id="new-note-dialog">
+      <sl-dialog .label=${msg("Create Note")} id="new-note-dialog"
+        @sl-initial-focus=${(e: { preventDefault: () => void }) => {
+            e.preventDefault();
+            const title = this.shadowRoot?.getElementById("title") as SlInput
+            title.focus()
+          }}
+      >
         <form ${onSubmit((f) => this.createNote(f.title))} id="note-form">
-          <sl-input name="title" .label=${msg("Title")} required></sl-input>
+          <sl-input id="title" name="title" .label=${msg("Title")} required></sl-input>
         </form>
 
         <sl-button slot="footer" @click=${() => this._newNoteDialog.hide()}>
