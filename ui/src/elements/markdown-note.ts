@@ -16,7 +16,7 @@ import { MarkdownRenderer } from "@scoped-elements/markdown-renderer";
 
 import "@holochain-syn/core/dist/elements/syn-context.js";
 import "@holochain-syn/core/dist/elements/session-participants.js";
-import "@holochain-syn/core/dist/elements/commit-history.js";
+import "./commit-history";
 import "@shoelace-style/shoelace/dist/components/spinner/spinner.js";
 import "@shoelace-style/shoelace/dist/components/input/input.js";
 import "@shoelace-style/shoelace/dist/components/button/button.js";
@@ -267,13 +267,13 @@ export class MarkdownNote extends LitElement {
         this._workspaceName = e.detail.workspaceName;
       }}
         ></workspace-list>
-        <commit-history
+        <xcommit-history
           style="flex: 1"
           .selectedCommitHash=${this._selectedCommitHash}
           @commit-selected=${(e: CustomEvent) => {
         this._selectedCommitHash = e.detail.commitHash;
       }}
-        ></commit-history>
+        ></xcommit-history>
       </div>
       <div class="column" style="width: 800px">
         ${this.renderSelectedCommit()}
