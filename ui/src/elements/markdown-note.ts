@@ -17,7 +17,6 @@ import { MarkdownRenderer } from "@scoped-elements/markdown-renderer";
 import "@holochain-syn/core/dist/elements/syn-context.js";
 import "@holochain-syn/core/dist/elements/session-participants.js";
 import "@holochain-syn/core/dist/elements/commit-history.js";
-import "@holochain-syn/text-editor/dist/elements/syn-markdown-editor.js";
 import "@shoelace-style/shoelace/dist/components/spinner/spinner.js";
 import "@shoelace-style/shoelace/dist/components/input/input.js";
 import "@shoelace-style/shoelace/dist/components/button/button.js";
@@ -29,11 +28,8 @@ import "./workspace-list";
 import "@shoelace-style/shoelace/dist/components/badge/badge.js";
 import "@shoelace-style/shoelace/dist/components/drawer/drawer.js";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
+import "./syn-md-editor";
 
-import {
-  TextEditorEphemeralState,
-  TextEditorState,
-} from "@holochain-syn/text-editor";
 
 import {
   hashState,
@@ -58,6 +54,10 @@ import { decode } from "@msgpack/msgpack";
 import { Marked } from "@ts-stack/markdown";
 import { mdiBookOpenOutline, mdiEye, mdiPencil } from "@mdi/js";
 import { isWeContext, WAL } from "@lightningrodlabs/we-applet";
+import {
+  TextEditorEphemeralState,
+  TextEditorState,
+} from "../grammar";
 import { NoteMeta } from "../types.js";
 import { notebooksContext, NotebooksStore } from "../store";
 
@@ -84,6 +84,9 @@ export class MarkdownNote extends LitElement {
 
   @property()
   standalone = false
+
+  @state()
+  _renderDrawer = true
 
   _meta = new StoreSubscriber(
     this,
@@ -300,9 +303,11 @@ export class MarkdownNote extends LitElement {
     state: TextEditorState
   ) {
     return html`
+      ${ this._renderDrawer ? html`
       <sl-drawer id="drawer" style="--size: auto">
         ${this.renderVersionControlPanel(sessionStore)}</sl-drawer
       >
+      ` : html``}
       <div class="column" style="flex: 1; height: 100%;">
         <div
           class="row"
@@ -311,11 +316,21 @@ export class MarkdownNote extends LitElement {
         >
           ${this.standalone ? this.renderTitle() :""}
           <span class="controls">
+          
             <sl-button-group  label="View Options">
             <sl-button variant=${this._view === View.Edit ? "primary" : "neutral"} @click=${() => { this._view = View.Edit }}><sl-icon .src=${wrapPathInSvg(mdiPencil)} label="Edit"></sl-icon></sl-button>
             <sl-button variant=${this._view === View.Both ? "primary" : "neutral"} @click=${() => { this._view = View.Both }}><sl-icon .src=${wrapPathInSvg(mdiBookOpenOutline)} label="Both"></sl-icon></sl-button>
             <sl-button variant=${this._view === View.View ? "primary" : "neutral"} @click=${() => { this._view = View.View }}><sl-icon .src=${wrapPathInSvg(mdiEye)} label="View"></sl-icon></sl-button>
             </sl-button-group>
+            <sl-button
+              style="margin-left: 16px;"
+              size="small"
+              @click=${() => {
+                this._renderDrawer = !this._renderDrawer
+              }}
+            > Enable VC (${this._renderDrawer})
+            </sl-button>
+
             ${ isWeContext() ? html`
             <sl-button
               style="margin-left: 16px;"
@@ -356,9 +371,9 @@ export class MarkdownNote extends LitElement {
           <div class="flex-scrollable-parent">
             <div class="flex-scrollable-container">
               <div class="flex-scrollable-y">
-                <syn-markdown-editor
+                <syn-md-editor
                   .slice=${sessionStore}
-                ></syn-markdown-editor>
+                ></syn-md-editor>
               </div>
             </div>
           </div>` : ""}

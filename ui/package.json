@@ -30,7 +30,9 @@
     "lodash-es": "^4.17.21",
     "@ts-stack/markdown": "^1.5.0",
     "highlight.js": "^11.9.0",
-    "sanitize-filename": "1.6.3"
+    "sanitize-filename": "1.6.3",
+    "automerge": "^1.0.1-preview.7",
+    "@vanillawc/wc-codemirror": "^2.1.0"
   },
   "devDependencies": {
     "@lightningrodlabs/we-dev-cli": "^0.10.5",

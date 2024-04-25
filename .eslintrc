@@ -23,6 +23,7 @@
     "no-shadow": "off",
     "no-alert": "off",
     "prefer-template": "off",
-    "no-await-in-loop": "off"
+    "no-await-in-loop": "off",
+    "no-empty": "off"
   }
 }
