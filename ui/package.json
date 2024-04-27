@@ -32,7 +32,8 @@
     "highlight.js": "^11.9.0",
     "sanitize-filename": "1.6.3",
     "automerge": "^1.0.1-preview.7",
-    "@vanillawc/wc-codemirror": "^2.1.0"
+    "@vanillawc/wc-codemirror": "^2.1.0",
+    "@gitgraph/js": "^1.4.0"
   },
   "devDependencies": {
     "@lightningrodlabs/we-dev-cli": "^0.10.5",

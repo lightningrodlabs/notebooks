@@ -63,10 +63,9 @@ export default defineConfig({
         path: './we_dev/notebooks_logo.svg',
       },
       source: {
-        type: 'filesystem',
-        path: './workdir/notebooks.webhapp'
-        // happPath: './workdir/notebooks.happ',
-        // uiPort: 8888,
+        type: "localhost",
+        happPath: './workdir/notebooks.happ',
+        uiPort: 8888,
       },
     },
   //   {

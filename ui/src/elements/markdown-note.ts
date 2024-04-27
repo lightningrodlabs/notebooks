@@ -39,7 +39,7 @@ import {
   sharedStyles,
   wrapPathInSvg,
 } from "@holochain-open-dev/elements";
-import { ActionHash, EntryHash } from "@holochain/client";
+import { ActionHash, encodeHashToBase64, EntryHash } from "@holochain/client";
 import {
   completed,
   joinAsyncMap,
@@ -86,7 +86,7 @@ export class MarkdownNote extends LitElement {
   standalone = false
 
   @state()
-  _renderDrawer = true
+  _renderDrawer = false
 
   _meta = new StoreSubscriber(
     this,
@@ -123,6 +123,12 @@ export class MarkdownNote extends LitElement {
       ),
     () => [this.documentStore, this._workspaceName]
   );
+
+  updated() {
+    if (this._renderDrawer && this.drawer) {
+      this.drawer.show()
+    }
+ }
 
   @state()
   _workspaceName: string = "main";
@@ -269,7 +275,7 @@ export class MarkdownNote extends LitElement {
         ></workspace-list>
         <xcommit-history
           style="flex: 1"
-          .selectedCommitHash=${this._selectedCommitHash}
+          .selectedCommitHash=${this._selectedCommitHash ? encodeHashToBase64(this._selectedCommitHash): undefined}
           @commit-selected=${(e: CustomEvent) => {
         this._selectedCommitHash = e.detail.commitHash;
       }}
@@ -304,7 +310,8 @@ export class MarkdownNote extends LitElement {
   ) {
     return html`
       ${ this._renderDrawer ? html`
-      <sl-drawer id="drawer" style="--size: auto">
+      <sl-drawer id="drawer" style="--size: auto;z-index:1001"
+        @sl-hide=${()=>this._renderDrawer = false}>
         ${this.renderVersionControlPanel(sessionStore)}</sl-drawer
       >
       ` : html``}
@@ -322,14 +329,6 @@ export class MarkdownNote extends LitElement {
             <sl-button variant=${this._view === View.Both ? "primary" : "neutral"} @click=${() => { this._view = View.Both }}><sl-icon .src=${wrapPathInSvg(mdiBookOpenOutline)} label="Both"></sl-icon></sl-button>
             <sl-button variant=${this._view === View.View ? "primary" : "neutral"} @click=${() => { this._view = View.View }}><sl-icon .src=${wrapPathInSvg(mdiEye)} label="View"></sl-icon></sl-button>
             </sl-button-group>
-            <sl-button
-              style="margin-left: 16px;"
-              size="small"
-              @click=${() => {
-                this._renderDrawer = !this._renderDrawer
-              }}
-            > Enable VC (${this._renderDrawer})
-            </sl-button>
 
             ${ isWeContext() ? html`
             <sl-button
@@ -358,8 +357,8 @@ export class MarkdownNote extends LitElement {
           <sl-button
             style="margin-left: 16px;"
             @click=${() => {
-        this.drawer.show();
-      }}
+              this._renderDrawer = true
+            }}
           >
             ${msg("Version Control")}
           </sl-button>
@@ -473,6 +472,9 @@ export class MarkdownNote extends LitElement {
       }
       .CodeMirror-wrap pre {
           word-break: break-word;
+      }
+      .tooltip::part(popup) {
+        z-index: 10;
       }
     `,
   ];

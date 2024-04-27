@@ -53,7 +53,7 @@ export class AgentCursor extends LitElement {
   render() {
     return html`
       <sl-tooltip
-        style=${styleMap({ '--sl-tooltip-background-color': this.color })}
+        style=${styleMap({ '--sl-tooltip-background-color': this.color,'--sl-z-index-tooltip': 10 })}
         .open=${true}
         trigger="manual"
         placement="top"
