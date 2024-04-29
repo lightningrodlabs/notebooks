@@ -24,11 +24,13 @@ import "@shoelace-style/shoelace/dist/components/icon-button/icon-button.js";
 import "@shoelace-style/shoelace/dist/components/button-group/button-group.js";
 import "@shoelace-style/shoelace/dist/components/card/card.js";
 import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
+import "@holochain-open-dev/profiles/dist/elements/agent-avatar.js";
 import "./workspace-list";
 import "@shoelace-style/shoelace/dist/components/badge/badge.js";
 import "@shoelace-style/shoelace/dist/components/drawer/drawer.js";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import "./syn-md-editor";
+import { Profile, ProfilesStore, profilesStoreContext } from '@holochain-open-dev/profiles';
 
 
 import {
@@ -81,6 +83,9 @@ export class MarkdownNote extends LitElement {
   @consume({ context: notebooksContext, subscribe: true })  
   @property()
   notebooksStore!: NotebooksStore;
+
+  @consume({ context: profilesStoreContext, subscribe: true })
+  profilesStore!: ProfilesStore;
 
   @property()
   standalone = false
@@ -241,6 +246,23 @@ export class MarkdownNote extends LitElement {
           <div class="flex-scrollable-container">
             <div class="flex-scrollable-y" style="padding: 0 8px;">
               <sl-card>
+                <div slot="header">Commit: ${this._selectedCommitHash ? encodeHashToBase64(this._selectedCommitHash):""}</div>
+                <div slot="header">
+                  <span style="display:flex;align-items:center">by ${subscribe(this.profilesStore.profiles.get(v.action.author),
+                  renderAsyncStatus({
+                    complete: (v) => html`<agent-avatar style="margin-left:5px;margin-right:5px;" size="20" .agentPubKey=${v?.action.author}></agent-avatar> ${v?.entry.nickname}`,
+                    pending: () => this.renderLoading(),        
+                    error: (e) => html`<display-error
+                      .headline=${msg("Error fetching the author")}
+                      .error=${e}
+                      ></display-error>`,
+                      })
+                    )}
+                    on ${(new Date(v.action.timestamp)).toLocaleDateString()} ${(new Date(v.action.timestamp)).toLocaleTimeString()}
+                  </span>
+                  
+                </div>
+
                 <div class="markd">
                   ${unsafeHTML(Marked.parse(
           (stateFromCommit(v.entry) as TextEditorState
