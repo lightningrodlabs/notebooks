@@ -134,7 +134,7 @@ export class CommitHistory extends LitElement {
         if (profiles) {
           const profileEntry = profiles.get(entry.author)
           if (profileEntry) {
-            author = profileEntry.entry.nickname + "askldf as;lkdfjas;l kdjf al;skdjfas d"
+            author = profileEntry.entry.nickname
           }
         }
         if (!author) author = encodeHashToBase64(entry.author)
