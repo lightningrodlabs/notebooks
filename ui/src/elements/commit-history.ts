@@ -105,7 +105,8 @@ export class CommitHistory extends LitElement {
   }
 
   drawGraph (commits: RecordBag<Commit>) {
-
+    const startTime = new Date()
+    console.log("Starting draw graph @", startTime.toLocaleTimeString()) 
     let profiles : ReadonlyMap<Uint8Array, EntryRecord<Profile>> | undefined 
     if (this._profiles.value.status === "complete") {
       profiles = this._profiles.value.value
@@ -215,6 +216,11 @@ export class CommitHistory extends LitElement {
         }
       }    
     }
+    const endTime = new Date()
+
+    console.log("Ending draw graph @", endTime.toLocaleTimeString()) 
+    console.log("Elapsed", endTime.getTime()-startTime.getTime()) 
+    console.log("X", container?.scrollWidth)
   }
 
   async firstUpdated() {
@@ -353,6 +359,7 @@ export class CommitHistory extends LitElement {
       }
       #graph {
         width: 500px;
+        transform-origin: top left;
       }
     `,
   ];
