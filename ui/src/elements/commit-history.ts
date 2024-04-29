@@ -12,6 +12,10 @@ import { EntryRecord, RecordBag } from '@holochain-open-dev/utils';
 
 import '@shoelace-style/shoelace/dist/components/card/card.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
+import '@shoelace-style/shoelace/dist/components/switch/switch.js';
+import SlSwitch from "@shoelace-style/shoelace/dist/components/switch/switch.js";
+import '@shoelace-style/shoelace/dist/components/range/range.js';
+import SlRange from "@shoelace-style/shoelace/dist/components/range/range.js";
 import '@holochain-open-dev/elements/dist/elements/display-error.js';
 
 import { Commit, DocumentStore } from '@holochain-syn/core';
@@ -20,6 +24,39 @@ import { sharedStyles } from '@holochain-open-dev/elements';
 import { localized, msg, str } from '@lit/localize';
 import { createGitgraph } from "@gitgraph/js";
 import { Profile, ProfilesStore, profilesStoreContext } from '@holochain-open-dev/profiles';
+import '@scoped-elements/cytoscape';
+
+
+function getCommitGraph(
+  commits: RecordBag<Commit>
+): Array<NodeDefinition | EdgeDefinition> {
+  const elements: Array<NodeDefinition | EdgeDefinition> = [];
+
+  for (const commitHash of commits.actionMap.keys()) {
+    const strCommitHash = encodeHashToBase64(commitHash);
+    elements.push({
+      data: {
+        id: strCommitHash,
+      },
+    });
+
+    for (const parentCommitHash of commits.entryRecord(commitHash)?.entry
+      .previous_commit_hashes || []) {
+      const strParentCommitHash = encodeHashToBase64(parentCommitHash);
+
+      elements.push({
+        data: {
+          id: `${strParentCommitHash}->${strCommitHash}`,
+          source: strParentCommitHash,
+          target: strCommitHash,
+        },
+      });
+    }
+  }
+
+  return elements;
+}
+
 
 export const synDocumentContext = createContext<DocumentStore<any, any>>(
   'syn-document-context'
@@ -47,7 +84,7 @@ export class CommitHistory extends LitElement {
   graph: HTMLElement|undefined
 
   updated() {
-    if (this.graph && this._allCommits.value.status === "complete"  ) {
+    if (!this._cytoscape && this.graph && this._allCommits.value.status === "complete"  ) {
       const allCommits:RecordBag<Commit> = new RecordBag(this._allCommits.value.value.map(er => er.record))
       this.drawGraph(allCommits)
     }
@@ -183,6 +220,11 @@ export class CommitHistory extends LitElement {
   async firstUpdated() {
   }
 
+  @state()
+  _cytoscape = false
+
+  @state()
+  _zoom = 100
 
   private _allCommits = new StoreSubscriber(
     this,
@@ -193,8 +235,54 @@ export class CommitHistory extends LitElement {
     () => []
   );
 
-  renderContent(allCommits: RecordBag<Commit>) {
+  onNodeSelected(nodeId: string) {
+    this.selectedCommitHash = nodeId;
+    this.dispatchEvent(
+      new CustomEvent('commit-selected', {
+        bubbles: true,
+        composed: true,
+        detail: {
+          commitHash: decodeHashFromBase64(nodeId),
+        },
+      })
+    );
+  }
 
+  get selectedNodeIds() {
+    return this.selectedCommitHash ? [this.selectedCommitHash] : [];
+  }
+
+
+  renderContent(allCommits: RecordBag<Commit>) {
+    if (this._cytoscape) {
+      const elements = getCommitGraph(allCommits);
+      if (elements.length === 0)
+        return html` <div
+          class="row"
+          style="flex: 1; align-items: center; justify-content: center;"
+        >
+          <span class="placeholder"> There are no commits yet </span>
+        </div>`;
+      
+      return html`<cytoscape-dagre
+      style="flex: 1;"
+      .fixed=${true}
+      .options=${{
+        style: `
+          edge {
+            target-arrow-shape: triangle;
+            width: 2px;
+          }
+        `,
+      }}
+      .selectedNodesIds=${this.selectedNodeIds}
+      .elements=${elements}
+      .dagreOptions=${{
+        rankDir: 'BT',
+      }}
+      @node-selected=${(e: CustomEvent) => this.onNodeSelected(e.detail.id())}
+    ></cytoscape-dagre>`
+    }
     if (Array.from(allCommits.actionMap.keys()).length === 0)
       return html` <div
         class="row"
@@ -202,9 +290,9 @@ export class CommitHistory extends LitElement {
       >
         <span class="placeholder"> There are no commits yet </span>
       </div>`;
-
+    
     return html`
-    <div id="graph"></div>
+    <div id="graph" style="transform: scale(${this._zoom/100})"></div>
     `
   }
 
@@ -225,11 +313,24 @@ export class CommitHistory extends LitElement {
         return html`<sl-card style="flex: 1;">
           <span slot="header" class="title">${msg('Commit History')}</span>
           <span slot="header" style="margin-left:5px">(${this._allCommits.value.value.length} commits)</span>
-          <sl-button style="margin-left:10px;" slot="header" size=small @click=${()=>{
-              this.drawGraph(allCommits)
+          <sl-switch style="margin-left:10px;" slot="header" size=small @sl-change=${(e:MouseEvent)=>{
+            if (e.target) {
+              const s:SlSwitch = e.target as SlSwitch
+              this._cytoscape = s.checked
+            }
           }}>
-          Update 
-          </sl-button>
+          ${this._cytoscape ? "graph" : "commits"} 
+          </sl-switch>
+          ${this._cytoscape ? "" : html`
+          <sl-range slot="header" label="Zoom" min="0" max="100" value=${this._zoom}
+            @sl-input=${(e:MouseEvent)=>{
+              if (e.target) {
+                const s:SlRange = e.target as SlRange
+                this._zoom = s.value
+              }
+            }}
+          ></sl-range>
+          `} 
           ${this.renderContent(allCommits) }
         </sl-card>`;
       case 'error':
