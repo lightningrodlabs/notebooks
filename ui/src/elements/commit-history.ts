@@ -133,7 +133,7 @@ export class CommitHistory extends LitElement {
         if (profiles) {
           const profileEntry = profiles.get(entry.author)
           if (profileEntry) {
-            author = profileEntry.entry.nickname
+            author = profileEntry.entry.nickname + "askldf as;lkdfjas;l kdjf al;skdjfas d"
           }
         }
         if (!author) author = encodeHashToBase64(entry.author)
@@ -323,7 +323,7 @@ export class CommitHistory extends LitElement {
           </sl-switch>
           ${this._cytoscape ? "" : html`
           <sl-range slot="header" label="Zoom" min="0" max="100" value=${this._zoom}
-            @sl-input=${(e:MouseEvent)=>{
+            @sl-change=${(e:MouseEvent)=>{
               if (e.target) {
                 const s:SlRange = e.target as SlRange
                 this._zoom = s.value
@@ -352,6 +352,7 @@ export class CommitHistory extends LitElement {
         padding: 0;
       }
       #graph {
+        width: 500px;
       }
     `,
   ];
