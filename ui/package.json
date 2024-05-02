@@ -16,7 +16,7 @@
     "@holochain-open-dev/profiles": "=0.300.0-dev.0",
     "@holochain-open-dev/stores": "=0.300.0-dev.1",
     "@holochain-open-dev/utils": "=0.300.0-dev.0",
-    "@holochain-syn/core": "=0.300.0-dev.0",
+    "@holochain-syn/core": "=0.300.0-dev.1",
     "@holochain-syn/text-editor": "=0.300.0-dev.0",
     "@holochain/client": "=0.17.0-dev.7",
     "@lightningrodlabs/we-applet": "^0.16.1",

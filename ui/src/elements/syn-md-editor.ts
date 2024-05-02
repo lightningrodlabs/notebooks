@@ -148,6 +148,7 @@ export class SynMarkdownEditor extends LitElement {
   }
 
   onSelectionChanged(ranges: Array<{ from: number; to: number }>) {
+    console.log("selectionChanged")
     this.slice.change((state, eph) =>
       textEditorGrammar
         .changes(this.slice.myPubKey, state, eph)

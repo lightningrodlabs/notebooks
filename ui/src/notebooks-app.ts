@@ -53,7 +53,6 @@ import {
 import {
   notifyError,
   onSubmit,
-  renderAsyncStatus,
   sharedStyles,
   wrapPathInSvg,
 } from "@holochain-open-dev/elements";
@@ -69,6 +68,7 @@ import { appletServices } from "./we-applet.js";
 import { NoteMeta, NoteWorkspace, Notebook, noteMetaB64ToRaw, noteMetaToB64 } from "./types.js";
 import { deserializeExport, exportNotes } from "./export.js";
 import { NotebooksStore, notebooksContext } from "./store.js";
+import { renderAsyncStatus } from "./utils.js";
 
 // @ts-ignore
 const appPort = import.meta.env.VITE_APP_PORT ? import.meta.env.VITE_APP_PORT : 8888
@@ -385,9 +385,6 @@ export class NotebooksApp extends LitElement {
         <div class="flex-scrollable-container">
           <div class="flex-scrollable-y">
             <div class="column" style="flex: 1; margin: 16px">
-              <span class="title">${msg("All Notes")}
-                <sl-icon-button class="settings-button" .src=${wrapPathInSvg(mdiCog)} @click=${() => { this._settings.show() }}></sl-icon-button>
-              </span>
               <sl-dialog id="settings" label="Settings">
                   <sl-button
                     @click=${async () => { await this.doExport() }}
@@ -406,11 +403,11 @@ export class NotebooksApp extends LitElement {
               <all-notes
                 style="flex: 1;"
                 @note-selected=${(e: CustomEvent) => {
-        this.view = {
-          type: "note",
-          noteHash: e.detail.noteHash,
-        };
-      }}
+                  this.view = {
+                    type: "note",
+                    noteHash: e.detail.noteHash,
+                  };
+                }}
               ></all-notes>
             </div>
           </div>
@@ -541,13 +538,22 @@ export class NotebooksApp extends LitElement {
         })
       )}`;
     return html`
-      <h3>${msg("Notebooks")} <sl-icon-button 
-      style="color:white;"
-      .src=${wrapPathInSvg(mdiInformation)}
-      @click=${() => {
-        this._aboutDialog.show()
-      }}>
-      </sl-icon-button></h3>`
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <h3>${msg("Notebooks")} 
+      </h3>
+      <div style="display:flex;align-items:center;margin-right:${isWeContext()? "0px": "40px"};">
+        <sl-icon-button 
+          style="color:white;"
+          .src=${wrapPathInSvg(mdiInformation)}
+          @click=${() => {
+            this._aboutDialog.show()
+          }}>
+          </sl-icon-button>
+        <sl-icon-button style="color:white;" class="settings-button" .src=${wrapPathInSvg(mdiCog)} @click=${() => { this._settings.show() }}></sl-icon-button>
+      </div>
+    </div>
+    `
+      
   }
 
   render() {
@@ -581,7 +587,7 @@ export class NotebooksApp extends LitElement {
         >
           ${this.renderBackButton()}
           <div style="flex: 1">${this.renderTitle()}</div>
-          ${this.renderMyProfile()}
+          ${isWeContext() ? "" : this.renderMyProfile()}
         </div>
         <div class="fill row" style="width: 100vw; height: 100%;">
           <profile-prompt style="flex: 1;">

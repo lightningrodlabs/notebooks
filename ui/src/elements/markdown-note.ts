@@ -11,6 +11,7 @@ import {
   synContext,
   synDocumentContext,
   SessionStore,
+  SynConfig,
 } from "@holochain-syn/core";
 import { MarkdownRenderer } from "@scoped-elements/markdown-renderer";
 
@@ -30,6 +31,7 @@ import "@shoelace-style/shoelace/dist/components/badge/badge.js";
 import "@shoelace-style/shoelace/dist/components/drawer/drawer.js";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import "./syn-md-editor";
+
 import { Profile, ProfilesStore, profilesStoreContext } from '@holochain-open-dev/profiles';
 
 
@@ -37,7 +39,6 @@ import {
   hashState,
   notifyError,
   onSubmit,
-  renderAsyncStatus,
   sharedStyles,
   wrapPathInSvg,
 } from "@holochain-open-dev/elements";
@@ -62,6 +63,7 @@ import {
 } from "../grammar";
 import { NoteMeta } from "../types.js";
 import { notebooksContext, NotebooksStore } from "../store";
+import { renderAsyncStatus } from "../utils.js";
 
 enum View {
   Edit,
@@ -73,6 +75,13 @@ const POCKET_ICON=`<svg width="20" height="20" viewBox="0 0 300 300" xmlns="http
 customElements.define("markdown-renderer", MarkdownRenderer);
 
 const WORKSPACE_NOT_FOUND = "The requested workspace was not found";
+
+const SYN_CONFIG: SynConfig = {
+  hearbeatInterval: 5 * 1000,
+  newPeersDiscoveryInterval: 30 * 1000,
+  outOfSessionTimeout: 60 * 1000,
+  commitStrategy: { CommitEveryNDeltas: 200, CommitEveryNMs: 1000 * 30 }, // TODO: reduce ms
+}
 
 @customElement("markdown-note")
 export class MarkdownNote extends LitElement {
@@ -118,7 +127,7 @@ export class MarkdownNote extends LitElement {
           return this.documentStore.workspaces.get(workspace[0]);
         },
         (workspaceStore) => workspaceStore.session,
-        (sessionStore, w) => (sessionStore ? sessionStore : w.joinSession()),
+        (sessionStore, w) => (sessionStore ? sessionStore : w.joinSession(SYN_CONFIG)),
         (s) => s.state,
         (state, sessionStore) =>
           [sessionStore, state] as [

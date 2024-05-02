@@ -66,6 +66,7 @@ export const textEditorGrammar = {
             characterCount,
           };
         } else {
+          console.log("fish",state.text)
           cursors[encodeHashToBase64(myPubKey)] = {
             left: true,
             position: (state.text as any).getElemId(from),
