@@ -1,7 +1,8 @@
 import { EntryRecord } from "@holochain-open-dev/utils";
 import { consume } from "@lit/context";
-import { css, html, LitElement } from "lit";
+import { css, html, LitElement, PropertyValueMap } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+
 import {
   Workspace,
   DocumentStore,
@@ -142,7 +143,7 @@ export class MarkdownNote extends LitElement {
     if (this._renderDrawer && this.drawer) {
       this.drawer.show()
     }
- }
+  }
 
   @state()
   _workspaceName: string = "main";

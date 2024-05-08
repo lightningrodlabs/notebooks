@@ -96,9 +96,21 @@ Marked.setOptions
   smartypants: false
 });
 
+Marked.setBlockRule(/\[([x ]*)\](.*)/, function x (execArr) {
+
+  // Don't use arrow function for this callback
+  // if you need Renderer's context, for example to `this.options`.
+  if (execArr) {
+    const checked = execArr[1];
+    const text = execArr[2];
+    return `<input type="checkbox" ${checked === "x" ?"checked":""}>${text}</input>`
+  }
+
+  return `<input type="checkbox"></input>`
+});
+
 export function sortByDescendantTimestamp(
   notes: EntryRecord<Document>[]
 ): Array<EntryRecord<Document>> {
   return notes.sort((a, b) => b.action.timestamp - a.action.timestamp);
 }
-
