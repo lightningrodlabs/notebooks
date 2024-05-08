@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "@holochain-playground/cli": "^0.1.1",
-    "@holochain/hc-spin": "^0.100.3",
+    "@holochain/hc-spin": "^0.400.0-dev.0",
     "@lightningrodlabs/we-dev-cli": "^0.11.8-dev.2",
     "bestzip": "^2.2.0",
     "concurrently": "^6.2.1",
