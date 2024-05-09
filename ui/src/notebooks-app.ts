@@ -400,6 +400,7 @@ export class NotebooksApp extends LitElement {
                   </sl-button> 
 
                   </sl-dialog>
+              ${ this._synStore ? html`
               <all-notes
                 style="flex: 1;"
                 @note-selected=${(e: CustomEvent) => {
@@ -409,6 +410,7 @@ export class NotebooksApp extends LitElement {
                   };
                 }}
               ></all-notes>
+              `:``}
             </div>
           </div>
         </div>
@@ -569,7 +571,7 @@ export class NotebooksApp extends LitElement {
     }
 
     return html`
-      <sl-dialog label="Notebooks: UI v0.2.9 for DNA v0.2.0" id="about-dialog" width={600} >
+      <sl-dialog label="Notebooks: UI v0.2.10 for DNA v0.2.0" id="about-dialog" width={600} >
           <div class="about">
               <p>Notebooks is a demonstration Holochain app built by Lighning Rod Labs.</p>
               <p> <b>Developers:</b>
