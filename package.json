@@ -11,7 +11,7 @@
     "start": "VITE_ADMIN_PORT=$(port) VITE_APP_PORT=$(port) UI_PORT=8888 npm run network",
     "network": "hc s clean && npm run build:happ && npm run start -w ui && hc-spin -n 2 --ui-port $UI_PORT 8888 ./workdir/notebooks.webhapp",
     "test": "npm run build:happ && cargo nextest run -j 1",
-    "package": "rm -rf ui/dist && npm run build:happ && npm run package -w app && hc web-app pack workdir --recursive",
+    "package": "rm -rf ui/dist && rm ui/dist.zip && npm run build:happ && npm run package -w app && hc web-app pack workdir --recursive",
     "start:happ": "echo \"starting with admin $VITE_ADMIN_PORT\" && RUST_LOG=warn echo \"pass\" | hc s -f=$VITE_ADMIN_PORT --piped generate workdir/notebooks.happ --run=$VITE_APP_PORT -a notebooks network -b \"http://127.0.0.1:$BOOTSTRAP_PORT\"  webrtc \"ws://127.0.0.1:$SIGNAL_PORT\"",
     "build:happ": "npm run build:zomes && hc app pack workdir --recursive",
     "build:zomes": "CARGO_TARGET_DIR=target cargo build --release --target wasm32-unknown-unknown",
