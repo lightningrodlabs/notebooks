@@ -375,7 +375,11 @@ export class NotebooksApp extends LitElement {
         <syn-document-context
           .documentstore=${this._synStore.documents.get(this.view.noteHash)}
         >
-          <markdown-note .standalone=${this.view.type === "standalone-note"} style="flex: 1;"></markdown-note>
+          <markdown-note 
+          @close=${()=>this.view = {
+            type: "main",
+          }}
+          .standalone=${this.view.type === "standalone-note"} style="flex: 1;"></markdown-note>
         </syn-document-context>
       `;
     return html`
@@ -508,54 +512,27 @@ export class NotebooksApp extends LitElement {
     </div>`;
   }
 
-  renderBackButton() {
-    if (this.view.type === "main") return html``;
-
-    return html`
-      <sl-icon-button
-        .src=${wrapPathInSvg(mdiArrowLeft)}
-        class="back-button"
+  renderFooter() {
+    const buttons = html`
+    <div style="display:flex;align-items:center;margin-right:${isWeContext()? "0px": "40px"};">
+      <sl-icon-button 
+        style="color:white;"
+        .src=${wrapPathInSvg(mdiInformation)}
         @click=${() => {
-        this.view = {
-          type: "main",
-        };
-      }}
-      ></sl-icon-button>
-    `;
-  }
-
-  renderTitle() {
-    if (this.view.type === "note")
-      return html`${subscribe(
-        this._synStore.documents.get(this.view.noteHash).record,
-        renderAsyncStatus({
-          complete: (v) => html`${(decode(v.entry.meta!) as any).title}`,
-          error: (e) =>
-            html`<display-error
-              toolitp
-              .error=${e}
-              .headline=${msg("Error fetching the title")}
-            ></display-error>`,
-          pending: () => html``,
-        })
-      )}`;
-    return html`
-    <div style="display:flex;align-items:center;justify-content:space-between;">
-      <h3>${msg("Notebooks")} 
-      </h3>
-      <div style="display:flex;align-items:center;margin-right:${isWeContext()? "0px": "40px"};">
-        <sl-icon-button 
-          style="color:white;"
-          .src=${wrapPathInSvg(mdiInformation)}
-          @click=${() => {
-            this._aboutDialog.show()
-          }}>
-          </sl-icon-button>
-        <sl-icon-button style="color:white;" class="settings-button" .src=${wrapPathInSvg(mdiCog)} @click=${() => { this._settings.show() }}></sl-icon-button>
+          this._aboutDialog.show()
+        }}>
+        </sl-icon-button>
+      <sl-icon-button style="color:white;" class="settings-button" .src=${wrapPathInSvg(mdiCog)} @click=${() => { this._settings.show() }}></sl-icon-button>
       </div>
+`
+
+    return html`
+    <div style="height: 40px; background-color: #0c4a6e; display:flex;align-items:center;">
+      <h3 style="color:white;margin-left:10px;">${msg("Notebooks")} 
+      </h3>
+        ${buttons}
     </div>
     `
-      
   }
 
   render() {
@@ -583,19 +560,12 @@ export class NotebooksApp extends LitElement {
           </div>
       </sl-dialog>
       <div class="column" style="flex: 1; display: flex;">
-        <div
-          class="row"
-          style="align-items: center; color:white; background-color: var(--sl-color-primary-900); padding: 0 16px; height: 65px;"
-        >
-          ${this.renderBackButton()}
-          <div style="flex: 1">${this.renderTitle()}</div>
-          ${isWeContext() ? "" : this.renderMyProfile()}
-        </div>
         <div class="fill row" style="width: 100vw; height: 100%;">
           <profile-prompt style="flex: 1;">
             ${this.renderContent()}
           </profile-prompt>
         </div>
+        ${this.renderFooter()}
       </div>
     `;
   }
