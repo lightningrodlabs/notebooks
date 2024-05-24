@@ -1,7 +1,8 @@
 import { EntryRecord } from "@holochain-open-dev/utils";
 import { consume } from "@lit/context";
-import { css, html, LitElement } from "lit";
+import { css, html, LitElement, PropertyValueMap } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+
 import {
   Workspace,
   DocumentStore,
@@ -55,7 +56,7 @@ import { SlDialog, SlDrawer } from "@shoelace-style/shoelace";
 import { msg } from "@lit/localize";
 import { decode } from "@msgpack/msgpack";
 import { Marked } from "@ts-stack/markdown";
-import { mdiBookOpenOutline, mdiEye, mdiPencil } from "@mdi/js";
+import { mdiArrowLeft, mdiBookOpenOutline, mdiEye, mdiPencil } from "@mdi/js";
 import { isWeContext, WAL } from "@lightningrodlabs/we-applet";
 import {
   TextEditorEphemeralState,
@@ -142,7 +143,7 @@ export class MarkdownNote extends LitElement {
     if (this._renderDrawer && this.drawer) {
       this.drawer.show()
     }
- }
+  }
 
   @state()
   _workspaceName: string = "main";
@@ -319,17 +320,6 @@ export class MarkdownNote extends LitElement {
     </div> `;
   }
 
-  renderTitle() {
-    if (this._meta.value.status !== "complete")
-      return html`<sl-skeleton></sl-skeleton>`;
-    const meta = this._meta.value.value;
-    return html`<span style="margin-right: 8px">${meta.title}</span>
-      ${meta.attachedToHrl
-        ? html`<span>${msg(" for")}</span>
-            <hrl-link .hrl=${meta.attachedToHrl}></hrl-link> `
-        : html``} `;
-  }
-
   copyWALToClipboard(documentHash: EntryHash) {
     const attachment: WAL = { hrl: [this.notebooksStore.dnaHash, documentHash], context: {} }
     this.notebooksStore.weClient?.walToPocket(attachment)
@@ -352,8 +342,22 @@ export class MarkdownNote extends LitElement {
           style="align-items: center; background-color: white; padding: 8px;
           box-shadow: var(--sl-shadow-x-large); z-index: 10"
         >
-          ${this.standalone ? this.renderTitle() :""}
           <span class="controls">
+            ${!this.standalone ? html`
+            <sl-button
+              style="margin-right:10px"
+              size="small"
+              circle
+              @click=${() => {
+                this.dispatchEvent(
+                  new CustomEvent("close", {
+                    detail: {},
+                    composed: true,
+                    bubbles: true,
+                  })
+                );
+              }}
+            ><sl-icon .src=${wrapPathInSvg(mdiArrowLeft)}></sl-icon></sl-button>`:""}
           
             <sl-button-group  label="View Options">
             <sl-button variant=${this._view === View.Edit ? "primary" : "neutral"} @click=${() => { this._view = View.Edit }}><sl-icon .src=${wrapPathInSvg(mdiPencil)} label="Edit"></sl-icon></sl-button>

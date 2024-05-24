@@ -25,6 +25,7 @@
     "prefer-template": "off",
     "no-await-in-loop": "off",
     "no-empty": "off",
-    "no-nested-ternary": "off"
+    "no-nested-ternary": "off",
+    "prefer-arrow-callback": "off"
   }
 }

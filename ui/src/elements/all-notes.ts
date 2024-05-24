@@ -6,9 +6,10 @@ import {
   joinAsyncMap,
   mapAndJoin,
   pipe,
+  sliceAndJoin,
   StoreSubscriber,
 } from "@holochain-open-dev/stores";
-import { synContext, SynStore, Document, WorkspaceStore } from "@holochain-syn/core";
+import { synContext, SynStore, Document, WorkspaceStore, Commit } from "@holochain-syn/core";
 import { consume } from "@lit/context";
 import { css, html, LitElement } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
@@ -31,6 +32,7 @@ import { TextEditorEphemeralState, TextEditorState } from "../grammar.js";
 
 enum SortColumn {
   Created,
+  Modified,
   Title,
   Author
 }
@@ -38,8 +40,10 @@ enum SortColumn {
 type NoteRow = {
   title: string,
   created: Timestamp,
+  modified: Timestamp|undefined
   author: AgentPubKey,
   actionHash: ActionHash,
+  state: TextEditorState,
   authorSort: number,
   archived: boolean
 }
@@ -47,7 +51,8 @@ type NoteRow = {
 export interface NoteAndLatestState {
   workspace: WorkspaceStore<TextEditorState,TextEditorEphemeralState>,
   latestState: TextEditorState,
-  tip: EntryHash,
+  tip: EntryRecord<Commit> | undefined,
+  document: EntryRecord<Document>
 }
 
 @localized()
@@ -57,7 +62,7 @@ export class AllNotes extends LitElement {
   synStore!: SynStore;
 
   @state()
-  sortColumn = SortColumn.Created
+  sortColumn = SortColumn.Modified
 
   @state()
   sortDirection = SortDirection.Descending
@@ -65,23 +70,49 @@ export class AllNotes extends LitElement {
   @state()
   showArchived = false
 
-  allNotes = new StoreSubscriber(
+  noteData = new LazyHoloHashMap( documentHash => {
+    const docStore = this.synStore.documents.get(documentHash)
+  
+    const workspace = pipe(docStore.allWorkspaces,
+        workspaces =>  new WorkspaceStore(docStore, Array.from(workspaces.keys())[0])
+    )
+    const latestState = pipe(workspace, 
+      workspace => workspace.latestState
+        )
+    const tip = pipe(workspace,
+      workspace => workspace.tip
+        )
+    const document = pipe(docStore.record,
+      document => document
+        )
+
+    return alwaysSubscribed(pipe(joinAsync([workspace, latestState, tip, document]), ([workspace, latestState, tip, document]) => (
+         {workspace,latestState, tip, document})))
+  })
+
+ 
+  activeNotes: StoreSubscriber<AsyncStatus<ReadonlyMap<Uint8Array,NoteAndLatestState>>> = new StoreSubscriber(
     this,
-    () =>
-      pipe(this.synStore.documentsByTag.get("note"), (map) =>
-        mapAndJoin(map, (d) => d.record)
-      ),
+    () => {
+      const activeNoteHashes = asyncDerived(this.synStore.documentsByTag.get("note"),x=>Array.from(x.keys()))
+      return pipe(activeNoteHashes,
+        docHashes =>  sliceAndJoin(this.noteData, docHashes, {errors: "filter_out"})
+        )
+    },
     () => [this.synStore]
   );
 
-  archivedNotes = new StoreSubscriber(
+  archivedNotes: StoreSubscriber<AsyncStatus<ReadonlyMap<Uint8Array,NoteAndLatestState>>> = new StoreSubscriber(
     this,
-    () =>
-      pipe(this.synStore.documentsByTag.get("arc"), (map) =>
-        mapAndJoin(map, (d) => d.record)
-      ),
+    () => {
+      const activeNoteHashes = asyncDerived(this.synStore.documentsByTag.get("arc"),x=>Array.from(x.keys()))
+      return pipe(activeNoteHashes,
+        docHashes =>  sliceAndJoin(this.noteData, docHashes, {errors: "filter_out"})
+        )
+    },
     () => [this.synStore]
   );
+
 
   setSort(column: SortColumn, direction:SortDirection) {
     this.sortColumn = column
@@ -98,47 +129,26 @@ export class AllNotes extends LitElement {
   @state()
   error = ""
 
-  // activeNoteHashes = asyncDerived(this.synStore.documentsByTag.get("note"),x=>Array.from(x.keys()))
-
-  // archivedNoteHashes = asyncDerived(this.synStore.documentsByTag.get("arc"),x=>Array.from(x.keys()))
-
-  // allNoteHashes = joinAsync([this.activeNoteHashes, this.archivedNoteHashes])
-
-  // noteData = new LazyHoloHashMap( documentHash => {
-  //   const docStore = this.synStore.documents.get(documentHash)
-
-  //   const workspace = pipe(docStore.allWorkspaces,
-  //       workspaces =>  new WorkspaceStore(docStore, Array.from(workspaces.keys())[0])
-  //   )
-  //   const latestState = pipe(workspace, 
-  //     workspace => workspace.latestState
-  //       )
-  //   const tip = pipe(workspace,
-  //     workspace => workspace.tip
-  //       )
-
-  //   return alwaysSubscribed(pipe(joinAsync([workspace, latestState, tip]), ([workspace, latestState, tip]) => (
-  //        {workspace,latestState, tip: tip ? tip.entryHash: undefined})))
-  // })
-
-  processNoteRecord(note: EntryRecord<Document>, archived: boolean) : NoteRow {
-    const a = encodeHashToBase64(note.action.author)
+  processNoteRecord(note: NoteAndLatestState, archived: boolean) : NoteRow {
+    const a = encodeHashToBase64(note.document.action.author)
     let authorSort = this.authors.findIndex(x=>x===a)
     if (authorSort === -1) {
       authorSort = this.authors.length
       this.authors.push(a)
     }
     return {
-      title:(decode(note.entry.meta!) as any).title,
-      created: note.action.timestamp,
-      author:note.action.author,
-      actionHash:note.actionHash,
+      title:(decode(note.document.entry.meta!) as any).title,
+      modified: note.tip ? note.tip.action.timestamp : undefined,
+      created: note.document.action.timestamp,
+      author:note.document.action.author,
+      actionHash:note.document.actionHash,
+      state: note.latestState,
       authorSort,
       archived
     }
   }
 
-  processNoteRecords(subscriber: StoreSubscriber<AsyncStatus<ReadonlyMap<Uint8Array, EntryRecord<Document>>>>, archived: boolean) {
+  processNoteRecords(subscriber: StoreSubscriber<AsyncStatus<ReadonlyMap<Uint8Array, NoteAndLatestState>>>, archived: boolean) {
     switch (subscriber.value.status) {
       case "pending":
           break;
@@ -158,6 +168,10 @@ export class AllNotes extends LitElement {
     notes: NoteRow[]
   ): Array<NoteRow> {
     switch (this.sortColumn) {
+      case SortColumn.Modified:
+        if (this.sortDirection=== SortDirection.Descending)
+           return notes.sort((a, b) => (b.modified ? b.modified : b.created) - (a.modified ? a.modified : a.created))
+        return notes.sort((b, a) => (b.modified ? b.modified : b.created) - (a.modified ? a.modified : a.created))
       case SortColumn.Created:
         if (this.sortDirection=== SortDirection.Descending)
            return notes.sort((a, b) => b.created - a.created)
@@ -176,6 +190,13 @@ export class AllNotes extends LitElement {
 
   renderNote(note: NoteRow) {
     const createDate = new Date(note.created)
+    const modifiedDate = note.modified ? new Date(note.modified) : undefined
+    let title = note.title
+    // @ts-ignore
+    const match = /^(#+ +)*(.*)/.exec(note.state.text);
+    if (match) {
+      title = match[2]
+    }
     return html`
         <div
           class="note-row"
@@ -205,11 +226,13 @@ export class AllNotes extends LitElement {
           }}
         >
           <span class="note-title" style="font-size: 18px;">
-            ${note.title}
+            ${title}
             ${note.archived ? html`<span class="archived">${msg("Archived")}</span>`:""}
-
           </span>
         
+          <span class="note-modified">
+            ${modifiedDate ? html`${modifiedDate.toLocaleDateString()} ${modifiedDate.toLocaleTimeString()}` : "never"}
+          </span>
           <span class="note-created">
             ${createDate.toLocaleDateString()} ${createDate.toLocaleTimeString()}
           </span>
@@ -254,39 +277,12 @@ export class AllNotes extends LitElement {
   render() {
     if (!this.noReset) {
       this.noteRows = []
-      this.processNoteRecords(this.allNotes, false)
+      this.processNoteRecords(this.activeNotes, false)
       if (this.showArchived)
         this.processNoteRecords(this.archivedNotes, true)
+
     }
     else this.noReset = false
-
-    // switch (this.allNotes.value.status) {
-    //   case "pending":
-    //     return html` <div class="row" style="">
-    //       ${Array(3).map(
-    //         () => html`<sl-skeleton effect="pulse" class="note"></sl-skeleton>`
-    //       )}
-    //     </div>`;
-    //   case "complete":
-        
-    //       Array.from(this.allNotes.value.value.values())
-    //         .forEach((note) => {
-    //           const a = encodeHashToBase64(note.action.author)
-    //           let authorSort = authors.findIndex(x=>x===a)
-    //           if (authorSort === -1) {
-    //             authorSort = authors.length
-    //             authors.push(a)
-    //           }
-    //           noteRows.push( {
-    //             title:(decode(note.entry.meta!) as any).title,
-    //             created: note.action.timestamp,
-    //             author:note.action.author,
-    //             actionHash:note.actionHash,
-    //             authorSort,
-    //             archived:false,
-    //       })})
-    //     break;
-    //     }
 
     return html`
       <div class="notes">
@@ -311,6 +307,13 @@ export class AllNotes extends LitElement {
               >
               ${msg("Title")}
             </column-label>
+          </span>
+          <span class="note-modified"> 
+            <column-label id="modified"
+              direction=${this.sortColumn === SortColumn.Modified?this.sortDirection:SortDirection.None}
+              @column-selected=${(e:any)=>this.setSort(SortColumn.Modified, e.detail.direction)}
+            >${msg("Modified")}
+            </column-label >
           </span>
           <span class="note-created"> 
             <column-label id="created"
@@ -376,7 +379,7 @@ export class AllNotes extends LitElement {
         margin-left:10px;
         justify-content:center;
       }
-      .note-created {
+      .note-created, .note-modified {
         display:flex;
         width: 180px;
         margin-left:10px;
