@@ -3,8 +3,9 @@ import { customElement, property, query, state } from "lit/decorators.js";
 import {
   ActionHash,
   AdminWebsocket,
-  AppAgentClient,
-  AppAgentWebsocket,
+  AppClient,
+  AppWebsocket,
+  AppWebsocketConnectionOptions,
   CellType,
   EntryHash,
 } from "@holochain/client";
@@ -36,7 +37,7 @@ import {
   WAL,
   initializeHotReload,
   isWeContext,
-  WeClient,
+  WeaveClient,
 } from "@lightningrodlabs/we-applet";
 import { EntryRecord, LazyHoloHashMap } from "@holochain-open-dev/utils";
 
@@ -151,9 +152,9 @@ export class NotebooksApp extends LitElement {
 
   async buildClient(): Promise<{
     view: View;
-    client: AppAgentClient;
+    client: AppClient;
     profilesClient: ProfilesClient;
-    weClient: WeClient | undefined;
+    weaveClient: WeaveClient | undefined;
   }> {
     if ((import.meta as any).env.DEV) {
       try {
@@ -162,74 +163,81 @@ export class NotebooksApp extends LitElement {
         console.warn("Could not initialize applet hot-reloading. This is only expected to work in a We context in dev mode.")
       }
     }
-    let weClient: WeClient | undefined
+    let weaveClient: WeaveClient | undefined
+    let tokenResp;
     if (isWeContext()) {
-      weClient = await WeClient.connect(appletServices);
+      weaveClient = await WeaveClient.connect(appletServices);
 
       // Then handle all the different types of views that you offer
-      switch (weClient.renderInfo.type) {
+      switch (weaveClient.renderInfo.type) {
         case "applet-view":
-          switch (weClient.renderInfo.view.type) {
+          switch (weaveClient.renderInfo.view.type) {
             case "main":
               // here comes your rendering logic for the main view
               return {
                 view: {
                   type: "main",
                 },
-                profilesClient: weClient.renderInfo.profilesClient as any,
-                client: weClient.renderInfo.appletClient,
-                weClient
+                profilesClient: weaveClient.renderInfo.profilesClient as any,
+                client: weaveClient.renderInfo.appletClient,
+                weaveClient
               };
             case "block":
               throw new Error("Unknown applet-view block type");
             case "asset":
-              switch (weClient.renderInfo.view.roleName) {
-                case "notebooks":
-                  switch (weClient.renderInfo.view.integrityZomeName) {
-                    case "syn_integrity":
-                      switch (weClient.renderInfo.view.entryType) {
-                        case "document":
-                          // here comes your rendering logic for that specific entry type
-                          return {
-                            view: {
-                              type: "standalone-note",
-                              noteHash: weClient.renderInfo.view.wal.hrl[1],
-                            },
-                            client: weClient.renderInfo.appletClient,
-                            profilesClient: weClient.renderInfo
-                              .profilesClient as any,
-                            weClient
-                          };
-                        default:
-                          throw new Error(`Unknown entry type: ${weClient.renderInfo.view.entryType}`);
-                      }
-                    default:
-                      throw new Error(`Unknown integrity zome ${weClient.renderInfo.view.integrityZomeName}`);
-                  }
-                default:
-                  throw new Error(`Unknown role name: ${weClient.renderInfo.view.roleName}`);
+                            if (!weaveClient.renderInfo.view.recordInfo) {
+                throw new Error(
+                  "Notebooks does not implement asset views pointing to DNAs instead of Records."
+                );
+              } else {
+                switch (weaveClient.renderInfo.view.recordInfo.roleName) {
+                  case "notebooks":
+                    switch (weaveClient.renderInfo.view.recordInfo.integrityZomeName) {
+                      case "syn_integrity":
+                        switch (weaveClient.renderInfo.view.recordInfo.entryType) {
+                          case "document":
+                            // here comes your rendering logic for that specific entry type
+                            return {
+                              view: {
+                                type: "standalone-note",
+                                noteHash: weaveClient.renderInfo.view.wal.hrl[1],
+                              },
+                              client: weaveClient.renderInfo.appletClient,
+                              profilesClient: weaveClient.renderInfo
+                                .profilesClient as any,
+                              weaveClient
+                            };
+                          default:
+                            throw new Error(`Unknown entry type: ${weaveClient.renderInfo.view.recordInfo.entryType}`);
+                        }
+                      default:
+                        throw new Error(`Unknown integrity zome ${weaveClient.renderInfo.view.recordInfo.integrityZomeName}`);
+                    }
+                  default:
+                    throw new Error(`Unknown role name: ${weaveClient.renderInfo.view.recordInfo.roleName}`);
+                }
               }
             case "creatable":
-              switch (weClient.renderInfo.view.name) {
+              switch (weaveClient.renderInfo.view.name) {
                 case "note":
                   return {
                     view: {
                       type: "create",
-                      data: weClient.renderInfo.view
+                      data: weaveClient.renderInfo.view
                     },
-                    client: weClient.renderInfo.appletClient,
-                    profilesClient: weClient.renderInfo
+                    client: weaveClient.renderInfo.appletClient,
+                    profilesClient: weaveClient.renderInfo
                       .profilesClient as any,
-                    weClient
+                    weaveClient
                   };
-                default: throw new Error(`Unknown creatable type: ${weClient.renderInfo.view.name}`);
+                default: throw new Error(`Unknown creatable type: ${weaveClient.renderInfo.view.name}`);
               }
             default:
-              throw new Error(`Unknown applet-view type: ${(weClient.renderInfo.view as any).type}`);
+              throw new Error(`Unknown applet-view type: ${(weaveClient.renderInfo.view as any).type}`);
           }
 
         default:
-          throw new Error(`Unknown render view type: ${weClient.renderInfo.type}`);
+          throw new Error(`Unknown render view type: ${weaveClient.renderInfo.type}`);
       }
     }
     if (adminPort) {
@@ -237,20 +245,19 @@ export class NotebooksApp extends LitElement {
       const adminWebsocket = await AdminWebsocket.connect({
         url: new URL(`ws://localhost:${adminPort}`)
       })
+      tokenResp = await adminWebsocket.issueAppAuthenticationToken({
+        installed_app_id: "notebooks",
+      });
       const x = await adminWebsocket.listApps({})
       console.log("apps", x)
       const cellIds = await adminWebsocket.listCellIds()
       console.log("CELL IDS", cellIds)
       await adminWebsocket.authorizeSigningCredentials(cellIds[0])
     }
+    const params: AppWebsocketConnectionOptions = { url: new URL(url) };
+    if (tokenResp) params.token = tokenResp.token;
+    const client = await AppWebsocket.connect(params);
 
-    const client = await AppAgentWebsocket.connect(
-      "notebooks",
-      {
-        url: new URL(url),
-
-      })
-      ;
     const profilesClient = new ProfilesClient(client, "notebooks");
     return {
       view: {
@@ -258,12 +265,12 @@ export class NotebooksApp extends LitElement {
       },
       client,
       profilesClient,
-      weClient
+      weaveClient
     };
   }
 
   async connectToHolochain() {
-    const { view, profilesClient, client, weClient } = await this.buildClient();
+    const { view, profilesClient, client, weaveClient } = await this.buildClient();
     this._synStore = new SynStore(new SynClient(client, "notebooks"));
 
 
@@ -271,7 +278,7 @@ export class NotebooksApp extends LitElement {
     const dnaHash = (appInfo?.cell_info.notebooks[0] as any)[
       CellType.Provisioned
     ].cell_id[0];
-    this._notebooksStore = new NotebooksStore(dnaHash, weClient)
+    this._notebooksStore = new NotebooksStore(dnaHash, weaveClient)
     this._profilesStore = new ProfilesStore(profilesClient);
 
     this._myProfile = new StoreSubscriber(

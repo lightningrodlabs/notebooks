@@ -20,7 +20,7 @@
   <body>
     <script type="module">
       import "@shoelace-style/shoelace/dist/themes/light.css";
-      import { AppAgentWebsocket } from "@holochain/client";
+      import { AppWebsocket } from "@holochain/client";
       import { fakeEntryHash, HoloHashMap } from "@holochain-open-dev/utils";
       import { html, render } from "lit";
       import {
@@ -35,7 +35,7 @@
       import Applet from "../src/index.ts";
 
       async function setupAppletMain() {
-        const appWs = await AppAgentWebsocket.connect(``, "");
+        const appWs = await AppWebsocket.connect(``, "");
 
         const client = new ProfilesClient(appWs, "notebooks");
         const store = new ProfilesStore(client);
@@ -63,7 +63,7 @@
       }
 
       async function setupCrossAppletMain() {
-        const appWs = await AppAgentWebsocket.connect(``, "");
+        const appWs = await AppWebsocket.connect(``, "");
 
         const client = new ProfilesClient(appWs, "notebooks");
         const store = new ProfilesStore(client);

@@ -322,7 +322,7 @@ export class MarkdownNote extends LitElement {
 
   copyWALToClipboard(documentHash: EntryHash) {
     const attachment: WAL = { hrl: [this.notebooksStore.dnaHash, documentHash], context: {} }
-    this.notebooksStore.weClient?.walToPocket(attachment)
+    this.notebooksStore.weaveClient?.walToPocket(attachment)
   }
 
   renderNoteWorkspace(

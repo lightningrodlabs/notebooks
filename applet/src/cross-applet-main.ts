@@ -13,7 +13,7 @@ import "@lightningrodlabs/notebooks/dist/elements/markdown-note.js";
 import "@lightningrodlabs/notebooks/dist/elements/all-notes.js";
 
 import { sharedStyles } from "@holochain-open-dev/elements";
-import { AppAgentClient, DnaHash, EntryHash } from "@holochain/client";
+import { AppClient, DnaHash, EntryHash } from "@holochain/client";
 import { ProfilesClient, ProfilesStore } from "@holochain-open-dev/profiles";
 import { lazyLoad, StoreSubscriber } from "@holochain-open-dev/stores";
 import {
@@ -32,7 +32,7 @@ export class CrossAppletMain extends LitElement {
   @property()
   applets!: ReadonlyMap<
     EntryHash,
-    { appletClient: AppAgentClient; profilesClient: ProfilesClient }
+    { appletClient: AppClient; profilesClient: ProfilesClient }
   >;
 
   @consume({ context: weServicesContext, subscribe: true })
