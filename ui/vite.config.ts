@@ -2,6 +2,7 @@ import path from "path";
 import { defineConfig } from "vite";
 import checker from "vite-plugin-checker";
 import { viteStaticCopy } from "vite-plugin-static-copy";
+import { version, dnaVersion } from './package.json';  // Import version from package.json
 
 const components = [
   "dialog",
@@ -29,8 +30,9 @@ const exclude = components.map(
   (c) => `@shoelace-style/shoelace/dist/components/${c}/${c}.js`
 );
 export default defineConfig({
-  build: {
-    minify: false
+  define: {
+    '__APP_VERSION__': JSON.stringify(version),  // Define a global constant
+    '__DNA_VERSION__': JSON.stringify(dnaVersion)  // Define a global constant
   },
 
   optimizeDeps: {

@@ -3,8 +3,6 @@ import { Document } from "@holochain-syn/core";
 import { Marked, Renderer } from "@ts-stack/markdown";
 import hljs from 'highlight.js';
 import Automerge from 'automerge';
-
-
 import { html, TemplateResult } from "lit";
 import { AsyncStatus } from "@holochain-open-dev/stores";
 

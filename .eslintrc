@@ -26,6 +26,7 @@
     "no-await-in-loop": "off",
     "no-empty": "off",
     "no-nested-ternary": "off",
-    "prefer-arrow-callback": "off"
+    "prefer-arrow-callback": "off",
+    "no-undef": "off"
   }
 }

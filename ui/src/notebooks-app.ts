@@ -69,7 +69,6 @@ import { appletServices } from "./we-applet.js";
 import { NoteMeta, NoteWorkspace, Notebook, noteMetaB64ToRaw, noteMetaToB64 } from "./types.js";
 import { deserializeExport, exportNotes } from "./export.js";
 import { NotebooksStore, notebooksContext } from "./store.js";
-import { renderAsyncStatus } from "./utils.js";
 
 // @ts-ignore
 const appPort = import.meta.env.VITE_APP_PORT ? import.meta.env.VITE_APP_PORT : 8888
@@ -555,7 +554,7 @@ export class NotebooksApp extends LitElement {
     }
 
     return html`
-      <sl-dialog label="Notebooks: UI v0.2.10 for DNA v0.2.0" id="about-dialog" width={600} >
+      <sl-dialog label="Notebooks: UI v${__APP_VERSION__} for DNA v${__DNA_VERSION__}" id="about-dialog" width={600} >
           <div class="about">
               <p>Notebooks is a demonstration Holochain app built by Lighning Rod Labs.</p>
               <p> <b>Developers:</b>
