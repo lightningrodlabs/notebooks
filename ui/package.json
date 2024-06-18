@@ -38,7 +38,6 @@
     "@scoped-elements/cytoscape": "^0.2.0"
   },
   "devDependencies": {
-    "@lightningrodlabs/we-dev-cli": "^0.10.5",
     "@babel/preset-env": "^7.15.0",
     "@open-wc/building-rollup": "^1.10.0",
     "@open-wc/eslint-config": "^4.3.0",

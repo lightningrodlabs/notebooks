@@ -10,8 +10,8 @@
     "tool-dev": " UI_PORT=8888 npm run tool-devy",
     "tool-devy": "concurrently \"npm start -w ui\" \"sleep 1 && we-dev-cli --agent-idx 1 --dev-config we_dev/config.ts\" \"sleep 10 && we-dev-cli --agent-idx 2 --dev-config we_dev/config.ts\"",
     "tool-devx": "BPORT=46263 SPORT=46262; concurrently \"hc run-local-services -b $BPORT -s $SPORT\" \"npm start -w ui\" \"./we_dev/we.AppImage  --dev-config we_dev/config.json --agent-num 1 -b http://127.0.0.1:$BPORT -s ws://127.0.0.1:$SPORT\" \"sleep 10 && ./we_dev/we.AppImage --dev-config we_dev/config.json --agent-num 2 -b http://127.0.0.1:$BPORT -s ws://127.0.0.1:$SPORT\"",
-    "start": "VITE_ADMIN_PORT=$(port) VITE_APP_PORT=$(port) UI_PORT=8888 npm run network",
-    "network": "hc s clean && npm run build:happ && npm run start -w ui && hc-spin -n 2 --ui-port $UI_PORT 8888 ./workdir/notebooks.webhapp",
+    "start": "UI_PORT=8888 npm run network",
+    "network": "hc s clean && npm run build:happ && concurrently \"npm run start -w ui\" \"hc-spin -n 2 --ui-port $UI_PORT ./workdir/notebooks.webhapp\"",
     "test": "npm run build:happ && cargo nextest run -j 1",
     "package": "rm -rf ui/dist && rm ui/dist.zip && npm run build:happ && npm run package -w app && hc web-app pack workdir --recursive",
     "start:happ": "echo \"starting with admin $VITE_ADMIN_PORT\" && RUST_LOG=warn echo \"pass\" | hc s -f=$VITE_ADMIN_PORT --piped generate workdir/notebooks.happ --run=$VITE_APP_PORT -a notebooks network -b \"http://127.0.0.1:$BOOTSTRAP_PORT\"  webrtc \"ws://127.0.0.1:$SIGNAL_PORT\"",
@@ -24,9 +24,9 @@
     "launch:applet": "we-alpha --test-applets workdir/notebooks.webhapp --network-seed test "
   },
   "devDependencies": {
-    "@holochain-playground/cli": "^0.1.1",
-    "@holochain/hc-spin": "^0.400.0-dev.0",
-    "@lightningrodlabs/we-dev-cli": "^0.12.0-dev.0",
+    "@holochain-playground/cli": "^0.2.0",
+    "@holochain/hc-spin": "^0.300.3",
+    "@lightningrodlabs/we-dev-cli": "^0.12.0-dev.5",
     "bestzip": "^2.2.0",
     "concurrently": "^6.2.1",
     "cross-env": "^7.0.3",

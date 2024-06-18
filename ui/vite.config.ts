@@ -29,6 +29,10 @@ const exclude = components.map(
   (c) => `@shoelace-style/shoelace/dist/components/${c}/${c}.js`
 );
 export default defineConfig({
+  build: {
+    minify: false
+  },
+
   optimizeDeps: {
     exclude: [
       ...exclude,
