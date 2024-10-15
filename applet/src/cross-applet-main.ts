@@ -22,7 +22,7 @@ import {
   GroupProfile,
   WeServices,
   weServicesContext,
-} from "@lightningrodlabs/we-applet";
+} from "@theweave/api";
 import { consume } from "@lit-labs/context";
 import { CellType } from "@holochain/client";
 

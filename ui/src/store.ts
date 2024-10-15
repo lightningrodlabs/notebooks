@@ -1,5 +1,5 @@
 import { DnaHash } from "@holochain/client";
-import { WeaveClient } from "@lightningrodlabs/we-applet";
+import { WeaveClient } from "@theweave/api";
 import { createContext } from "@lit/context";
 
 export class NotebooksStore  {

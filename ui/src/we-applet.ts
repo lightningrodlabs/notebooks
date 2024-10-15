@@ -10,7 +10,7 @@ import {
   WeaveServices,
   AssetInfo,
   RecordInfo,
-} from '@lightningrodlabs/we-applet';
+} from '@theweave/api';
 import { msg } from '@lit/localize';
 import { mdiNotebook } from '@mdi/js';
 import { decode } from '@msgpack/msgpack';

@@ -57,7 +57,7 @@ import { msg } from "@lit/localize";
 import { decode } from "@msgpack/msgpack";
 import { Marked } from "@ts-stack/markdown";
 import { mdiArrowLeft, mdiBookOpenOutline, mdiEye, mdiPencil } from "@mdi/js";
-import { isWeContext, WAL } from "@lightningrodlabs/we-applet";
+import { isWeContext, WAL } from "@theweave/api";
 import {
   TextEditorEphemeralState,
   TextEditorState,

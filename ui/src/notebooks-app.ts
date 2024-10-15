@@ -38,7 +38,7 @@ import {
   initializeHotReload,
   isWeContext,
   WeaveClient,
-} from "@lightningrodlabs/we-applet";
+} from "@theweave/api";
 import { EntryRecord, LazyHoloHashMap } from "@holochain-open-dev/utils";
 
 import { provide } from "@lit/context";

@@ -19,14 +19,14 @@ import {
   CrossAppletViews,
   WeApplet,
   WeServices,
-} from "@lightningrodlabs/we-applet";
+} from "@theweave/api";
 
 import "@lightningrodlabs/notebooks/dist/elements/all-notes.js";
 import "@lightningrodlabs/notebooks/dist/elements/column-header.js";
 import "@lightningrodlabs/notebooks/dist/elements/markdown-note.js";
 import "@holochain-open-dev/profiles/dist/elements/profiles-context.js";
-import "@lightningrodlabs/we-applet/dist/elements/we-services-context.js";
-import "@lightningrodlabs/we-applet/dist/elements/hrl-link.js";
+import "@theweave/api/dist/elements/we-services-context.js";
+import "@theweave/api/dist/elements/hrl-link.js";
 import "@lightningrodlabs/attachments/dist/elements/attachments-context.js";
 import "@lightningrodlabs/attachments/dist/elements/attachments-bar.js";
 import {

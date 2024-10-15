@@ -1,4 +1,4 @@
-import { defineConfig } from '@lightningrodlabs/we-dev-cli';
+import { defineConfig } from '@theweave/cli';
 
 export default defineConfig({
   groups: [
@@ -91,7 +91,7 @@ export default defineConfig({
       },
       source: {
         type: 'https',
-        url: 'https://github.com/holochain-apps/kando/releases/download/v0.10.0/kando.webhapp',
+        url: 'https://github.com/holochain-apps/kando/releases/download/v0.11.0-rc.0/kando.webhapp',
       },
     },
  ],

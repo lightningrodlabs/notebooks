@@ -1,5 +1,5 @@
 import { AgentPubKey, AgentPubKeyB64, decodeHashFromBase64, encodeHashToBase64 } from "@holochain/client";
-import { Hrl, HrlB64 } from "@lightningrodlabs/we-applet";
+import { Hrl, HrlB64 } from "@theweave/api";
 
 export interface NoteMeta {
   title: string;
