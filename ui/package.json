@@ -3,8 +3,8 @@
   "description": "Webcomponent lit-element following open-wc recommendations",
   "license": "MIT",
   "author": "lit-element",
-  "version": "0.11.0",
-  "dnaVersion": "0.3.0",
+  "version": "0.4.0",
+  "dnaVersion": "0.4.0",
   "scripts": {
     "start": "vite --port $UI_PORT --clearScreen false",
     "build": "vite build",
