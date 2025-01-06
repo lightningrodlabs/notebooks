@@ -57,7 +57,7 @@ import { msg } from "@lit/localize";
 import { decode } from "@msgpack/msgpack";
 import { Marked } from "@ts-stack/markdown";
 import { mdiArrowLeft, mdiBookOpenOutline, mdiEye, mdiPencil } from "@mdi/js";
-import { isWeContext, WAL } from "@theweave/api";
+import { isWeaveContext, WAL } from "@theweave/api";
 import {
   TextEditorEphemeralState,
   TextEditorState,
@@ -322,7 +322,7 @@ export class MarkdownNote extends LitElement {
 
   copyWALToClipboard(documentHash: EntryHash) {
     const attachment: WAL = { hrl: [this.notebooksStore.dnaHash, documentHash], context: {} }
-    this.notebooksStore.weaveClient?.walToPocket(attachment)
+    this.notebooksStore.weaveClient?.assets.assetToPocket(attachment)
   }
 
   renderNoteWorkspace(
@@ -365,7 +365,7 @@ export class MarkdownNote extends LitElement {
             <sl-button variant=${this._view === View.View ? "primary" : "neutral"} @click=${() => { this._view = View.View }}><sl-icon .src=${wrapPathInSvg(mdiEye)} label="View"></sl-icon></sl-button>
             </sl-button-group>
 
-            ${ isWeContext() ? html`
+            ${ isWeaveContext() ? html`
             <sl-button
               style="margin-left: 16px;"
               circle

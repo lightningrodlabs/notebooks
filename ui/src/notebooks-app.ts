@@ -36,7 +36,7 @@ import {
   AppletServices,
   WAL,
   initializeHotReload,
-  isWeContext,
+  isWeaveContext,
   WeaveClient,
 } from "@theweave/api";
 import { EntryRecord, LazyHoloHashMap } from "@holochain-open-dev/utils";
@@ -164,7 +164,7 @@ export class NotebooksApp extends LitElement {
     }
     let weaveClient: WeaveClient | undefined
     let tokenResp;
-    if (isWeContext()) {
+    if (isWeaveContext()) {
       weaveClient = await WeaveClient.connect(appletServices);
 
       // Then handle all the different types of views that you offer
@@ -520,7 +520,7 @@ export class NotebooksApp extends LitElement {
 
   renderFooter() {
     const buttons = html`
-    <div style="display:flex;align-items:center;margin-right:${isWeContext()? "0px": "40px"};">
+    <div style="display:flex;align-items:center;margin-right:${isWeaveContext()? "0px": "40px"};">
       <sl-icon-button 
         style="color:white;"
         .src=${wrapPathInSvg(mdiInformation)}

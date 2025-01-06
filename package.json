@@ -13,7 +13,7 @@
     "start": "UI_PORT=8888 npm run network",
     "network": "hc s clean && npm run build:happ && concurrently \"npm run start -w ui\" \"hc-spin -n 2 --ui-port $UI_PORT ./workdir/notebooks.webhapp\"",
     "test": "npm run build:happ && cargo nextest run -j 1",
-    "package": "rm -rf ui/dist && rm ui/dist.zip && npm run build:happ && npm run package -w app && hc web-app pack workdir --recursive",
+    "package": "rm -rf ui/dist && rm -f ui/dist.zip && npm run build:happ && npm run package -w app && hc web-app pack workdir --recursive && npm run weave-hash",
     "start:happ": "echo \"starting with admin $VITE_ADMIN_PORT\" && RUST_LOG=warn echo \"pass\" | hc s -f=$VITE_ADMIN_PORT --piped generate workdir/notebooks.happ --run=$VITE_APP_PORT -a notebooks network -b \"http://127.0.0.1:$BOOTSTRAP_PORT\"  webrtc \"ws://127.0.0.1:$SIGNAL_PORT\"",
     "build:happ": "npm run build:zomes && hc app pack workdir --recursive",
     "build:zomes": "CARGO_TARGET_DIR=target cargo build --release --target wasm32-unknown-unknown",
@@ -21,12 +21,13 @@
     "local-services": "hc run-local-services --bootstrap-port $BOOTSTRAP_PORT --signal-port $SIGNAL_PORT",
     "playground": "holochain-playground",
     "test:applet": "cross-env BOOTSTRAP_PORT=$(port) SIGNAL_PORT=$(port) concurrently -k \"npm run local-services\" \"weave -c we_dev/config.ts -b http://127.0.0.1:$BOOTSTRAP_PORT -s ws://127.0.0.1:$SIGNAL_PORT \"",
-    "launch:applet": "we-alpha --test-applets workdir/notebooks.webhapp --network-seed test "
+    "launch:applet": "we-alpha --test-applets workdir/notebooks.webhapp --network-seed test ",
+    "weave-hash":  "weave hash-webhapp ./workdir/notebooks.webhapp"
   },
   "devDependencies": {
-    "@theweave/cli": "0.13.0-gamma.3",
-    "@holochain/hc-spin": "^0.400.0-dev.3",
-    "@holochain-playground/cli": "^0.1.1",
+    "@theweave/cli": "0.13.0-rc.0",
+    "@holochain/hc-spin": "^0.400.0",
+    "@holochain-playground/cli": "^0.2.0",
     "bestzip": "^2.2.0",
     "concurrently": "^6.2.1",
     "cross-env": "^7.0.3",
