@@ -522,7 +522,7 @@ dependencies = [
 [[package]]
 name = "hc_zome_syn_coordinator"
 version = "0.1.0"
-source = "git+https://github.com/holochain/syn?branch=main-0.4#6dedfe9b781dbe7f00ab8284a75c1c44adfcde48"
+source = "git+https://github.com/holochain/syn?branch=feature/debug-overwrite#0ad7c716f6f4996eef6356b071b3c5383154d8c9"
 dependencies = [
  "hc_zome_syn_integrity",
  "hdk",
@@ -533,7 +533,7 @@ dependencies = [
 [[package]]
 name = "hc_zome_syn_integrity"
 version = "0.1.0"
-source = "git+https://github.com/holochain/syn?branch=main-0.4#6dedfe9b781dbe7f00ab8284a75c1c44adfcde48"
+source = "git+https://github.com/holochain/syn?branch=feature/debug-overwrite#0ad7c716f6f4996eef6356b071b3c5383154d8c9"
 dependencies = [
  "hdi",
  "serde",
