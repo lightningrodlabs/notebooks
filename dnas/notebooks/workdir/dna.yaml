@@ -5,16 +5,11 @@ name: notebooks
 integrity:
   network_seed: ~
   properties: ~
-  origin_time: 2022-02-11T23:05:19.470323Z
   zomes:
     - name: syn_integrity
       bundled: ../../../target/wasm32-unknown-unknown/release/syn_integrity.wasm
     - name: profiles_integrity
       bundled: ../../../target/wasm32-unknown-unknown/release/profiles_integrity.wasm
-    - name: attachments_integrity
-      hash: ~
-      bundled: "../../../target/wasm32-unknown-unknown/release/attachments_integrity.wasm"
-      dependencies: ~
 coordinator:
   zomes:
     - name: syn
@@ -25,8 +20,3 @@ coordinator:
       bundled: ../../../target/wasm32-unknown-unknown/release/profiles.wasm
       dependencies:
         - name: profiles_integrity
-    - name: attachments
-      hash: ~
-      bundled: "../../../target/wasm32-unknown-unknown/release/attachments.wasm"
-      dependencies: 
-        - name: attachments_integrity

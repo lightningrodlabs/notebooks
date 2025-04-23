@@ -1,7 +1,7 @@
 import { wrapPathInSvg } from '@holochain-open-dev/elements';
 import { Hrl } from '@holochain-open-dev/utils';
 import { SynClient, SynStore } from '@holochain-syn/core';
-import { AppClient, CellType, RoleName, ZomeName } from '@holochain/client';
+import { AppClient, CellType, ProvisionedCell, RoleName, ZomeName } from '@holochain/client';
 import {
   WeaveClient,
   AppletServices,
@@ -77,9 +77,8 @@ export const appletServices: AppletServices = {
       documentsLinks.map(rh => client.getDocument(rh.target))
     );
     const appInfo = await appletClient.appInfo();
-    const dnaHash = (appInfo?.cell_info.notebooks[0] as any)[
-      CellType.Provisioned
-    ].cell_id[0];
+    const dnaHash = (appInfo?.cell_info.notebooks[0].value as ProvisionedCell).cell_id[0];
+
 
     return documents
       .filter(r => !!r)

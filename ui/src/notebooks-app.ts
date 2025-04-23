@@ -8,6 +8,7 @@ import {
   AppWebsocketConnectionOptions,
   CellType,
   EntryHash,
+  ProvisionedCell,
 } from "@holochain/client";
 import {
   ProfilesClient,
@@ -274,9 +275,7 @@ export class NotebooksApp extends LitElement {
 
 
     const appInfo = await this._synStore.client.client.appInfo();
-    const dnaHash = (appInfo?.cell_info.notebooks[0] as any)[
-      CellType.Provisioned
-    ].cell_id[0];
+    const dnaHash = (appInfo?.cell_info.notebooks[0].value as ProvisionedCell).cell_id[0];
     this._notebooksStore = new NotebooksStore(dnaHash, weaveClient)
     this._profilesStore = new ProfilesStore(profilesClient);
 

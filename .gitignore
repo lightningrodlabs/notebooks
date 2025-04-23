@@ -11,3 +11,4 @@ ui/dist
 .hc
 .running
 *.tsbuildinfo
+.kitsune2_bootstrap_srv

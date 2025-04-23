@@ -25,9 +25,9 @@
     "weave-hash":  "weave hash-webhapp ./workdir/notebooks.webhapp"
   },
   "devDependencies": {
-    "@theweave/cli": "0.13.0-rc.0",
-    "@holochain/hc-spin": "^0.400.0",
-    "@holochain-playground/cli": "^0.2.0",
+    "@theweave/cli": "0.14.0-rc.0",
+    "@holochain/hc-spin": "^0.500.0-rc.1",
+    "@holochain-playground/cli": "^0.300.1",
     "bestzip": "^2.2.0",
     "concurrently": "^6.2.1",
     "cross-env": "^7.0.3",
