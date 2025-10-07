@@ -81,9 +81,16 @@ Marked.setOptions
   renderer: new HilightRenderer,
   highlight: (code, lang) =>  {
     if (lang) {
-      return hljs.highlight(lang, code).value
+      try {
+        const highlightResult = hljs.highlight(code, { language: lang });
+        return highlightResult.value;
+      } catch (error) {
+        const autoResult = hljs.highlightAuto(code);
+        return autoResult.value;
+      }
     }
-    return code
+    const autoResult = hljs.highlightAuto(code);
+    return autoResult.value;
   },
   gfm: true,
   tables: true,
