@@ -31,6 +31,7 @@ import "./workspace-list";
 import "@shoelace-style/shoelace/dist/components/badge/badge.js";
 import "@shoelace-style/shoelace/dist/components/drawer/drawer.js";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
+import "./session-status"
 import "./syn-md-editor";
 
 import { Profile, ProfilesStore, profilesStoreContext } from '@holochain-open-dev/profiles';
@@ -380,6 +381,9 @@ export class MarkdownNote extends LitElement {
              label="Edit">
             </sl-icon>`:""}
           </span>
+          <session-status
+            .sessionstore=${sessionStore}
+          ></session-status>
           <span style="margin: 0 8px">${msg("Participants:")}</span>
           <session-participants
             direction="row"
