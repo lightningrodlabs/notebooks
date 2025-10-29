@@ -2,17 +2,17 @@ import { EntryRecord } from "@holochain-open-dev/utils";
 import { Document } from "@holochain-syn/core";
 import { Marked, Renderer } from "@ts-stack/markdown";
 import hljs from 'highlight.js';
-import Automerge from 'automerge';
+import * as Automerge from '@automerge/automerge';
 import { html, TemplateResult } from "lit";
 import { AsyncStatus } from "@holochain-open-dev/stores";
 
 export function elemIdToPosition(
   left: boolean,
   elemId: string,
-  text: Automerge.Text
+  text: string[]
 ): number | undefined {
-  for (let i = 0; i < text.length; i+=1) {
-    if ((text as any).getElemId(i) === elemId) return left ? i : i + 1;
+  for (let i = 0; i < text.length; i += 1) {
+    if (Automerge.getObjectId(text, i) === elemId) return left ? i : i + 1;
   }
 
   return undefined;

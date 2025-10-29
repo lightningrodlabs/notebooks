@@ -62,7 +62,7 @@ export class SynMarkdownEditor extends LitElement {
 
     derived([this.slice.state, this.slice.ephemeral], i => i).subscribe(
       ([state, cursors]) => {
-        const stateText = state.text.toString();
+        const stateText = state.text.join('');
         const myAgentSelection =
           cursors[encodeHashToBase64(this.slice.myPubKey)];
 

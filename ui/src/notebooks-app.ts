@@ -305,7 +305,7 @@ export class NotebooksApp extends LitElement {
       for (const wsStore of Array.from(workspaceStores.values())) {
         const name = await toPromise(wsStore.name)
         const note = await toPromise(wsStore.latestSnapshot)
-        const text = note.text as string
+        const text = Array.isArray(note.text) ? note.text.join('') : note.text as string
         workspaces.push({ name, note: text })
       }
       notes.push({

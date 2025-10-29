@@ -3,6 +3,7 @@ import { defineConfig } from "vite";
 import checker from "vite-plugin-checker";
 import { viteStaticCopy } from "vite-plugin-static-copy";
 import { version, dnaVersion } from './package.json';  // Import version from package.json
+import wasm from 'vite-plugin-wasm';
 
 const components = [
   "dialog",
@@ -35,6 +36,10 @@ export default defineConfig({
     '__DNA_VERSION__': JSON.stringify(dnaVersion)  // Define a global constant
   },
 
+  build: {
+    target: 'esnext', // Support modern JS features including top-level await
+  },
+
   optimizeDeps: {
     exclude: [
       ...exclude,
@@ -42,6 +47,7 @@ export default defineConfig({
     ],
   },
   plugins: [
+    wasm(),
     checker({
       typescript: true,
       eslint: {

@@ -44,6 +44,8 @@ export class SessionStatus extends LitElement {
                 tabindex="0"
             >
                 <sl-icon .src=${wrapPathInSvg(mdiCached)}></sl-icon>
+                <!-- If error, show inline -->
+                ${this._status.value.error ? html`<span style="margin-left: 4px;">Error syncing</span>` : ''}
             </span>
         </sl-tooltip>
     `;

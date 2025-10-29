@@ -1,7 +1,7 @@
 import { Commit, DocumentStore, SynStore } from "@holochain-syn/core";
-import { textEditorGrammar } from "@holochain-syn/text-editor";
 import { EntryHash } from "@holochain/client";
 import { Hrl } from "@theweave/api";
+import { textEditorGrammar } from "./grammar";
 import { NoteMeta } from "./types";
 
 export async function createNote(
@@ -10,9 +10,10 @@ export async function createNote(
   attachedToHrl: Hrl | undefined = undefined,
   text: string | undefined = undefined,
 ): Promise<EntryHash> {
-  const initialState = textEditorGrammar.initialState();
-  if (text !== undefined)
-    initialState.text.insertAt!(0, ...text);
+  // Create initial state with text if provided
+  const initialState = text !== undefined 
+    ? { text: text.split('') }
+    : textEditorGrammar.initialState();
 
   const documentStore = await synStore.createDocument(
     initialState,

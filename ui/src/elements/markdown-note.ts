@@ -277,7 +277,7 @@ export class MarkdownNote extends LitElement {
                 <div class="markd">
                   ${unsafeHTML(Marked.parse(
           (stateFromCommit(v.entry) as TextEditorState
-          ).text.toString()))}
+          ).text.join('')))}
                 </div>
               </sl-card>
             </div>
@@ -423,7 +423,7 @@ export class MarkdownNote extends LitElement {
                 <div style="margin: 8px">
                   <sl-card style="width: 100%">
                   <div class="markd">
-                    ${unsafeHTML(Marked.parse(state.text.toString()))}
+                    ${unsafeHTML(Marked.parse(state.text.join('')))}
                   </div>
                   </sl-card>
                 </div>

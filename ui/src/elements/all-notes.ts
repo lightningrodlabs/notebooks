@@ -193,7 +193,7 @@ export class AllNotes extends LitElement {
     const modifiedDate = note.modified ? new Date(note.modified) : undefined
     let title = note.title
     // @ts-ignore
-    const match = /^(#+ +)*(.*)/.exec(note.state.text);
+    const match = /^(#+ +)*(.*)/.exec(note.state.text.join(''));
     if (match) {
       title = match[2]
     }
