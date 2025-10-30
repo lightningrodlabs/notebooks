@@ -67,9 +67,9 @@ export class SynMarkdownEditor extends LitElement {
           cursors[encodeHashToBase64(this.slice.myPubKey)];
 
         if (this.editor.doc.getValue() !== stateText) {
-          console.log("Setting State Text")
+          // console.log("Setting State Text")
           this.editor.doc.setValue(stateText);
-          console.log("Done setting State Text")
+          // console.log("Done setting State Text")
         }
         if (myAgentSelection) {
           if (state.toString().length > 0) {
