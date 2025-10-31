@@ -36,7 +36,13 @@
     "@automerge/automerge": "^3.2.0",
     "@vanillawc/wc-codemirror": "^2.1.0",
     "@gitgraph/js": "^1.4.0",
-    "@scoped-elements/cytoscape": "^0.2.0"
+    "@scoped-elements/cytoscape": "^0.2.0",
+    "prosemirror-state":"^1.4.4",
+    "prosemirror-view": "^1.41.3",
+    "prosemirror-model": "^1.18.0",
+    "prosemirror-schema-basic": "^1.1.2",
+    "prosemirror-schema-list": "^1.1.5",
+    "prosemirror-example-setup": "^1.1.2"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.15.0",

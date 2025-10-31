@@ -31,6 +31,9 @@ import "@shoelace-style/shoelace/dist/components/icon-button/icon-button.js";
 import "@shoelace-style/shoelace/dist/components/button/button.js";
 import "@shoelace-style/shoelace/dist/components/alert/alert.js";
 import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
+import "@shoelace-style/shoelace/dist/components/input/input.js";
+import "@shoelace-style/shoelace/dist/components/radio-group/radio-group.js";
+import "@shoelace-style/shoelace/dist/components/radio-button/radio-button.js";
 import "@holochain-syn/core/dist/elements/syn-document-context.js";
 import { textEditorGrammar } from "@holochain-syn/text-editor";
 import {
@@ -64,6 +67,7 @@ import SlDialog from "@shoelace-style/shoelace/dist/components/dialog/dialog.js"
 import SlInput from "@shoelace-style/shoelace/dist/components/input/input.js";
 
 import "./elements/markdown-note.js";
+import "./elements/richtext-note.js";
 import "./elements/all-notes.js";
 import { createNote } from "./index.js";
 import { appletServices } from "./we-applet.js";
@@ -380,11 +384,11 @@ export class NotebooksApp extends LitElement {
         <syn-document-context
           .documentstore=${this._synStore.documents.get(this.view.noteHash)}
         >
-          <markdown-note 
+          <richtext-note 
           @close=${()=>this.view = {
             type: "main",
           }}
-          .standalone=${this.view.type === "standalone-note"} style="flex: 1;"></markdown-note>
+          .standalone=${this.view.type === "standalone-note"} style="flex: 1;"></richtext-note>
         </syn-document-context>
       `;
     return html`
@@ -479,6 +483,11 @@ export class NotebooksApp extends LitElement {
       >
         <form ${onSubmit((f) => this.createNote(f.title))} id="note-form">
           <sl-input id="title" name="title" .label=${msg("Title")} required></sl-input>
+          <br>
+          <sl-radio-group label="Select a document type" name="a" value="1">
+            <sl-radio-button value="1">Markdown</sl-radio-button>
+            <sl-radio-button value="2">Rich Text</sl-radio-button>
+          </sl-radio-group>
         </form>
 
         <sl-button slot="footer" @click=${() => this._newNoteDialog.hide()}>

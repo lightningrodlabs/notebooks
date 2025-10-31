@@ -23,6 +23,7 @@ import {
 
 import "@lightningrodlabs/notebooks/dist/elements/all-notes.js";
 import "@lightningrodlabs/notebooks/dist/elements/column-header.js";
+import "@lightningrodlabs/notebooks/dist/elements/richtext-note.js";
 import "@lightningrodlabs/notebooks/dist/elements/markdown-note.js";
 import "@holochain-open-dev/profiles/dist/elements/profiles-context.js";
 import "@theweave/api/dist/elements/we-services-context.js";
