@@ -1,7 +1,7 @@
 ---
-manifest_version: "1"
+manifest_version: "0"
 name: notebooks
 ui:
-  bundled: "../ui/dist.zip"
-happ_manifest:
-  bundled: "./notebooks.happ"
+  path: "../ui/dist.zip"
+happ:
+  path: "./notebooks.happ"

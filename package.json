@@ -16,17 +16,17 @@
     "package": "rm -rf ui/dist && rm -f ui/dist.zip && npm run build:happ && npm run package -w app && hc web-app pack workdir --recursive && npm run weave-hash",
     "start:happ": "echo \"starting with admin $VITE_ADMIN_PORT\" && RUST_LOG=warn echo \"pass\" | hc s -f=$VITE_ADMIN_PORT --piped generate workdir/notebooks.happ --run=$VITE_APP_PORT -a notebooks network -b \"http://127.0.0.1:$BOOTSTRAP_PORT\"  webrtc \"ws://127.0.0.1:$SIGNAL_PORT\"",
     "build:happ": "npm run build:zomes && hc app pack workdir --recursive",
-    "build:zomes": "CARGO_TARGET_DIR=target cargo build --release --target wasm32-unknown-unknown",
+    "build:zomes": "CARGO_TARGET_DIR=target RUSTFLAGS='--cfg getrandom_backend=\"custom\"' cargo build --release --target wasm32-unknown-unknown",
     "launch": "concurrently \"npm run local-services\" \"echo pass | RUST_LOG=warn hc launch --piped -n $AGENTS workdir/notebooks.happ --ui-port $UI_PORT network --bootstrap http://127.0.0.1:\"$BOOTSTRAP_PORT\" webrtc ws://127.0.0.1:\"$SIGNAL_PORT\"\"",
     "local-services": "hc run-local-services --bootstrap-port $BOOTSTRAP_PORT --signal-port $SIGNAL_PORT",
     "playground": "holochain-playground",
     "test:applet": "cross-env BOOTSTRAP_PORT=$(port) SIGNAL_PORT=$(port) concurrently -k \"npm run local-services\" \"weave -c we_dev/config.ts -b http://127.0.0.1:$BOOTSTRAP_PORT -s ws://127.0.0.1:$SIGNAL_PORT \"",
     "launch:applet": "we-alpha --test-applets workdir/notebooks.webhapp --network-seed test ",
-    "weave-hash":  "weave hash-webhapp ./workdir/notebooks.webhapp"
+    "weave-hash":  "weave hash-webhapp 0.6.0 ./workdir/notebooks.webhapp"
   },
   "devDependencies": {
-    "@theweave/cli": "0.14.0-rc.0",
-    "@holochain/hc-spin": "^0.500.0-rc.1",
+    "@theweave/cli": "0.15.2",
+    "@holochain/hc-spin": "^0.600.0-dev.0",
     "@holochain-playground/cli": "^0.300.1",
     "bestzip": "^2.2.0",
     "concurrently": "^6.2.1",
