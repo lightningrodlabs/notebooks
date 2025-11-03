@@ -12,11 +12,17 @@ import './agent-cursor.js';
 
 // ProseMirror imports
 import { EditorView } from 'prosemirror-view';
-import { Schema, DOMParser as PMDOMParser, DOMSerializer } from 'prosemirror-model';
-import { schema as basicSchema } from 'prosemirror-schema-basic';
-import { addListNodes } from 'prosemirror-schema-list';
-import { exampleSetup } from 'prosemirror-example-setup';
 import { EditorState, TextSelection } from 'prosemirror-state';
+import { keymap } from 'prosemirror-keymap';
+import { baseKeymap } from 'prosemirror-commands';
+
+// Automerge ProseMirror integration
+import { init } from '@automerge/prosemirror';
+import * as Automerge from '@automerge/automerge';
+
+// Basic ProseMirror setup 
+import { exampleSetup } from 'prosemirror-example-setup';
+
 import {
   AgentSelection,
   TextEditorEphemeralState,
@@ -24,6 +30,13 @@ import {
   textEditorGrammar,
 } from '../grammar.js';
 import { elemIdToPosition } from '../utils.js';
+import { 
+  synToAutomerge, 
+  getAutomergeTextContent, 
+  updateAutomergeText,
+  createEmptyAutomergeDoc,
+  htmlToText 
+} from './automerge-bridge.js';
 
 /**
  * <syn-pm-editor>
@@ -65,140 +78,170 @@ export class SynPmEditor extends LitElement {
   /** Holds the ProseMirror view instance. */
   private view: EditorView | null = null;
 
-  /** ProseMirror schema (basic + lists). */
-  private pmSchema = new Schema({
-    nodes: addListNodes(basicSchema.spec.nodes, 'paragraph block*', 'block'),
-    marks: basicSchema.spec.marks,
-  });
+  /** Automerge document for collaborative editing */
+  private automergeDoc: any = null;
+
+  /** ProseMirror plugin from @automerge/prosemirror */
+  private automergePlugin: any = null;
 
   /** The editor's mount point in the shadow DOM. */
   @query('#editor') private editorEl!: HTMLDivElement;
 
   /** Flag to prevent infinite loops during sync */
-  private isUpdatingFromSlice = false;
-
-  /** Flag to track initial content load */
-  private isInitialLoad = true;
+  private isUpdatingFromSyn = false;
 
   firstUpdated() {
-    // Initialize with empty content initially
-    const tmp = document.createElement('div');
-    tmp.innerHTML = '';
+    this.initializeAutomergeEditor();
+  }
 
-    const state = EditorState.create({
-      doc: PMDOMParser.fromSchema(this.pmSchema).parse(tmp),
-      plugins: exampleSetup({ schema: this.pmSchema }),
-    });
+  private async initializeAutomergeEditor() {
+    // Create proper Automerge document for rich text
+    const synState = this._state.value;
+    
+    if (synState && synState.text.length > 0) {
+      this.automergeDoc = synToAutomerge(synState);
+    } else {
+      this.automergeDoc = createEmptyAutomergeDoc();
+    }
 
-    this.view = new EditorView({ mount: this.editorEl }, {
-      state,
-      dispatchTransaction: (tr) => {
-        // Always apply the transaction to update the view
-        const view = this.view!;
-        const newState = view.state.apply(tr);
-        view.updateState(newState);
-        
-        // Handle changes similar to CodeMirror's beforeChange approach
-        if (tr.docChanged && !this.isUpdatingFromSlice) {
-          this.handleDocChange(tr, newState);
-        }
+    try {
+      // Create a proper DocHandle that @automerge/prosemirror expects
+      const docHandle = {
+        doc: () => this.automergeDoc,
+        change: (changeFn: any) => {
+          // Apply changes directly to the document
+          const newDoc = Automerge.change(this.automergeDoc, changeFn);
+          this.automergeDoc = newDoc;
+          
+          // Sync changes back to Syn (debounced to avoid loops)
+          setTimeout(() => {
+            if (!this.isUpdatingFromSyn) {
+              this.syncToSyn();
+            }
+          }, 0);
+        },
+        on: (event: string, callback: any) => {
+          // Mock event handling for now
+          console.log('DocHandle.on called with:', event);
+        },
+        off: (event: string, callback: any) => {
+          // Mock event handling for now
+          console.log('DocHandle.off called with:', event);
+        },
+      };
 
-        // Handle selection changes
-        if (tr.selectionSet && !this.isUpdatingFromSlice) {
-          this.handleSelectionChange(newState);
-        }
-      },
-    });
+      // Initialize @automerge/prosemirror
+      // Use ['content'] as the path to the content field which contains text
+      const { schema, pmDoc, plugin } = init(docHandle, ['content']);
+      
+      this.automergePlugin = plugin;
 
-    // Subscribe to slice changes - similar to CodeMirror approach
+      // Create ProseMirror state with Automerge plugin
+      const state = EditorState.create({
+        doc: pmDoc,
+        plugins: [
+          plugin,
+          keymap(baseKeymap),
+          // Add basic toolbar
+          ...exampleSetup({ schema }),
+        ],
+      });
+
+      // Create ProseMirror view
+      this.view = new EditorView(this.editorEl, {
+        state,
+        dispatchTransaction: (tr) => {
+          const newState = this.view!.state.apply(tr);
+          this.view!.updateState(newState);
+          
+          // Handle selection changes for collaborative cursors
+          if (tr.selectionSet && !this.isUpdatingFromSyn) {
+            this.handleSelectionChange(newState);
+          }
+        },
+      });
+
+      // Subscribe to Syn changes
+      this.subscribeToSynChanges();
+
+      // Focus the editor
+      setTimeout(() => {
+        this.view?.focus();
+      }, 100);
+
+    } catch (error) {
+      console.error('Failed to initialize Automerge editor:', error);
+      throw error; // Don't fall back, let the error surface
+    }
+  }
+
+  private subscribeToSynChanges() {
+    // Subscribe to slice changes - Automerge-only approach
     derived([this.slice.state, this.slice.ephemeral], i => i).subscribe(
       ([state, cursors]) => {
+        if (!this.view || !this.automergeDoc) return;
+
         const stateText = state.text.join('');
+        const currentContent = getAutomergeTextContent(this.automergeDoc);
+        
+        // Update Automerge document if Syn content changed
+        if (stateText !== currentContent && !this.isUpdatingFromSyn) {
+          this.isUpdatingFromSyn = true;
+          this.automergeDoc = updateAutomergeText(this.automergeDoc, stateText);
+          // The @automerge/prosemirror plugin will automatically update the editor
+          this.isUpdatingFromSyn = false;
+        }
+
+        // Handle cursor positioning for remote users
         const myAgentSelection = cursors[encodeHashToBase64(this.slice.myPubKey)];
+        if (myAgentSelection && state.text.length > 0) {
+          const position = elemIdToPosition(
+            myAgentSelection.left,
+            myAgentSelection.position,
+            state.text
+          );
 
-        // Parse the content - check if it's JSON (HTML) or plain text
-        let expectedHTML = '';
-        if (stateText) {
-          try {
-            expectedHTML = JSON.parse(stateText);
-          } catch (e) {
-            expectedHTML = this.convertPlainTextToHTML(stateText);
-          }
-        }
-
-        // Update content if different (like CodeMirror's setValue check)
-        if (this.getHTML() !== expectedHTML) {
-          this.isUpdatingFromSlice = true;
-          this.setContent(expectedHTML);
-          this.isUpdatingFromSlice = false;
-        }
-
-        // Handle cursor positioning (like CodeMirror's setSelection)
-        if (myAgentSelection) {
-          if (state.text.length > 0) {
-            const position = elemIdToPosition(
-              myAgentSelection.left,
-              myAgentSelection.position,
-              state.text
-            );
-
-            if (position !== null && position !== undefined) {
-              this.isUpdatingFromSlice = true;
-              this.setCursorPosition(position, position + myAgentSelection.characterCount);
-              this.isUpdatingFromSlice = false;
-            }
-          } else {
-            this.isUpdatingFromSlice = true;
-            this.setCursorPosition(0, 0);
-            this.isUpdatingFromSlice = false;
+          if (position !== null && position !== undefined) {
+            this.isUpdatingFromSyn = true;
+            this.setCursorPosition(position, position + myAgentSelection.characterCount);
+            this.isUpdatingFromSyn = false;
           }
         }
       }
     );
+  }
 
-    // Focus the editor after initialization
-    setTimeout(() => {
-      this.view?.focus();
-    }, 500);
+  private syncToSyn() {
+    if (!this.automergeDoc) return;
+
+    const content = getAutomergeTextContent(this.automergeDoc);
+    
+    // Convert any rich text back to plain text for Syn storage
+    const plainText = htmlToText(content);
+    
+    this.slice.change((state, eph) => {
+      const changes = textEditorGrammar.changes(this.slice.myPubKey, state, eph);
+      
+      // Replace all content
+      if (state.text.length > 0) {
+        changes.delete(0, state.text.length);
+      }
+      if (plainText) {
+        changes.insert(0, plainText);
+      }
+      
+      return changes;
+    });
   }
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
     this.view?.destroy();
     this.view = null;
+    this.automergeDoc = null;
   }
 
-  /** Handle document changes - like CodeMirror's onTextInserted/onTextDeleted */
-  private handleDocChange(tr: any, newState: EditorState) {
-    // Get the new HTML content
-    const newHTML = this.getHTMLFromState(newState);
-    
-    // Send the complete HTML content as JSON to Syn (similar to CodeMirror sending text)
-    const serializedHTML = JSON.stringify(newHTML);
-    this.slice.change((state, eph) => {
-      const changes = textEditorGrammar.changes(this.slice.myPubKey, state, eph);
-      // Replace all content with the serialized HTML
-      if (state.text.join('').length > 0) {
-        changes.delete(0, state.text.join('').length);
-      }
-      changes.insert(0, serializedHTML);
-      return changes;
-    });
-  }
-
-  /** Convert plain text to simple HTML paragraphs */
-  private convertPlainTextToHTML(text: string): string {
-    if (!text || text.trim() === '') return '<p></p>';
-    
-    // Split by newlines and create paragraphs
-    const paragraphs = text.split('\n').map(line => 
-      line.trim() === '' ? '<p><br></p>' : `<p>${line}</p>`
-    ).join('');
-    
-    return paragraphs;
-  }
-
-  /** Set cursor position in the editor - like CodeMirror's setSelection */
+  /** Set cursor position in the editor */
   private setCursorPosition(from: number, to: number) {
     if (!this.view) return;
     
@@ -216,21 +259,13 @@ export class SynPmEditor extends LitElement {
     }
   }
 
-  /** Get HTML from a specific editor state */
-  private getHTMLFromState(state: EditorState): string {
-    const frag = DOMSerializer.fromSchema(this.pmSchema).serializeFragment(state.doc.content);
-    const div = document.createElement('div');
-    div.appendChild(frag);
-    return div.innerHTML;
-  }
-
   /** Handle selection changes and sync to slice */
   private handleSelectionChange(state: EditorState) {
     const { from, to } = state.selection;
     this.onSelectionChanged([{ from, to }]);
   }
 
-  /** Handle selection changes for collaborative editing - like CodeMirror */
+  /** Handle selection changes for collaborative editing */
   onSelectionChanged(ranges: Array<{ from: number; to: number }>) {
     console.log("selectionChanged");
     this.slice.change((state, eph) =>
@@ -240,50 +275,10 @@ export class SynPmEditor extends LitElement {
     );
   }
 
-  /** Simple text diffing to detect changes */
+  /** Simple text diffing to detect changes - kept for compatibility but not used with Automerge */
   private diffText(oldText: string, newText: string): Array<{type: 'insert' | 'delete', position: number, text?: string, length?: number}> {
-    const changes: Array<{type: 'insert' | 'delete', position: number, text?: string, length?: number}> = [];
-    
-    let i = 0;
-    while (i < Math.max(oldText.length, newText.length)) {
-      if (i >= oldText.length) {
-        // Insertion at end
-        changes.push({ type: 'insert', position: i, text: newText.slice(i) });
-        break;
-      } else if (i >= newText.length) {
-        // Deletion at end
-        changes.push({ type: 'delete', position: i, length: oldText.length - i });
-        break;
-      } else if (oldText[i] !== newText[i]) {
-        // Find end of difference
-        let oldEnd = i;
-        let newEnd = i;
-        
-        // Simple approach: find next matching character
-        for (let j = i + 1; j < Math.max(oldText.length, newText.length); j += 1) {
-          if (j < oldText.length && j < newText.length && oldText[j] === newText[j]) {
-            oldEnd = j;
-            newEnd = j;
-            break;
-          }
-          if (j >= oldText.length) oldEnd = oldText.length;
-          if (j >= newText.length) newEnd = newText.length;
-        }
-        
-        if (oldEnd > i) {
-          changes.push({ type: 'delete', position: i, length: oldEnd - i });
-        }
-        if (newEnd > i) {
-          changes.push({ type: 'insert', position: i, text: newText.slice(i, newEnd) });
-        }
-        
-        i = Math.max(oldEnd, newEnd);
-      } else {
-        i += 1;
-      }
-    }
-    
-    return changes;
+    // This method is kept for compatibility but not used with Automerge integration
+    return [];
   }
 
   /** Get plain text from ProseMirror state */
@@ -320,55 +315,34 @@ export class SynPmEditor extends LitElement {
     ></agent-cursor>`;
   }
 
-  /** Programmatically replace content with HTML - like CodeMirror's setValue */
-  setContent(html: string) {
-    if (!this.view) return;
+  /** Programmatically replace content - Automerge-only */
+  setContent(content: string) {
+    if (!this.automergeDoc) return;
     
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    const doc = PMDOMParser.fromSchema(this.pmSchema).parse(tmp);
-    const tr = this.view.state.tr.replaceWith(0, this.view.state.doc.content.size, doc.content);
-    this.view.dispatch(tr);
-    this.isInitialLoad = false;
+    this.automergeDoc = updateAutomergeText(this.automergeDoc, content);
+    // The @automerge/prosemirror plugin will automatically update the editor
   }
 
-  /** Set content as plain text (for collaborative sync) */
+  /** Set content as plain text */
   setPlainTextContent(text: string) {
-    if (!this.view) return;
-    
-    // Create simple paragraphs from plain text
-    const tmp = document.createElement('div');
-    if (text.trim() === '') {
-      tmp.innerHTML = '<p></p>';
-    } else {
-      // Split by newlines and create paragraphs
-      const paragraphs = text.split('\n').map(line => 
-        line.trim() === '' ? '<p><br></p>' : `<p>${line}</p>`
-      ).join('');
-      tmp.innerHTML = paragraphs;
-    }
-    
-    const doc = PMDOMParser.fromSchema(this.pmSchema).parse(tmp);
-    const tr = this.view.state.tr.replaceWith(0, this.view.state.doc.content.size, doc.content);
-    this.view.dispatch(tr);
-    this.isInitialLoad = false;
+    this.setContent(text);
   }
 
-  /** Extract current content as HTML string. */
+  /** Extract current content as HTML string */
   getHTML(): string {
     if (!this.view) return '';
-    const frag = DOMSerializer.fromSchema(this.pmSchema).serializeFragment(this.view.state.doc.content);
-    const div = document.createElement('div');
-    div.appendChild(frag);
-    return div.innerHTML;
+    
+    // Return the plain text content for now
+    // In a full implementation, you'd extract rich HTML from ProseMirror
+    return this.getPlainText(this.view.state);
   }
 
-  /** Extract current content as ProseMirror JSON. */
+  /** Extract current content as ProseMirror JSON */
   getJSON() {
     return this.view?.state.doc.toJSON() ?? null;
   }
 
-  /** Focus the editor. */
+  /** Focus the editor */
   focus() {
     this.view?.focus();
   }
@@ -378,32 +352,22 @@ export class SynPmEditor extends LitElement {
     return this.getHTML();
   }
 
-  /** Get collaborative content (plain text for immediate sync) */
+  /** Get collaborative content (plain text for sync) */
   getCollaborativeContent(): string {
     return this.view ? this.getPlainText(this.view.state) : '';
   }
 
   /** Force save current content to Syn */
   saveToSyn() {
-    // For immediate sync mode, we can force update the plain text content
-    const plainText = this.view ? this.getPlainText(this.view.state) : '';
-    this.slice.change((state, eph) => {
-      const changes = textEditorGrammar.changes(this.slice.myPubKey, state, eph);
-      // Delete all existing content
-      if (state.text.join('').length > 0) {
-        changes.delete(0, state.text.join('').length);
-      }
-      // Insert the current plain text content
-      changes.insert(0, plainText);
-      return changes;
-    });
+    this.syncToSyn();
   }
 
-  /** Check if there are unsaved changes */
+  /** Check if there are unsaved changes - Automerge-only */
   hasUnsavedChanges(): boolean {
-    if (!this._state.value || !this.view) return false;
+    if (!this._state.value || !this.automergeDoc) return false;
+    
     const synContent = this._state.value.text.join('');
-    const currentContent = this.getPlainText(this.view.state);
+    const currentContent = getAutomergeTextContent(this.automergeDoc);
     return synContent !== currentContent;
   }
 
