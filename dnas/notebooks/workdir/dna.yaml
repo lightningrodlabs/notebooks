@@ -1,5 +1,5 @@
 ---
-manifest_version: "1"
+manifest_version: "0"
 name: notebooks
 
 integrity:
@@ -7,16 +7,16 @@ integrity:
   properties: ~
   zomes:
     - name: syn_integrity
-      bundled: ../../../target/wasm32-unknown-unknown/release/syn_integrity.wasm
+      path: ../../../target/wasm32-unknown-unknown/release/syn_integrity.wasm
     - name: profiles_integrity
-      bundled: ../../../target/wasm32-unknown-unknown/release/profiles_integrity.wasm
+      path: ../../../target/wasm32-unknown-unknown/release/profiles_integrity.wasm
 coordinator:
   zomes:
     - name: syn
-      bundled: ../../../target/wasm32-unknown-unknown/release/syn.wasm
+      path: ../../../target/wasm32-unknown-unknown/release/syn.wasm
       dependencies:
         - name: syn_integrity
     - name: profiles
-      bundled: ../../../target/wasm32-unknown-unknown/release/profiles.wasm
+      path: ../../../target/wasm32-unknown-unknown/release/profiles.wasm
       dependencies:
         - name: profiles_integrity
