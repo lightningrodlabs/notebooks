@@ -26,6 +26,8 @@ import "@shoelace-style/shoelace/dist/components/icon-button/icon-button.js";
 import "@shoelace-style/shoelace/dist/components/button-group/button-group.js";
 import "@shoelace-style/shoelace/dist/components/card/card.js";
 import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
+import "@shoelace-style/shoelace/dist/components/split-panel/split-panel.js";
+import "@shoelace-style/shoelace/dist/components/icon-button/icon-button.js";
 import "@holochain-open-dev/profiles/dist/elements/agent-avatar.js";
 import "./workspace-list";
 import "@shoelace-style/shoelace/dist/components/badge/badge.js";
@@ -53,11 +55,11 @@ import {
   StoreSubscriber,
   subscribe,
 } from "@holochain-open-dev/stores";
-import { SlDialog, SlDrawer } from "@shoelace-style/shoelace";
+import { SlChangeEvent, SlDialog, SlDrawer } from "@shoelace-style/shoelace";
 import { msg } from "@lit/localize";
 import { decode } from "@msgpack/msgpack";
 import { Marked } from "@ts-stack/markdown";
-import { mdiArrowLeft, mdiBookOpenOutline, mdiEye, mdiPencil } from "@mdi/js";
+import { mdiArrowLeft, mdiBookOpenOutline, mdiEye, mdiPencil, mdiClose, mdiGrid, mdiDotsGrid } from "@mdi/js";
 import { isWeaveContext, WAL } from "@theweave/api";
 import {
   TextEditorEphemeralState,
@@ -71,6 +73,12 @@ enum View {
   Edit,
   Both,
   View
+}
+
+interface HistoryTypes {
+  linear: boolean;
+  commit: boolean;
+  workspaces: boolean;
 }
 
 const POCKET_ICON=`<svg width="20" height="20" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M74.2273 83.9C71.7318 83.9 69.3386 84.8956 67.574 86.6678C65.8095 88.4401 64.8182 90.8437 64.8182 93.35V150.05C64.8182 172.607 73.74 194.239 89.6209 210.189C105.502 226.139 127.041 235.1 149.5 235.1C196.27 235.1 234.182 197.023 234.182 150.05V93.35C234.182 90.8437 233.191 88.4401 231.426 86.6678C229.661 84.8956 227.268 83.9 224.773 83.9H74.2273ZM54.2676 73.3035C59.5612 67.9869 66.7409 65 74.2273 65H224.773C232.259 65 239.439 67.9869 244.732 73.3035C250.026 78.6202 253 85.8311 253 93.35V150.05C253 207.461 206.663 254 149.5 254C122.05 254 95.7245 243.048 76.3144 223.554C56.9044 204.059 46 177.619 46 150.05V93.35C46 85.8311 48.9739 78.6202 54.2676 73.3035Z" fill="black"/><path d="M188.841 141.469H158.596V110.124C158.596 105.635 154.961 102 150.474 102C145.986 102 142.351 105.635 142.351 110.124V141.469H110.085C105.635 141.469 102 145.104 102 149.593C102 154.081 105.635 157.717 110.122 157.717H142.388V188.876C142.388 193.365 146.023 197 150.511 197C154.998 197 158.633 193.365 158.633 188.876V157.717H188.878C193.365 157.717 197 154.081 197 149.593C196.944 145.104 193.328 141.469 188.841 141.469Z" fill="black"/></svg>`
@@ -103,6 +111,13 @@ export class MarkdownNote extends LitElement {
 
   @state()
   _renderDrawer = false
+
+  @state()
+  _historyTypes: HistoryTypes = {
+    workspaces: false,
+    linear: true,
+    commit: false,
+  };
 
   _meta = new StoreSubscriber(
     this,
@@ -140,12 +155,6 @@ export class MarkdownNote extends LitElement {
     () => [this.documentStore, this._workspaceName]
   );
 
-  updated() {
-    if (this._renderDrawer && this.drawer) {
-      this.drawer.show()
-    }
-  }
-
   @state()
   _workspaceName: string = "main";
 
@@ -170,7 +179,6 @@ export class MarkdownNote extends LitElement {
     await sessionStore.leaveSession();
     try {
       await this.documentStore.createWorkspace(name, initialTipHash);
-      (this.shadowRoot?.getElementById("drawer") as SlDrawer).hide();
       (
         this.shadowRoot?.getElementById("new-workspace-dialog") as SlDialog
       ).hide();
@@ -200,12 +208,14 @@ export class MarkdownNote extends LitElement {
 
       <sl-dialog .label=${msg("Create Workspace")} id="new-workspace-dialog"
         ><form
-          ${onSubmit((f) =>
-        this.createWorkspace(
-          f.name,
-          this._selectedCommitHash!,
-          sessionStore
-        )
+          ${onSubmit((f) => {
+            this.createWorkspace(
+              f.name,
+              this._selectedCommitHash!,
+              sessionStore
+            )
+            this._historyTypes.workspaces = true;
+          }
       )}
           id="new-workspace-form"
         >
@@ -253,34 +263,32 @@ export class MarkdownNote extends LitElement {
     return html`${subscribe(
       this.documentStore.commits.get(this._selectedCommitHash),
       renderAsyncStatus({
-        complete: (v) => html` <div class="flex-scrollable-parent">
-          <div class="flex-scrollable-container">
-            <div class="flex-scrollable-y" style="padding: 0 8px;">
-              <sl-card>
-                <div slot="header">Commit: ${this._selectedCommitHash ? encodeHashToBase64(this._selectedCommitHash):""}</div>
-                <div slot="header">
-                  <span style="display:flex;align-items:center">by ${subscribe(this.profilesStore.profiles.get(v.action.author),
-                  renderAsyncStatus({
-                    complete: (v) => html`<agent-avatar style="margin-left:5px;margin-right:5px;" size="20" .agentPubKey=${v?.action.author}></agent-avatar> ${v?.entry.nickname}`,
-                    pending: () => this.renderLoading(),        
-                    error: (e) => html`<display-error
-                      .headline=${msg("Error fetching the author")}
-                      .error=${e}
-                      ></display-error>`,
-                      })
-                    )}
-                    on ${(new Date(v.action.timestamp)).toLocaleDateString()} ${(new Date(v.action.timestamp)).toLocaleTimeString()}
-                  </span>
-                  
-                </div>
+        complete: (v) => html` <div class="flex-scrollable-parent" style="height:100%;">
+          <div class="flex-scrollable-y" style="width:100%;">
+            <sl-card>
+              <div slot="header">Commit: ${this._selectedCommitHash ? encodeHashToBase64(this._selectedCommitHash):""}</div>
+              <div slot="header">
+                <span style="display:flex;align-items:center">by ${subscribe(this.profilesStore.profiles.get(v.action.author),
+                renderAsyncStatus({
+                  complete: (v) => html`<agent-avatar style="margin-left:5px;margin-right:5px;" size="20" .agentPubKey=${v?.action.author}></agent-avatar> ${v?.entry.nickname}`,
+                  pending: () => this.renderLoading(),        
+                  error: (e) => html`<display-error
+                    .headline=${msg("Error fetching the author")}
+                    .error=${e}
+                    ></display-error>`,
+                    })
+                  )}
+                  on ${(new Date(v.action.timestamp)).toLocaleDateString()} ${(new Date(v.action.timestamp)).toLocaleTimeString()}
+                </span>
+                
+              </div>
 
-                <div class="markd">
-                  ${unsafeHTML(Marked.parse(
-          (stateFromCommit(v.entry) as TextEditorState
-          ).text.join('')))}
-                </div>
-              </sl-card>
-            </div>
+              <div class="markd">
+                ${unsafeHTML(Marked.parse(
+                  (stateFromCommit(v.entry) as TextEditorState
+                  ).text.join('')))}
+              </div>
+            </sl-card>
           </div>
         </div>`,
         pending: () => this.renderLoading(),
@@ -295,28 +303,103 @@ export class MarkdownNote extends LitElement {
   renderVersionControlPanel(
     sessionStore: SessionStore<TextEditorState, TextEditorEphemeralState>
   ) {
-    return html`<div class="row" style="flex: 1;">
-      <div class="column" style="width: 600px; margin-right: 16px">
-        <workspace-list
-          style="flex: 1; margin-bottom: 16px;"
-          .activeWorkspace=${this._workspaceName}
-          @join-workspace=${async (e: CustomEvent) => {
-        await sessionStore.leaveSession();
-        this.drawer.hide();
-        this._workspaceName = e.detail.workspaceName;
-      }}
-        ></workspace-list>
-        <xcommit-history
-          style="flex: 1"
-          .selectedCommitHash=${this._selectedCommitHash ? encodeHashToBase64(this._selectedCommitHash): undefined}
-          @commit-selected=${(e: CustomEvent) => {
-        this._selectedCommitHash = e.detail.commitHash;
-      }}
-        ></xcommit-history>
-      </div>
-      <div class="column" style="width: 800px">
-        ${this.renderSelectedCommit()}
-        <div class="row">${this.renderNewWorkspaceButton(sessionStore)}</div>
+    return html`<div class="row" style="flex: 1; height: 100%;">
+      <div class="column" style="width: 100%;">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px; background-color: white;">
+          <div>
+            <sl-button value="workspaces"
+              @click=${() => {
+                this._historyTypes = {
+                  ...this._historyTypes,
+                  workspaces: !this._historyTypes.workspaces,
+                }
+              }}
+              class=${this._historyTypes.workspaces ? "active" : ""}
+            >
+            <sl-icon .src=${wrapPathInSvg(mdiEye)} style="margin-right: 4px;"></sl-icon>
+            ${msg("Workspaces")}</sl-button>
+            <sl-button value="linear"
+              @click=${() => {
+                this._historyTypes = {
+                  ...this._historyTypes,
+                  linear: !this._historyTypes.linear,
+                }
+              }}
+              class=${this._historyTypes.linear ? "active" : ""}
+            >
+            <sl-icon .src=${wrapPathInSvg(mdiEye)} style="margin-right: 4px;"></sl-icon>
+            ${msg("History")}</sl-button>
+            <sl-button value="commit"
+              @click=${() => {
+                this._historyTypes = {
+                  ...this._historyTypes,
+                  commit: !this._historyTypes.commit,
+                }
+              }}
+              class=${this._historyTypes.commit ? "active" : ""}
+            >
+            <sl-icon .src=${wrapPathInSvg(mdiEye)} style="margin-right: 4px;"></sl-icon>
+            ${msg("Commit")}</sl-button>
+          </div>
+
+          <sl-icon-button
+            .src=${wrapPathInSvg(mdiClose)}
+            label=${msg("Close")}
+            @click=${() => {
+              this._renderDrawer = false;
+            }}
+          ></sl-icon-button>
+        </div>
+
+        <sl-split-panel position=${ this._historyTypes.workspaces && 
+          (this._historyTypes.linear || this._historyTypes.commit) ? "20" : "100"} 
+          style="flex: 1; height: 100%;"
+        vertical>
+          ${ this._historyTypes.workspaces ? html`
+            <workspace-list
+            slot="start"
+            style="flex: 1; height: 100%;"
+            .activeWorkspace=${this._workspaceName}
+            @join-workspace=${async (e: CustomEvent) => {
+              await sessionStore.leaveSession();
+              this._workspaceName = e.detail.workspaceName;
+            }}
+            ></workspace-list>
+          ` : ""}
+          ${ (this._historyTypes.commit || this._historyTypes.linear) ? html`
+            <div class="row" slot=${ this._historyTypes.workspaces ? "end" : "start" } style="height: 100%; overflow: hidden; z-index: 1;">
+              <sl-split-panel position=${ this._historyTypes.commit && this._historyTypes.linear ? "60" : "100"}
+              style="flex: 1; height: 100%;" >
+                ${ this._historyTypes.linear ? html`
+                  <div
+                    slot="start"
+                    style="height: 100%; overflow: hidden; display: flex; flex-direction: column;"
+                  >
+                    <xcommit-history
+                    style="flex: 1; height: 0; min-height: 0;"
+                    .selectedCommitHash=${this._selectedCommitHash ? encodeHashToBase64(this._selectedCommitHash): undefined}
+                    @commit-selected=${(e: CustomEvent) => {
+                      this._selectedCommitHash = e.detail.commitHash;
+                      this._historyTypes = {
+                        ...this._historyTypes,
+                        commit: true,
+                      }
+                    }}
+                    ></xcommit-history>
+                  </div>
+                ` : ""}
+                ${ this._historyTypes.commit ? html`
+                  <div slot=${ this._historyTypes.linear ? "end" : "start" } style="height: 100%; overflow: hidden; display: flex; flex-direction: column;">
+                    <div class="row" style="flex-shrink: 0;">${this.renderNewWorkspaceButton(sessionStore)}</div>
+                    <div style="flex: 1; height: 0; min-height: 0; overflow: hidden;">
+                      ${this.renderSelectedCommit()}
+                    </div>
+                  </div>
+                ` : ""}
+              </sl-split-panel>
+            </div>
+          ` : ""}
+        </sl-split-panel>
       </div>
     </div> `;
   }
@@ -331,17 +414,19 @@ export class MarkdownNote extends LitElement {
     state: TextEditorState
   ) {
     return html`
-      ${ this._renderDrawer ? html`
-      <sl-drawer id="drawer" style="--size: auto;z-index:1001"
+    <sl-split-panel position=${this._renderDrawer ? "50" : "100"} style="flex: 1; height: 100%; --divider-width: 20px;" vertical>
+    <sl-icon slot="divider" .src=${wrapPathInSvg(mdiDotsGrid)}></sl-icon>
+    ${ this._renderDrawer ? html`
+      <div slot="end" id="drawer" style="--size: auto;z-index:1001; height: 100%;"
         @sl-hide=${()=>this._renderDrawer = false}>
-        ${this.renderVersionControlPanel(sessionStore)}</sl-drawer
+        ${this.renderVersionControlPanel(sessionStore)}</div
       >
       ` : html``}
-      <div class="column" style="flex: 1; height: 100%;">
+      <div slot="start" class="column" style="flex: 1; height: 100%;">
         <div
           class="row"
           style="align-items: center; background-color: white; padding: 8px;
-          box-shadow: var(--sl-shadow-x-large); z-index: 10"
+          box-shadow: var(--sl-shadow-x-large); z-index: 10 height: 100%;"
         >
           <span class="controls">
             ${!this.standalone ? html`
@@ -396,7 +481,7 @@ export class MarkdownNote extends LitElement {
           <sl-button
             style="margin-left: 16px;"
             @click=${() => {
-              this._renderDrawer = true
+              this._renderDrawer = !this._renderDrawer;
             }}
           >
             ${msg("Version Control")}
@@ -492,6 +577,14 @@ export class MarkdownNote extends LitElement {
   static styles = [
     sharedStyles,
     css`
+      .active::part(base) {
+        background-color: var(--sl-color-primary-600);
+        color: white;
+      }
+      .active::part(base):hover {
+        background-color: var(--sl-color-primary-500);
+        color: white;
+      }
       sl-drawer::part(body) {
         display: flex;
       }

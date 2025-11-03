@@ -117,9 +117,10 @@ export class CommitHistory extends LitElement {
     const e:any = []
     const branches: {[key:number]: any} ={}
     const tips: {[key:string]: number} ={}
+    const commitBranchMap: {[key:string]: number} = {}
     let i = 0;
     const container = this.graph
-        // Instantiate the graph.
+    // Instantiate the graph.
     if (container) {
       const options = {
         author:" ",
@@ -127,6 +128,9 @@ export class CommitHistory extends LitElement {
       container.innerHTML = ""
       const gitgraph = createGitgraph(container,options);
 
+      // First pass: build commit data and detect forks
+      const childrenMap: {[key: string]: string[]} = {}
+      
       for (const [commitHash, entry] of commits.actionMap.entries()) {
         const strCommitHash = encodeHashToBase64(commitHash);
         const prevCommits = commits.entryRecord(commitHash)?.entry.previous_commit_hashes || []
@@ -146,6 +150,14 @@ export class CommitHistory extends LitElement {
         }
         // @ts-ignore
         c[strCommitHash] = data
+
+        // Build children map to detect forks
+        for (const parentHash of data.prevCommits) {
+          if (!childrenMap[parentHash]) {
+            childrenMap[parentHash] = []
+          }
+          childrenMap[parentHash].push(strCommitHash)
+        }
 
         e.push(data)
       }  
@@ -169,29 +181,38 @@ export class CommitHistory extends LitElement {
           newBranch = true
         } else  if(d.prevCommits.length === 1){
           const hash = d.prevCommits[0]
-          console.log("single prev commit", hash, tips)
+          // console.log("single prev commit", hash, tips)
           const bn = tips[hash]
           branch = branches[bn]
           if (branch) {
-            console.log("prev commit is tip for branch, advancing", bn)
-            // advance the tip
-            delete tips[hash]
-            tips[d.hash] = bn
+            // console.log("prev commit is tip for branch, advancing", bn)
+            // Check if this is a fork (parent has multiple children)
+            const parentChildren = childrenMap[hash] || []
+            if (parentChildren.length > 1) {
+              // This is a fork - create a new branch for this child
+              // console.log("Fork detected at", hash, "children:", parentChildren)
+              newBranch = true
+            } else {
+              // advance the tip
+              delete tips[hash]
+              tips[d.hash] = bn
+              commitBranchMap[d.hash] = bn
+            }
           } else {
-            console.log("prev commit is not tip for branch, creating new")
+            // console.log("prev commit is not tip for branch, creating new")
             newBranch = true
           }
         } else {
-          console.log("merge", d.prevCommits.length)
+          // console.log("merge", d.prevCommits.length)
 
           const mainBranchHash = d.prevCommits[0]
-          const mainBranchNum = tips[mainBranchHash]
+          const mainBranchNum = tips[mainBranchHash] || commitBranchMap[mainBranchHash]
           branch = branches[mainBranchNum]
 
           for (let i = 1; i < d.prevCommits.length; i+=1) {
             const hash = d.prevCommits[i]
             const mergeBranchNum = tips[hash]
-            console.log("merging", mergeBranchNum, "into", mainBranchNum)
+            // console.log("merging", mergeBranchNum, "into", mainBranchNum, "tips", tips, "mainBranchHash", mainBranchHash)
             const b = branches[mergeBranchNum]
             branch.merge({
               branch: b,
@@ -201,17 +222,17 @@ export class CommitHistory extends LitElement {
           // advance the mainBranch tip
           delete tips[mainBranchHash]
           tips[d.hash] = mainBranchNum
+          commitBranchMap[d.hash] = mainBranchNum
           branch = undefined
         }
         if (newBranch) {
           branchNum += 1
-          console.log("Creating branch", branchNum)
-          branch = gitgraph.branch(`${branchNum}`);
+          branch = gitgraph.branch(`branch-${branchNum}`);
           branches[branchNum] = branch
           tips[d.hash] = branchNum
+          commitBranchMap[d.hash] = branchNum
         }
         if (branch) {
-          console.log("committing", commitOptions)
           branch.commit(commitOptions);
         }
       }    
@@ -230,7 +251,7 @@ export class CommitHistory extends LitElement {
   _cytoscape = false
 
   @state()
-  _zoom = 100
+  _zoom = 75
 
   private _allCommits = new StoreSubscriber(
     this,
@@ -265,34 +286,39 @@ export class CommitHistory extends LitElement {
       if (elements.length === 0)
         return html` <div
           class="row"
-          style="flex: 1; align-items: center; justify-content: center;"
+          style="flex: 1; align-items: center; justify-content: center; height: 100%;"
         >
           <span class="placeholder"> There are no commits yet </span>
         </div>`;
       
-      return html`<cytoscape-dagre
-      style="flex: 1;"
-      .fixed=${true}
-      .options=${{
-        style: `
-          edge {
-            target-arrow-shape: triangle;
-            width: 2px;
-          }
-        `,
-      }}
-      .selectedNodesIds=${this.selectedNodeIds}
-      .elements=${elements}
-      .dagreOptions=${{
-        rankDir: 'BT',
-      }}
-      @node-selected=${(e: CustomEvent) => this.onNodeSelected(e.detail.id())}
-    ></cytoscape-dagre>`
+      return html`
+      <div
+        style="display: flex; flex: 1; height: 100%;"
+      >
+        <cytoscape-dagre
+          style="flex: 1;"
+          .fixed=${true}
+          .options=${{
+            style: `
+              edge {
+                target-arrow-shape: triangle;
+                width: 2px;
+              }
+            `,
+          }}
+          .selectedNodesIds=${this.selectedNodeIds}
+          .elements=${elements}
+          .dagreOptions=${{
+            rankDir: 'BT',
+          }}
+          @node-selected=${(e: CustomEvent) => this.onNodeSelected(e.detail.id())}
+        ></cytoscape-dagre>
+      </div>`
     }
     if (Array.from(allCommits.actionMap.keys()).length === 0)
       return html` <div
         class="row"
-        style="flex: 1; align-items: center; justify-content: center;"
+        style="flex: 1; align-items: center; justify-content: center; height: 100%;"
       >
         <span class="placeholder"> There are no commits yet </span>
       </div>`;
@@ -308,7 +334,7 @@ export class CommitHistory extends LitElement {
         return html`
           <div
             class="row"
-            style="flex: 1; align-items: center; justify-content: center;"
+            style="flex: 1; align-items: center; justify-content: center; height: 100%;"
           >
             <sl-spinner style="font-size: 2rem"></sl-spinner>
           </div>
@@ -316,7 +342,7 @@ export class CommitHistory extends LitElement {
       case 'complete':
         const allCommits:RecordBag<Commit> = new RecordBag(this._allCommits.value.value.map(er => er.record))
 
-        return html`<sl-card style="flex: 1;">
+        return html`<sl-card>
           <span slot="header" class="title">${msg('Commit History')}</span>
           <span slot="header" style="margin-left:5px">(${this._allCommits.value.value.length} commits)</span>
           <sl-switch style="margin-left:10px;" slot="header" size=small @sl-change=${(e:MouseEvent)=>{
@@ -352,13 +378,32 @@ export class CommitHistory extends LitElement {
     css`
       :host {
         display: flex;
-        overflow: scroll;
+        flex-direction: column;
+        height: 100%;
+        min-height: 200px;
+        max-height: 800px;
+      }
+      sl-card {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow-y: scroll;
       }
       sl-card::part(body) {
         padding: 0;
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        height: 100%;
+      }
+      sl-range::part(form-control) {
+        display: flex;
+        gap: 1em;
       }
       #graph {
-        width: 500px;
+        height: 100%;
+        width: 100%;
         transform-origin: top left;
       }
     `,
