@@ -19,6 +19,7 @@ import { MarkdownRenderer } from "@scoped-elements/markdown-renderer";
 import "@holochain-syn/core/dist/elements/syn-context.js";
 import "@holochain-syn/core/dist/elements/session-participants.js";
 import "./commit-history";
+import "./diff-viewer";
 import "@shoelace-style/shoelace/dist/components/spinner/spinner.js";
 import "@shoelace-style/shoelace/dist/components/input/input.js";
 import "@shoelace-style/shoelace/dist/components/button/button.js";
@@ -28,6 +29,8 @@ import "@shoelace-style/shoelace/dist/components/card/card.js";
 import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
 import "@shoelace-style/shoelace/dist/components/split-panel/split-panel.js";
 import "@shoelace-style/shoelace/dist/components/icon-button/icon-button.js";
+import '@shoelace-style/shoelace/dist/components/radio-group/radio-group.js';
+import '@shoelace-style/shoelace/dist/components/radio-button/radio-button.js';
 import "@holochain-open-dev/profiles/dist/elements/agent-avatar.js";
 import "./workspace-list";
 import "@shoelace-style/shoelace/dist/components/badge/badge.js";
@@ -55,7 +58,7 @@ import {
   StoreSubscriber,
   subscribe,
 } from "@holochain-open-dev/stores";
-import { SlChangeEvent, SlDialog, SlDrawer } from "@shoelace-style/shoelace";
+import { SlChangeEvent, SlDialog, SlDrawer, SlRadioGroup } from "@shoelace-style/shoelace";
 import { msg } from "@lit/localize";
 import { decode } from "@msgpack/msgpack";
 import { Marked } from "@ts-stack/markdown";
@@ -118,6 +121,9 @@ export class MarkdownNote extends LitElement {
     linear: true,
     commit: false,
   };
+
+  @state()
+  _diffView: boolean = false;
 
   _meta = new StoreSubscriber(
     this,
@@ -193,7 +199,8 @@ export class MarkdownNote extends LitElement {
   renderNewWorkspaceButton(
     sessionStore: SessionStore<TextEditorState, TextEditorEphemeralState>
   ) {
-    return html` <sl-button
+    return html` 
+      <sl-button
         style="flex: 1"
         .disabled=${this._selectedCommitHash === undefined}
         variant="primary"
@@ -247,11 +254,36 @@ export class MarkdownNote extends LitElement {
         >
           ${msg("Create")}
         </sl-button>
-      </sl-dialog>`;
+      </sl-dialog>
+    `;
   }
 
   get drawer() {
     return this.shadowRoot?.getElementById("drawer") as SlDrawer;
+  }
+
+  renderSelectedCommitDiff() {
+    if (!this._selectedCommitHash)
+      return html`<div class="column center-content" style="flex:1">
+        <span>${msg("Select a commit to see its contents")}</span>
+      </div>`;
+    
+    switch (this._session.value.status) {
+      case "pending":
+        return this.renderLoading();
+      case "complete":
+        return html`
+          <diff-viewer
+            .selectedCommitHash=${this._selectedCommitHash}
+            .currentState=${this._session.value.value[1]}
+            style="flex: 1; height: 100%;"
+          ></diff-viewer>
+        `;
+      case "error":
+        return html`<div class="column center-content" style="flex:1">
+          <span>${msg("Error loading session for diff")}</span>
+        </div>`;
+    }
   }
 
   renderSelectedCommit() {
@@ -263,9 +295,9 @@ export class MarkdownNote extends LitElement {
     return html`${subscribe(
       this.documentStore.commits.get(this._selectedCommitHash),
       renderAsyncStatus({
-        complete: (v) => html` <div class="flex-scrollable-parent" style="height:100%;">
-          <div class="flex-scrollable-y" style="width:100%;">
-            <sl-card>
+        complete: (v) => html` <div class="flex-scrollable-parent" style="height:100%; overflow-x: hidden;">
+          <div class="flex-scrollable-y" style="width:100%; overflow-x: hidden;">
+            <sl-card style="max-width: 100%; overflow-x: hidden;">
               <div slot="header">Commit: ${this._selectedCommitHash ? encodeHashToBase64(this._selectedCommitHash):""}</div>
               <div slot="header">
                 <span style="display:flex;align-items:center">by ${subscribe(this.profilesStore.profiles.get(v.action.author),
@@ -283,7 +315,7 @@ export class MarkdownNote extends LitElement {
                 
               </div>
 
-              <div class="markd">
+              <div class="commit-content">
                 ${unsafeHTML(Marked.parse(
                   (stateFromCommit(v.entry) as TextEditorState
                   ).text.join('')))}
@@ -390,9 +422,28 @@ export class MarkdownNote extends LitElement {
                 ` : ""}
                 ${ this._historyTypes.commit ? html`
                   <div slot=${ this._historyTypes.linear ? "end" : "start" } style="height: 100%; overflow: hidden; display: flex; flex-direction: column;">
-                    <div class="row" style="flex-shrink: 0;">${this.renderNewWorkspaceButton(sessionStore)}</div>
+                    <!-- toggle view/diff -->
+                    <div class="row" style="align-items: center; gap: 1em; padding: 8px;">
+                      Selected Commit
+                      <sl-radio-group
+                      size="small"
+                        value=${this._diffView ? "2" : "1"}
+                        @sl-change=${(e: SlChangeEvent)=>{
+                          const s:SlRadioGroup = e.target as SlRadioGroup
+                          this._diffView = s.value === "2"
+                        }}>
+                        <sl-radio-button value="1">${msg("View")}</sl-radio-button>
+                        <sl-radio-button value="2">${msg("Diff")}</sl-radio-button>
+                      </sl-radio-group>
+                    </div>
+                    
                     <div style="flex: 1; height: 0; min-height: 0; overflow: hidden;">
-                      ${this.renderSelectedCommit()}
+                      ${this._diffView ? html`
+                        ${this.renderSelectedCommitDiff()}
+                      `: html`
+                        <div class="row" style="flex-shrink: 0;">${this.renderNewWorkspaceButton(sessionStore)}</div>
+                        ${this.renderSelectedCommit()}
+                      ` }
                     </div>
                   </div>
                 ` : ""}
