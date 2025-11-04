@@ -181,7 +181,7 @@ export class MarkdownNote extends LitElement {
       await this.documentStore.createWorkspace(name, initialTipHash);
       (
         this.shadowRoot?.getElementById("new-workspace-dialog") as SlDialog
-      ).hide();
+      )?.hide();
       this._workspaceName = name;
     } catch (e) {
       notifyError(msg("Error creating the workspace"));
@@ -414,8 +414,8 @@ export class MarkdownNote extends LitElement {
     state: TextEditorState
   ) {
     return html`
-    <sl-split-panel position=${this._renderDrawer ? "50" : "100"} style="flex: 1; height: 100%; --divider-width: 20px;" vertical>
-    <sl-icon slot="divider" .src=${wrapPathInSvg(mdiDotsGrid)}></sl-icon>
+    <sl-split-panel position=${this._renderDrawer ? "50" : "100"} style="flex: 1; height: 100%; ${this._renderDrawer ? "--divider-width: 20px;" : ""}" vertical>
+    ${this._renderDrawer ? html`<sl-icon slot="divider" .src=${wrapPathInSvg(mdiDotsGrid)}></sl-icon>` : ""}
     ${ this._renderDrawer ? html`
       <div slot="end" id="drawer" style="--size: auto;z-index:1001; height: 100%;"
         @sl-hide=${()=>this._renderDrawer = false}>

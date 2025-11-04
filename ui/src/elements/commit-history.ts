@@ -13,6 +13,8 @@ import { EntryRecord, RecordBag } from '@holochain-open-dev/utils';
 import '@shoelace-style/shoelace/dist/components/card/card.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 import '@shoelace-style/shoelace/dist/components/switch/switch.js';
+import '@shoelace-style/shoelace/dist/components/radio-group/radio-group.js';
+import '@shoelace-style/shoelace/dist/components/radio-button/radio-button.js';
 import SlSwitch from "@shoelace-style/shoelace/dist/components/switch/switch.js";
 import '@shoelace-style/shoelace/dist/components/range/range.js';
 import SlRange from "@shoelace-style/shoelace/dist/components/range/range.js";
@@ -25,6 +27,7 @@ import { localized, msg, str } from '@lit/localize';
 import { createGitgraph } from "@gitgraph/js";
 import { Profile, ProfilesStore, profilesStoreContext } from '@holochain-open-dev/profiles';
 import '@scoped-elements/cytoscape';
+import SlRadioGroup from '@shoelace-style/shoelace/dist/components/radio-group/radio-group.js';
 
 
 function getCommitGraph(
@@ -343,26 +346,37 @@ export class CommitHistory extends LitElement {
         const allCommits:RecordBag<Commit> = new RecordBag(this._allCommits.value.value.map(er => er.record))
 
         return html`<sl-card>
-          <span slot="header" class="title">${msg('Commit History')}</span>
-          <span slot="header" style="margin-left:5px">(${this._allCommits.value.value.length} commits)</span>
-          <sl-switch style="margin-left:10px;" slot="header" size=small @sl-change=${(e:MouseEvent)=>{
-            if (e.target) {
-              const s:SlSwitch = e.target as SlSwitch
-              this._cytoscape = s.checked
-            }
-          }}>
-          ${this._cytoscape ? "graph" : "commits"} 
-          </sl-switch>
-          ${this._cytoscape ? "" : html`
-          <sl-range slot="header" label="Zoom" min="0" max="100" value=${this._zoom}
-            @sl-change=${(e:MouseEvent)=>{
-              if (e.target) {
-                const s:SlRange = e.target as SlRange
-                this._zoom = s.value
-              }
-            }}
-          ></sl-range>
-          `} 
+          <div slot="header" style="display: flex; gap: 1em; align-items: center;">
+            <span class="title">
+              ${msg('Commit History')}
+              (${this._allCommits.value.value.length} ${msg('commits')})
+            </span>
+            <span>
+              <sl-radio-group size="small" 
+                value=${this._cytoscape ? "2" : "1"}
+                @sl-change=${(e:MouseEvent)=>{
+                  if (e.target) {
+                    const s:SlRadioGroup = e.target as SlRadioGroup
+                    this._cytoscape = s.value === "2"
+                  }
+                }}
+              >
+                <sl-radio-button value="1">Linear</sl-radio-button>
+                <sl-radio-button value="2">Graph</sl-radio-button>
+              </sl-radio-group>
+            </span>
+            </div>
+
+            ${this._cytoscape ? "" : html`
+            <sl-range label="Zoom" min="0" max="100" value=${this._zoom}
+              @sl-change=${(e:MouseEvent)=>{
+                if (e.target) {
+                  const s:SlRange = e.target as SlRange
+                  this._zoom = s.value
+                }
+              }}
+            ></sl-range>
+            `}
           ${this.renderContent(allCommits) }
         </sl-card>`;
       case 'error':
@@ -400,6 +414,7 @@ export class CommitHistory extends LitElement {
       sl-range::part(form-control) {
         display: flex;
         gap: 1em;
+        margin: 10px;
       }
       #graph {
         height: 100%;
