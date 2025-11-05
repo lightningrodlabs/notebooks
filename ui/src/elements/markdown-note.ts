@@ -150,13 +150,32 @@ export class MarkdownNote extends LitElement {
           return this.documentStore.workspaces.get(workspace[0]);
         },
         (workspaceStore) => workspaceStore.session,
-        (sessionStore, w) => (sessionStore ? sessionStore : w.joinSession(SYN_CONFIG)),
-        (s) => s.state,
+        (sessionStore, w) => {
+          if (sessionStore) {
+            return sessionStore;
+          }
+          
+          // Only join session if not already joining
+          if (!this._joiningSession) {
+            this._joiningSession = true;
+            console.log("joining session for workspace", this._workspaceName);
+            
+            const sessionPromise = w.joinSession(SYN_CONFIG);
+            sessionPromise.finally(() => {
+              this._joiningSession = false;
+            });
+            
+            return sessionPromise;
+          }
+          
+          return undefined;
+        },
+        (s) => s?.state,
         (state, sessionStore) =>
-          [sessionStore, state] as [
+          sessionStore && state ? [sessionStore, state] as [
             SessionStore<TextEditorState, TextEditorEphemeralState>,
             TextEditorState
-          ]
+          ] : undefined
       ),
     () => [this.documentStore, this._workspaceName]
   );
@@ -173,6 +192,9 @@ export class MarkdownNote extends LitElement {
   @state()
   creatingWorkspace = false;
 
+  @state()
+  _joiningSession = false;
+
   async createWorkspace(
     name: string,
     initialTipHash: EntryHash,
@@ -183,11 +205,13 @@ export class MarkdownNote extends LitElement {
     this.creatingWorkspace = true;
 
     await sessionStore.leaveSession();
+    console.log("left session, creating workspace");
     try {
       await this.documentStore.createWorkspace(name, initialTipHash);
       (
         this.shadowRoot?.getElementById("new-workspace-dialog") as SlDialog
       )?.hide();
+      this._joiningSession = false;
       this._workspaceName = name;
     } catch (e) {
       notifyError(msg("Error creating the workspace"));
@@ -272,10 +296,14 @@ export class MarkdownNote extends LitElement {
       case "pending":
         return this.renderLoading();
       case "complete":
+        const sessionValue = this._session.value.value;
+        if (!sessionValue || !sessionValue[1]) {
+          return this.renderLoading();
+        }
         return html`
           <diff-viewer
             .selectedCommitHash=${this._selectedCommitHash}
-            .currentState=${this._session.value.value[1]}
+            .currentState=${sessionValue[1]}
             style="flex: 1; height: 100%;"
           ></diff-viewer>
         `;
@@ -394,6 +422,8 @@ export class MarkdownNote extends LitElement {
             .activeWorkspace=${this._workspaceName}
             @join-workspace=${async (e: CustomEvent) => {
               await sessionStore.leaveSession();
+              console.log("left session");
+              this._joiningSession = false;
               this._workspaceName = e.detail.workspaceName;
             }}
             ></workspace-list>
@@ -602,9 +632,13 @@ export class MarkdownNote extends LitElement {
       case "pending":
         return this.renderLoading();
       case "complete":
+        const sessionValue = this._session.value.value;
+        if (!sessionValue || !sessionValue[0] || !sessionValue[1]) {
+          return this.renderLoading();
+        }
         return this.renderNoteWorkspace(
-          this._session.value.value[0],
-          this._session.value.value[1]
+          sessionValue[0],
+          sessionValue[1]
         );
       case "error":
         if (this._session.value.error.message === WORKSPACE_NOT_FOUND)
@@ -621,8 +655,10 @@ export class MarkdownNote extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    if (this._session.value.status === "complete")
+    if (this._session.value.status === "complete" && this._session.value.value?.[0]) {
       this._session.value.value[0].leaveSession();
+      console.log("left session on disconnect");
+    }
   }
 
   static styles = [
