@@ -180,20 +180,16 @@ export class CommitHistory extends LitElement {
         let branch: any
         let newBranch = false
         if (d.prevCommits.length === 0) {
-          console.log("no prev commits")
           newBranch = true
         } else  if(d.prevCommits.length === 1){
           const hash = d.prevCommits[0]
-          // console.log("single prev commit", hash, tips)
           const bn = tips[hash]
           branch = branches[bn]
           if (branch) {
-            // console.log("prev commit is tip for branch, advancing", bn)
             // Check if this is a fork (parent has multiple children)
             const parentChildren = childrenMap[hash] || []
             if (parentChildren.length > 1) {
               // This is a fork - create a new branch for this child
-              // console.log("Fork detected at", hash, "children:", parentChildren)
               newBranch = true
             } else {
               // advance the tip
@@ -202,31 +198,34 @@ export class CommitHistory extends LitElement {
               commitBranchMap[d.hash] = bn
             }
           } else {
-            // console.log("prev commit is not tip for branch, creating new")
             newBranch = true
           }
         } else {
-          // console.log("merge", d.prevCommits.length)
-
           const mainBranchHash = d.prevCommits[0]
           const mainBranchNum = tips[mainBranchHash] || commitBranchMap[mainBranchHash]
           branch = branches[mainBranchNum]
 
-          for (let i = 1; i < d.prevCommits.length; i+=1) {
-            const hash = d.prevCommits[i]
-            const mergeBranchNum = tips[hash]
-            // console.log("merging", mergeBranchNum, "into", mainBranchNum, "tips", tips, "mainBranchHash", mainBranchHash)
-            const b = branches[mergeBranchNum]
-            branch.merge({
-              branch: b,
-              commitOptions 
-            })
+          if (branch) {
+            for (let i = 1; i < d.prevCommits.length; i+=1) {
+              const hash = d.prevCommits[i]
+              const mergeBranchNum = tips[hash] || commitBranchMap[hash]
+              const b = branches[mergeBranchNum]
+              if (b) {
+                branch.merge({
+                  branch: b,
+                  commitOptions 
+                })
+              }
+            }
+            // advance the mainBranch tip
+            delete tips[mainBranchHash]
+            tips[d.hash] = mainBranchNum
+            commitBranchMap[d.hash] = mainBranchNum
+            branch = undefined
+          } else {
+            // If we can't find the main branch, create a new one
+            newBranch = true
           }
-          // advance the mainBranch tip
-          delete tips[mainBranchHash]
-          tips[d.hash] = mainBranchNum
-          commitBranchMap[d.hash] = mainBranchNum
-          branch = undefined
         }
         if (newBranch) {
           branchNum += 1
@@ -241,10 +240,8 @@ export class CommitHistory extends LitElement {
       }    
     }
     const endTime = new Date()
-
-    console.log("Ending draw graph @", endTime.toLocaleTimeString()) 
-    console.log("Elapsed", endTime.getTime()-startTime.getTime()) 
-    console.log("X", container?.scrollWidth)
+    console.log("Ending draw graph @", endTime.toLocaleTimeString())
+    console.log(`Elapsed: ${endTime.getTime()-startTime.getTime()} ms`)
   }
 
   async firstUpdated() {
