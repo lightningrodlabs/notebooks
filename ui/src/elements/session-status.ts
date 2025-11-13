@@ -1,6 +1,6 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { SessionStore } from '@holochain-syn/store';
+import type { SessionStore } from '@holochain-syn/core';
 import { sharedStyles } from '@holochain-open-dev/elements';
 import { StoreSubscriber } from '@holochain-open-dev/stores';
 import { mdiCached } from "@mdi/js";
@@ -31,13 +31,13 @@ export class SessionStatus extends LitElement {
   }
 
   render() {
-    const color = this._status.value.code === 'ok' ? '#2de273ff' : this._status.value.code === 'syncing' ? '#f09928' : 'var(--sl-color-danger-600)';
-    const lastSave = this._status.value.lastSave ? new Date(this._status.value.lastSave).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : 0;
-    const message = this._status.value.error ? this._status.value.error : lastSave === 0 ? "Nothing to save yet" : `${this._status.value.code === "syncing" ? "Syncing. " : ""}Last saved ${lastSave}`;
+    const color = this._status?.value?.code === 'ok' ? '#2de273ff' : this._status.value.code === 'syncing' ? '#f09928' : 'var(--sl-color-danger-600)';
+    const lastSave = this._status?.value?.lastSave ? new Date(this._status.value.lastSave).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : 0;
+    const message = this._status?.value?.error ? this._status.value.error : lastSave === 0 ? "Nothing to save yet" : `${this._status.value.code === "syncing" ? "Syncing. " : ""}Last saved ${lastSave}`;
     return html`
         <sl-tooltip content=${this._copied ? "Copied" : message}>
             <span 
-                class=${this._status.value.code === 'syncing' ? "spinning" : ""}
+                class=${this._status?.value?.code === 'syncing' ? "spinning" : ""}
                 style="color: ${color}; display: flex; cursor: ${this._status.value.error ? "cursor" : "default"};"
                 @click=${() => {if (this._status.value.code === "error") this.copyTextToClipboard(message)}}
                 @keydown=${(_e: KeyboardEvent) => {}}
@@ -45,7 +45,7 @@ export class SessionStatus extends LitElement {
             >
                 <sl-icon .src=${wrapPathInSvg(mdiCached)}></sl-icon>
                 <!-- If error, show inline -->
-                ${this._status.value.error ? html`<span style="margin-left: 4px;">Error syncing</span>` : ''}
+                ${this._status?.value?.error ? html`<span style="margin-left: 4px;">Error syncing</span>` : ''}
             </span>
         </sl-tooltip>
     `;

@@ -72,9 +72,8 @@ export class AllNotes extends LitElement {
 
   noteData = new LazyHoloHashMap( documentHash => {
     const docStore = this.synStore.documents.get(documentHash)
-  
     const workspace = pipe(docStore.allWorkspaces,
-        workspaces =>  new WorkspaceStore(docStore, Array.from(workspaces.keys())[0])
+        workspaces =>  Array.from(workspaces.values())[0]
     )
     const latestState = pipe(workspace, 
       workspace => workspace.latestState

@@ -34,26 +34,37 @@ function getCommitGraph(
   commits: RecordBag<Commit>
 ): Array<NodeDefinition | EdgeDefinition> {
   const elements: Array<NodeDefinition | EdgeDefinition> = [];
+  const nodeIds = new Set<string>();
 
+  // First pass: create all nodes and collect their IDs
   for (const commitHash of commits.actionMap.keys()) {
     const strCommitHash = encodeHashToBase64(commitHash);
+    nodeIds.add(strCommitHash);
     elements.push({
       data: {
         id: strCommitHash,
       },
     });
+  }
+
+  // Second pass: create edges only if both source and target nodes exist
+  for (const commitHash of commits.actionMap.keys()) {
+    const strCommitHash = encodeHashToBase64(commitHash);
 
     for (const parentCommitHash of commits.entryRecord(commitHash)?.entry
       .previous_commit_hashes || []) {
       const strParentCommitHash = encodeHashToBase64(parentCommitHash);
 
-      elements.push({
-        data: {
-          id: `${strParentCommitHash}->${strCommitHash}`,
-          source: strParentCommitHash,
-          target: strCommitHash,
-        },
-      });
+      // Only create edge if both nodes exist in the graph
+      if (nodeIds.has(strParentCommitHash) && nodeIds.has(strCommitHash)) {
+        elements.push({
+          data: {
+            id: `${strParentCommitHash}->${strCommitHash}`,
+            source: strParentCommitHash,
+            target: strCommitHash,
+          },
+        });
+      }
     }
   }
 
@@ -109,7 +120,7 @@ export class CommitHistory extends LitElement {
 
   drawGraph (commits: RecordBag<Commit>) {
     const startTime = new Date()
-    console.log("Starting draw graph @", startTime.toLocaleTimeString()) 
+    // console.log("Starting draw graph @", startTime.toLocaleTimeString()) 
     let profiles : ReadonlyMap<Uint8Array, EntryRecord<Profile>> | undefined 
     if (this._profiles.value.status === "complete") {
       profiles = this._profiles.value.value
@@ -240,8 +251,8 @@ export class CommitHistory extends LitElement {
       }    
     }
     const endTime = new Date()
-    console.log("Ending draw graph @", endTime.toLocaleTimeString())
-    console.log(`Elapsed: ${endTime.getTime()-startTime.getTime()} ms`)
+    // console.log("Ending draw graph @", endTime.toLocaleTimeString())
+    // console.log(`Elapsed: ${endTime.getTime()-startTime.getTime()} ms`)
   }
 
   async firstUpdated() {
