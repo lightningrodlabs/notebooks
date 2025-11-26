@@ -204,6 +204,7 @@ export class MarkdownNote extends LitElement {
 
     this.creatingWorkspace = true;
 
+    await sessionStore.commitChanges();
     await sessionStore.leaveSession();
     console.log("left session, creating workspace");
     try {
@@ -421,6 +422,7 @@ export class MarkdownNote extends LitElement {
             style="flex: 1; height: 100%;"
             .activeWorkspace=${this._workspaceName}
             @join-workspace=${async (e: CustomEvent) => {
+              await sessionStore.commitChanges();
               await sessionStore.leaveSession();
               console.log("left session");
               this._joiningSession = false;
@@ -656,6 +658,7 @@ export class MarkdownNote extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     if (this._session.value.status === "complete" && this._session.value.value?.[0]) {
+      this._session.value.value[0].commitChanges();
       this._session.value.value[0].leaveSession();
       console.log("left session on disconnect");
     }
