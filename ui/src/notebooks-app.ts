@@ -346,25 +346,37 @@ export class NotebooksApp extends LitElement {
   renderContent() {
     if (this.view.type === "create")
       return html`
-      <div style="display:flex; flex-direction:column;padding:20px;">
-        <sl-input
-          id="create-title"
-          @sl-input=${(e: any) => this.disabled = !e.target.value}
-          .label=${msg("Title")}></sl-input>
-          <div style="margin-top:10px;display:flex;justify-content:flex-end;width:400px">
-            <sl-button @click=${() => {
+      <div style="display:flex; flex-direction:column;padding:20px; background: #ededed00; z-index: 999; position: absolute;">
+        <form id="create-note-form">
+          <sl-input
+            id="create-title"
+            name="title"
+            @sl-input=${(e: any) => this.disabled = !e.target.value}
+            .label=${msg("Title")}></sl-input>
+          <br>
+          <sl-radio-group label="Select a document type" name="documentType" value="markdown">
+            <sl-radio-button value="markdown">Markdown</sl-radio-button>
+            <sl-radio-button value="richtext">Rich Text (Experimental)</sl-radio-button>
+          </sl-radio-group>
+        </form>
+        <div style="margin-top:10px;display:flex;justify-content:flex-end;width:400px">
+          <sl-button @click=${() => {
           // @ts-ignore
           this.view.data.cancel()
         }}>Cancel</sl-button>
 
-            <sl-button 
-              style="margin-left:10px;"
-              variant="primary"
-              .disabled=${this.disabled}
-              @click=${async () => {
+          <sl-button 
+            style="margin-left:10px;"
+            variant="primary"
+            .disabled=${this.disabled}
+            @click=${async () => {
           try {
-            const title = this._createTitle.value
-            const noteHash = await createNote(this._synStore, title, undefined, `# ${title}\n\n`, "markdown");
+            const form = this.shadowRoot?.getElementById("create-note-form") as HTMLFormElement;
+            const formData = new FormData(form);
+            const title = formData.get("title") as string;
+            const documentType = formData.get("documentType") as string;
+            const editorType = documentType === "richtext" ? "richtext" : "markdown";
+            const noteHash = await createNote(this._synStore, title, undefined, `# ${title}\n\n`, editorType);
 
             const hrlWithContext: WAL = {
               hrl: [this._notebooksStore.dnaHash, noteHash],
@@ -378,8 +390,8 @@ export class NotebooksApp extends LitElement {
             this.view.reject(e)
           }
         }}>Create</sl-button>
-          </div>
         </div>
+      </div>
       `;
     if (this.view.type === "note" || this.view.type === "standalone-note") {
       const documentStore = this._synStore.documents.get(this.view.noteHash);
