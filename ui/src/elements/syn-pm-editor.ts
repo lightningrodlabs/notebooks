@@ -64,6 +64,11 @@ export class SynPmEditor extends LitElement {
 
   private isUpdatingFromSyn = false;
 
+  // Cache for position mapping between ProseMirror and markdown
+  private pmToMarkdownMap: Map<number, number> = new Map();
+
+  private markdownToPmMap: Map<number, number> = new Map();
+
   constructor() {
     super();
     // Create schema with lists
@@ -111,16 +116,156 @@ export class SynPmEditor extends LitElement {
       return this.schema.node('doc', null, [this.schema.node('paragraph')]);
     }
 
-    // Parse markdown to ProseMirror document
-    const parsed = defaultMarkdownParser.parse(text);
-    return parsed || this.schema.node('doc', null, [this.schema.node('paragraph')]);
+    // Don't use markdown parser - it merges consecutive lines
+    // Instead, split on \n and parse each line individually for formatting
+    const lines = text.split('\n');
+    const nodes = lines.map(line => {
+      if (!line) {
+        // Empty line = empty paragraph
+        return this.schema.node('paragraph');
+      }
+      
+      // Check for heading
+      const headingMatch = line.match(/^(#{1,6})\s(.+)$/);
+      if (headingMatch) {
+        const level = headingMatch[1].length;
+        const content = this.schema.text(headingMatch[2]);
+        return this.schema.node('heading', { level }, content);
+      }
+      
+      // Parse inline formatting (**bold**, *italic*, `code`)
+      const content = this.parseInlineFormatting(line);
+      return this.schema.node('paragraph', null, content);
+    });
+
+    return this.schema.node('doc', null, nodes);
+  }
+
+  private parseInlineFormatting(text: string): PMNode[] | undefined {
+    if (!text) return undefined;
+    
+    const nodes: PMNode[] = [];
+    
+    // Simple regex for **bold**, *italic*, `code`
+    const formatRegex = /(\*\*|[*`])(.+?)\1/g;
+    let lastIndex = 0;
+    let match = formatRegex.exec(text);
+    
+    while (match !== null) {
+      // Add plain text before the match
+      if (match.index > lastIndex) {
+        nodes.push(this.schema.text(text.substring(lastIndex, match.index)));
+      }
+      
+      // Add formatted text
+      const markType = match[1] === '**' ? 'strong' : match[1] === '*' ? 'em' : 'code';
+      const mark = this.schema.marks[markType].create();
+      nodes.push(this.schema.text(match[2], [mark]));
+      
+      lastIndex = formatRegex.lastIndex;
+      match = formatRegex.exec(text);
+    }
+    
+    // Add remaining plain text
+    if (lastIndex < text.length) {
+      nodes.push(this.schema.text(text.substring(lastIndex)));
+    }
+    
+    return nodes.length > 0 ? nodes : undefined;
   }
 
   private docToText(doc: PMNode): string {
-    // Serialize ProseMirror document to markdown
-    const markdown = defaultMarkdownSerializer.serialize(doc);
+    // Custom serialization: use single newlines between paragraphs, not double
+    const lines: string[] = [];
+    
+    doc.forEach((node) => {
+      if (node.type.name === 'paragraph') {
+        // Serialize the paragraph content to markdown (for bold, italic, etc.)
+        let text = '';
+        node.forEach((child) => {
+          if (child.isText) {
+            let prefix = '';
+            let suffix = '';
+            
+            // Apply markdown syntax for marks
+            child.marks.forEach((mark) => {
+              if (mark.type.name === 'strong') {
+                prefix += '**';
+                suffix = '**' + suffix;
+              } else if (mark.type.name === 'em') {
+                prefix += '*';
+                suffix = '*' + suffix;
+              } else if (mark.type.name === 'code') {
+                prefix += '`';
+                suffix = '`' + suffix;
+              }
+            });
+            text += prefix + (child.text || '') + suffix;
+          }
+        });
+        lines.push(text); // Empty string for empty paragraphs
+      } else if (node.type.name === 'heading') {
+        const level = node.attrs.level || 1;
+        const hashes = '#'.repeat(level);
+        lines.push(`${hashes} ${node.textContent}`);
+      } else {
+        // Fallback for other node types
+        lines.push(node.textContent);
+      }
+    });
+    
+    const markdown = lines.join('\n');
     console.log('docToText serialized:', JSON.stringify(markdown));
+    
+    // Build position mapping by walking the doc and the markdown in parallel
+    this.buildPositionMaps(doc, markdown);
+    
     return markdown;
+  }
+
+  private buildPositionMaps(doc: PMNode, markdown: string) {
+    this.pmToMarkdownMap.clear();
+    this.markdownToPmMap.clear();
+    
+    // Walk through the document and match it to the markdown string
+    let markdownIndex = 0;
+    
+    doc.forEach((node, offset) => {
+      const nodeStart = offset;
+      
+      if (node.type.name === 'paragraph' || node.type.name === 'heading') {
+        node.forEach((child, childOffset) => {
+          if (child.isText && child.text) {
+            const pmStart = nodeStart + childOffset + 1; // +1 for node opening
+            
+            // Skip markdown syntax characters (**, *, `, #, etc.)
+            // and map each text character
+            for (let i = 0; i < child.text.length; i += 1) {
+              const pmPos = pmStart + i;
+              const char = child.text[i];
+              
+              // Find this character in the markdown
+              const mdPos = markdown.indexOf(char, markdownIndex);
+              if (mdPos >= markdownIndex && mdPos < markdown.length) {
+                this.pmToMarkdownMap.set(pmPos, mdPos);
+                this.markdownToPmMap.set(mdPos, pmPos);
+                markdownIndex = mdPos + 1;
+              }
+            }
+          }
+        });
+        
+        // Account for newline after this node (except last node)
+        if (markdownIndex < markdown.length && markdown[markdownIndex] === '\n') {
+          markdownIndex += 1;
+        }
+      }
+    });
+    
+    console.log('Built position maps:', {
+      pmToMd: Array.from(this.pmToMarkdownMap.entries()).slice(0, 10),
+      mdToPm: Array.from(this.markdownToPmMap.entries()).slice(0, 10),
+    });
   }
 
   private createSynPlugin(): Plugin {
@@ -269,10 +414,22 @@ export class SynPmEditor extends LitElement {
   onSelectionChanged(ranges: Array<{ from: number; to: number }>) {
     if (this.isUpdatingFromSyn) return;
     
+    // Convert ProseMirror positions to markdown positions before storing in Syn
+    const markdownFrom = this.proseMirrorPosToMarkdownPos(ranges[0].from);
+    const markdownTo = this.proseMirrorPosToMarkdownPos(ranges[0].to);
+    
+    console.log('Selection changed:', {
+      pmFrom: ranges[0].from,
+      pmTo: ranges[0].to,
+      markdownFrom,
+      markdownTo,
+      markdown: this.getPlainText(),
+    });
+    
     this.slice.change((state, eph) =>
       textEditorGrammar
         .changes(this.slice.myPubKey, state, eph)
-        .changeSelection(ranges[0].from, ranges[0].to - ranges[0].from)
+        .changeSelection(markdownFrom, markdownTo - markdownFrom)
     );
   }
 
@@ -290,7 +447,53 @@ export class SynPmEditor extends LitElement {
   }
 
   getPlainText(): string {
+    // Return markdown text to match what's stored in Syn
     return this.view ? this.docToText(this.view.state.doc) : '';
+  }
+
+  // Map a character position in markdown text to a ProseMirror document position
+  private markdownPosToProseMirrorPos(markdownPos: number): number {
+    if (!this.view) return 0;
+    
+    // Use cached mapping if available
+    const pmPos = this.markdownToPmMap.get(markdownPos);
+    if (pmPos !== undefined) {
+      return pmPos + 1; // +1 for document opening
+    }
+    
+    // Fallback: find closest mapped position
+    let closestMd = markdownPos;
+    while (closestMd > 0 && !this.markdownToPmMap.has(closestMd)) {
+      closestMd -= 1;
+    }
+    const closestPm = this.markdownToPmMap.get(closestMd) || 0;
+    return closestPm + (markdownPos - closestMd) + 1;
+  }
+
+  // Map a ProseMirror document position to markdown text position
+  private proseMirrorPosToMarkdownPos(pmPos: number): number {
+    if (!this.view) return 0;
+    
+    // Adjust for document structure
+    const adjustedPmPos = pmPos - 1;
+    
+    // Use cached mapping if available
+    const mdPos = this.pmToMarkdownMap.get(adjustedPmPos);
+    console.log('PM to MD mapping:', { pmPos, adjustedPmPos, mdPos, hasMapping: mdPos !== undefined });
+    
+    if (mdPos !== undefined) {
+      return mdPos;
+    }
+    
+    // Fallback: find closest mapped position
+    let closestPm = adjustedPmPos;
+    while (closestPm > 0 && !this.pmToMarkdownMap.has(closestPm)) {
+      closestPm -= 1;
+    }
+    const closestMd = this.pmToMarkdownMap.get(closestPm) || 0;
+    const result = closestMd + (adjustedPmPos - closestPm);
+    console.log('PM to MD fallback:', { closestPm, closestMd, result });
+    return result;
   }
 
   renderCursor(agent: AgentPubKey, agentSelection: AgentSelection) {
@@ -302,18 +505,26 @@ export class SynPmEditor extends LitElement {
     
     if (!this.view || position === null || position === undefined) return html``;
 
-    const plainText = this.getPlainText();
-    if (plainText.length < position) return html``;
+    const markdown = this.getPlainText();
+    if (markdown.length < position) return html``;
 
-    const resolved = this.view.state.doc.resolve(Math.min(position, this.view.state.doc.content.size));
-    const coords = this.view.coordsAtPos(resolved.pos);
+    // Map markdown position to ProseMirror position
+    const pmPos = this.markdownPosToProseMirrorPos(position);
+    
+    // Clamp position to valid range
+    const clampedPos = Math.max(0, Math.min(pmPos, this.view.state.doc.content.size));
+    
+    const coords = this.view.coordsAtPos(clampedPos);
 
     if (!coords) return html``;
 
+    // Get editor container position to make cursor relative
+    const editorRect = this.editorEl.getBoundingClientRect();
+
     return html`<agent-cursor
       style=${styleMap({
-        left: `${coords.left}px`,
-        top: `${coords.top}px`,
+        left: `${coords.left - editorRect.left}px`,
+        top: `${coords.top - editorRect.top}px`,
       })}
       class="cursor"
       .agent=${agent}
