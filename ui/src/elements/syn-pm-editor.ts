@@ -114,7 +114,7 @@ export class SynPmEditor extends LitElement {
   }
 
   private createDocFromText(text: string): PMNode {
-    console.log('createDocFromText input:', JSON.stringify(text));
+    // console.log('createDocFromText input:', JSON.stringify(text));
     if (!text) {
       return this.schema.node('doc', null, [this.schema.node('paragraph')]);
     }
@@ -143,14 +143,19 @@ export class SynPmEditor extends LitElement {
           handled = true;
         }
         
-        // Check for blockquote
+        // Check for blockquote - group consecutive lines
         if (!handled) {
-          const quoteMatch = line.match(/^>\s(.+)$/);
+          const quoteMatch = line.match(/^>\s?(.*)$/);
           if (quoteMatch) {
-            const content = this.parseInlineFormatting(quoteMatch[1]);
-            const paragraph = this.schema.node('paragraph', null, content);
-            nodes.push(this.schema.node('blockquote', null, [paragraph]));
-            i += 1;
+            const paragraphs: PMNode[] = [];
+            while (i < lines.length) {
+              const itemMatch = lines[i].match(/^>\s?(.*)$/);
+              if (!itemMatch) break;
+              const content = this.parseInlineFormatting(itemMatch[1]);
+              paragraphs.push(this.schema.node('paragraph', null, content));
+              i += 1;
+            }
+            nodes.push(this.schema.node('blockquote', null, paragraphs));
             handled = true;
           }
         }
@@ -215,6 +220,22 @@ export class SynPmEditor extends LitElement {
     while (i < text.length) {
       let handled = false;
       
+      // Check for links [text](url)
+      if (!handled && text[i] === '[') {
+        const closeBracket = text.indexOf(']', i + 1);
+        if (closeBracket !== -1 && text[closeBracket + 1] === '(') {
+          const closeParen = text.indexOf(')', closeBracket + 2);
+          if (closeParen !== -1) {
+            const linkText = text.substring(i + 1, closeBracket);
+            const href = text.substring(closeBracket + 2, closeParen);
+            const mark = this.schema.marks.link.create({ href });
+            nodes.push(this.schema.text(linkText, [mark]));
+            i = closeParen + 1;
+            handled = true;
+          }
+        }
+      }
+      
       // Check for bold+italic (*** or ***)
       if (!handled && text.substring(i, i + 3) === '***') {
         const end = text.indexOf('***', i + 3);
@@ -266,7 +287,7 @@ export class SynPmEditor extends LitElement {
       // Plain text - collect until next special character
       if (!handled) {
         let plainEnd = i + 1;
-        while (plainEnd < text.length && text[plainEnd] !== '*' && text[plainEnd] !== '`') {
+        while (plainEnd < text.length && text[plainEnd] !== '*' && text[plainEnd] !== '`' && text[plainEnd] !== '[') {
           plainEnd += 1;
         }
         nodes.push(this.schema.text(text.substring(i, plainEnd)));
@@ -290,6 +311,14 @@ export class SynPmEditor extends LitElement {
             let prefix = '';
             let suffix = '';
             
+            // Check for link mark first
+            const linkMark = child.marks.find(m => m.type.name === 'link');
+            if (linkMark) {
+              // Link format: [text](url)
+              prefix = '[';
+              suffix = `](${linkMark.attrs.href})`;
+            }
+            
             // Check for both strong and em marks (bold + italic)
             const hasStrong = child.marks.some(m => m.type.name === 'strong');
             const hasEm = child.marks.some(m => m.type.name === 'em');
@@ -297,20 +326,20 @@ export class SynPmEditor extends LitElement {
             
             if (hasStrong && hasEm) {
               // Both bold and italic = ***
-              prefix = '***';
-              suffix = '***';
+              prefix += '***';
+              suffix = '***' + suffix;
             } else if (hasStrong) {
               // Just bold = **
-              prefix = '**';
-              suffix = '**';
+              prefix += '**';
+              suffix = '**' + suffix;
             } else if (hasEm) {
               // Just italic = *
-              prefix = '*';
-              suffix = '*';
+              prefix += '*';
+              suffix = '*' + suffix;
             } else if (hasCode) {
               // Code = `
-              prefix = '`';
-              suffix = '`';
+              prefix += '`';
+              suffix = '`' + suffix;
             }
             
             text += prefix + (child.text || '') + suffix;
@@ -320,10 +349,83 @@ export class SynPmEditor extends LitElement {
       } else if (node.type.name === 'heading') {
         const level = node.attrs.level || 1;
         const hashes = '#'.repeat(level);
-        lines.push(`${hashes} ${node.textContent}`);
+        // Serialize heading content with inline formatting
+        let text = '';
+        node.forEach((child) => {
+          if (child.isText) {
+            let prefix = '';
+            let suffix = '';
+            
+            // Check for link mark first
+            const linkMark = child.marks.find(m => m.type.name === 'link');
+            if (linkMark) {
+              prefix = '[';
+              suffix = `](${linkMark.attrs.href})`;
+            }
+            
+            const hasStrong = child.marks.some(m => m.type.name === 'strong');
+            const hasEm = child.marks.some(m => m.type.name === 'em');
+            const hasCode = child.marks.some(m => m.type.name === 'code');
+            
+            if (hasStrong && hasEm) {
+              prefix += '***';
+              suffix = '***' + suffix;
+            } else if (hasStrong) {
+              prefix += '**';
+              suffix = '**' + suffix;
+            } else if (hasEm) {
+              prefix += '*';
+              suffix = '*' + suffix;
+            } else if (hasCode) {
+              prefix += '`';
+              suffix = '`' + suffix;
+            }
+            
+            text += prefix + (child.text || '') + suffix;
+          }
+        });
+        lines.push(`${hashes} ${text}`);
       } else if (node.type.name === 'blockquote') {
-        // Blockquote: prefix each line with >
-        lines.push(`> ${node.textContent}`);
+        // Blockquote: serialize each paragraph on its own line with >
+        node.forEach((child) => {
+          if (child.type.name === 'paragraph') {
+            let text = '';
+            child.forEach((textNode) => {
+              if (textNode.isText) {
+                let prefix = '';
+                let suffix = '';
+                
+                // Check for link mark first
+                const linkMark = textNode.marks.find(m => m.type.name === 'link');
+                if (linkMark) {
+                  prefix = '[';
+                  suffix = `](${linkMark.attrs.href})`;
+                }
+                
+                const hasStrong = textNode.marks.some(m => m.type.name === 'strong');
+                const hasEm = textNode.marks.some(m => m.type.name === 'em');
+                const hasCode = textNode.marks.some(m => m.type.name === 'code');
+                
+                if (hasStrong && hasEm) {
+                  prefix += '***';
+                  suffix = '***' + suffix;
+                } else if (hasStrong) {
+                  prefix += '**';
+                  suffix = '**' + suffix;
+                } else if (hasEm) {
+                  prefix += '*';
+                  suffix = '*' + suffix;
+                } else if (hasCode) {
+                  prefix += '`';
+                  suffix = '`' + suffix;
+                }
+                
+                text += prefix + (textNode.text || '') + suffix;
+              }
+            });
+            lines.push(`> ${text}`);
+          }
+        });
       } else if (node.type.name === 'bullet_list') {
         // Bullet list: each item on its own line with -
         node.forEach((listItem) => {
@@ -335,22 +437,29 @@ export class SynPmEditor extends LitElement {
                 let prefix = '';
                 let suffix = '';
                 
+                // Check for link mark first
+                const linkMark = child.marks.find(m => m.type.name === 'link');
+                if (linkMark) {
+                  prefix = '[';
+                  suffix = `](${linkMark.attrs.href})`;
+                }
+                
                 const hasStrong = child.marks.some(m => m.type.name === 'strong');
                 const hasEm = child.marks.some(m => m.type.name === 'em');
                 const hasCode = child.marks.some(m => m.type.name === 'code');
                 
                 if (hasStrong && hasEm) {
-                  prefix = '***';
-                  suffix = '***';
+                  prefix += '***';
+                  suffix = '***' + suffix;
                 } else if (hasStrong) {
-                  prefix = '**';
-                  suffix = '**';
+                  prefix += '**';
+                  suffix = '**' + suffix;
                 } else if (hasEm) {
-                  prefix = '*';
-                  suffix = '*';
+                  prefix += '*';
+                  suffix = '*' + suffix;
                 } else if (hasCode) {
-                  prefix = '`';
-                  suffix = '`';
+                  prefix += '`';
+                  suffix = '`' + suffix;
                 }
                 
                 itemText += prefix + (child.text || '') + suffix;
@@ -371,6 +480,14 @@ export class SynPmEditor extends LitElement {
               if (child.isText) {
                 let prefix = '';
                 let suffix = '';
+                
+                // Check for link mark first
+                const linkMark = child.marks.find(m => m.type.name === 'link');
+                if (linkMark) {
+                  prefix = '[';
+                  suffix = `](${linkMark.attrs.href})`;
+                }
+                
                 child.marks.forEach((mark) => {
                   if (mark.type.name === 'strong') {
                     prefix += '**';
@@ -397,7 +514,7 @@ export class SynPmEditor extends LitElement {
     });
     
     const markdown = lines.join('\n');
-    console.log('docToText serialized:', JSON.stringify(markdown));
+    // console.log('docToText serialized:', JSON.stringify(markdown));
     
     // Build position mapping by walking the doc and the markdown in parallel
     this.buildPositionMaps(doc, markdown);
@@ -495,12 +612,12 @@ export class SynPmEditor extends LitElement {
       }
     });
     
-    console.log('Built position maps:', {
-      totalMappings: this.pmToMarkdownMap.size,
-      pmToMd: Array.from(this.pmToMarkdownMap.entries()).slice(0, 20),
-      mdToPm: Array.from(this.markdownToPmMap.entries()).slice(0, 20),
-      markdown: JSON.stringify(markdown.substring(0, 100)),
-    });
+    // console.log('Built position maps:', {
+    //   totalMappings: this.pmToMarkdownMap.size,
+    //   pmToMd: Array.from(this.pmToMarkdownMap.entries()).slice(0, 20),
+    //   mdToPm: Array.from(this.markdownToPmMap.entries()).slice(0, 20),
+    //   markdown: JSON.stringify(markdown.substring(0, 100)),
+    // });
   }
 
   private mapTextContent(node: PMNode, pmStart: number, markdown: string, mdStart: number) {
@@ -638,15 +755,15 @@ export class SynPmEditor extends LitElement {
       const currentText = this.docToText(this.view.state.doc);
 
       if (stateText !== currentText && !this.isUpdatingFromSyn) {
-        console.log('Updating editor from Syn - text changed');
+        // console.log('Updating editor from Syn - text changed');
         this.isUpdatingFromSyn = true;
           
           const lines = stateText.split('\n');
-          console.log('Split into lines:', lines.length, 'lines:', JSON.stringify(lines));
+          // console.log('Split into lines:', lines.length, 'lines:', JSON.stringify(lines));
           
           const newDoc = this.createDocFromText(stateText);
           const newDocText = this.docToText(newDoc);
-          console.log('Created doc, paragraphs:', newDoc.childCount, 'docToText:', JSON.stringify(newDocText), 'matches input:', newDocText === stateText);
+          // console.log('Created doc, paragraphs:', newDoc.childCount, 'docToText:', JSON.stringify(newDocText), 'matches input:', newDocText === stateText);
           
           // Replace entire document
           const tr = this.view.state.tr.replaceWith(
@@ -689,13 +806,13 @@ export class SynPmEditor extends LitElement {
     const markdownFrom = this.proseMirrorPosToMarkdownPos(ranges[0].from);
     const markdownTo = this.proseMirrorPosToMarkdownPos(ranges[0].to);
     
-    console.log('Selection changed:', {
-      pmFrom: ranges[0].from,
-      pmTo: ranges[0].to,
-      markdownFrom,
-      markdownTo,
-      markdown: this.getPlainText(),
-    });
+    // console.log('Selection changed:', {
+    //   pmFrom: ranges[0].from,
+    //   pmTo: ranges[0].to,
+    //   markdownFrom,
+    //   markdownTo,
+    //   markdown: this.getPlainText(),
+    // });
     
     this.slice.change((state, eph) =>
       textEditorGrammar
@@ -750,7 +867,7 @@ export class SynPmEditor extends LitElement {
     
     // Use cached mapping if available
     const mdPos = this.pmToMarkdownMap.get(adjustedPmPos);
-    console.log('PM to MD mapping:', { pmPos, adjustedPmPos, mdPos, hasMapping: mdPos !== undefined });
+    // console.log('PM to MD mapping:', { pmPos, adjustedPmPos, mdPos, hasMapping: mdPos !== undefined });
     
     if (mdPos !== undefined) {
       return mdPos;
@@ -763,7 +880,7 @@ export class SynPmEditor extends LitElement {
     }
     const closestMd = this.pmToMarkdownMap.get(closestPm) || 0;
     const result = closestMd + (adjustedPmPos - closestPm);
-    console.log('PM to MD fallback:', { closestPm, closestMd, result });
+    // console.log('PM to MD fallback:', { closestPm, closestMd, result });
     return result;
   }
 
@@ -779,7 +896,7 @@ export class SynPmEditor extends LitElement {
     
     // If document and state are out of sync, don't render cursor (will flicker)
     if (markdown !== stateText) {
-      console.log('Skipping cursor render - doc/state mismatch');
+      // console.log('Skipping cursor render - doc/state mismatch');
       return html``;
     }
     
@@ -795,12 +912,12 @@ export class SynPmEditor extends LitElement {
     // Map markdown position to ProseMirror position
     const pmPos = this.markdownPosToProseMirrorPos(position);
     
-    console.log('Render cursor:', {
-      markdownPos: position,
-      pmPos,
-      markdownChar: markdown[position],
-      docSize: this.view.state.doc.content.size,
-    });
+    // console.log('Render cursor:', {
+    //   markdownPos: position,
+    //   pmPos,
+    //   markdownChar: markdown[position],
+    //   docSize: this.view.state.doc.content.size,
+    // });
     
     // Clamp position to valid range
     const clampedPos = Math.max(0, Math.min(pmPos, this.view.state.doc.content.size));
