@@ -1,11 +1,14 @@
 import { AgentPubKey, AgentPubKeyB64, decodeHashFromBase64, encodeHashToBase64 } from "@holochain/client";
 import { Hrl, HrlB64 } from "@theweave/api";
 
+export type EditorType = "markdown" | "richtext";
+
 export interface NoteMeta {
   title: string;
   author: AgentPubKey;
   timestamp: number;
   attachedToHrl: Hrl;
+  editorType?: EditorType;
 }
 
 export interface NoteMetaB64 {
@@ -13,6 +16,7 @@ export interface NoteMetaB64 {
   author: AgentPubKeyB64;
   timestamp: number;
   attachedToHrl: HrlB64;
+  editorType?: EditorType;
 }
 
 export const noteMetaToB64 = (noteMeta: NoteMeta) : NoteMetaB64 => {
@@ -22,8 +26,8 @@ export const noteMetaToB64 = (noteMeta: NoteMeta) : NoteMetaB64 => {
     title: noteMeta.title,
     timestamp: noteMeta.timestamp,
     author: encodeHashToBase64(noteMeta.author),
-    attachedToHrl: hrlB64
-
+    attachedToHrl: hrlB64,
+    editorType: noteMeta.editorType
   }
   return noteMetaB64
 }
@@ -35,8 +39,8 @@ export const noteMetaB64ToRaw = (noteMetaB64: NoteMetaB64) : NoteMeta => {
     title: noteMetaB64.title,
     timestamp: noteMetaB64.timestamp,
     author: decodeHashFromBase64(noteMetaB64.author),
-    attachedToHrl: hrl
-
+    attachedToHrl: hrl,
+    editorType: noteMetaB64.editorType
   }
   return noteMeta
 }

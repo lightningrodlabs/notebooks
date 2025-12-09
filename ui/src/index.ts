@@ -2,13 +2,14 @@ import { Commit, DocumentStore, SynStore } from "@holochain-syn/core";
 import { EntryHash } from "@holochain/client";
 import { Hrl } from "@theweave/api";
 import { textEditorGrammar } from "./grammar";
-import { NoteMeta } from "./types";
+import { EditorType, NoteMeta } from "./types";
 
 export async function createNote(
   synStore: SynStore,
   title: string,
   attachedToHrl: Hrl | undefined = undefined,
   text: string | undefined = undefined,
+  editorType: EditorType = "markdown",
 ): Promise<EntryHash> {
   // Create initial state with text if provided
   const initialState = text !== undefined 
@@ -22,6 +23,7 @@ export async function createNote(
       author: synStore.client.client.myPubKey,
       timestamp: Date.now(),
       attachedToHrl,
+      editorType,
     } as NoteMeta
   );
   await documentStore.synStore.client.tagDocument(

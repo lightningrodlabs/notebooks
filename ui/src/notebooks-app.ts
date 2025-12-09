@@ -52,6 +52,7 @@ import {
   AsyncStatus,
   StoreSubscriber,
   get,
+  pipe,
   subscribe,
   toPromise,
 } from "@holochain-open-dev/stores";
@@ -74,6 +75,7 @@ import { appletServices } from "./we-applet.js";
 import { NoteMeta, NoteWorkspace, Notebook, noteMetaB64ToRaw, noteMetaToB64 } from "./types.js";
 import { deserializeExport, exportNotes } from "./export.js";
 import { NotebooksStore, notebooksContext } from "./store.js";
+import { renderAsyncStatus } from "./utils.js";
 
 // @ts-ignore
 const appPort = import.meta.env.VITE_APP_PORT ? import.meta.env.VITE_APP_PORT : 8888
@@ -333,7 +335,7 @@ export class NotebooksApp extends LitElement {
         for (const n of importedNotebooks) {
           const noteMeta = noteMetaB64ToRaw(n.meta)
           console.log(n)
-          const _noteHash = await createNote(this._synStore, noteMeta.title, noteMeta.attachedToHrl, n.workspaces[0].note);
+          const _noteHash = await createNote(this._synStore, noteMeta.title, noteMeta.attachedToHrl, n.workspaces[0].note, noteMeta.editorType || "markdown");
         }
       }
       this.importing = false
@@ -362,7 +364,7 @@ export class NotebooksApp extends LitElement {
               @click=${async () => {
           try {
             const title = this._createTitle.value
-            const noteHash = await createNote(this._synStore, title, undefined, `# ${title}\n\n`);
+            const noteHash = await createNote(this._synStore, title, undefined, `# ${title}\n\n`, "markdown");
 
             const hrlWithContext: WAL = {
               hrl: [this._notebooksStore.dnaHash, noteHash],
@@ -379,18 +381,49 @@ export class NotebooksApp extends LitElement {
           </div>
         </div>
       `;
-    if (this.view.type === "note" || this.view.type === "standalone-note")
+    if (this.view.type === "note" || this.view.type === "standalone-note") {
+      const documentStore = this._synStore.documents.get(this.view.noteHash);
+      
       return html`
         <syn-document-context
-          .documentstore=${this._synStore.documents.get(this.view.noteHash)}
+          .documentstore=${documentStore}
         >
-          <richtext-note 
-          @close=${()=>this.view = {
-            type: "main",
-          }}
-          .standalone=${this.view.type === "standalone-note"} style="flex: 1;"></richtext-note>
+          ${subscribe(
+            pipe(
+              documentStore.record,
+              (record) => decode(record.entry.meta!) as NoteMeta
+            ),
+            renderAsyncStatus({
+              complete: (meta: NoteMeta) => {
+                const editorType = meta.editorType || "markdown";
+                if (editorType === "richtext") {
+                  return html`<richtext-note 
+                    @close=${()=>this.view = {
+                      type: "main",
+                    }}
+                    .standalone=${this.view.type === "standalone-note"} 
+                    style="flex: 1;">
+                  </richtext-note>`;
+                }
+                return html`<markdown-note 
+                  @close=${()=>this.view = {
+                    type: "main",
+                  }}
+                  .standalone=${this.view.type === "standalone-note"} 
+                  style="flex: 1;">
+                </markdown-note>`;
+              },
+              pending: () => html`<div class="column center-content" style="flex: 1;">
+                <sl-spinner></sl-spinner>
+              </div>`,
+              error: (e: Error) => html`<div class="column center-content" style="flex: 1;">
+                <span>Error loading note: ${e.message}</span>
+              </div>`
+            })
+          )}
         </syn-document-context>
       `;
+    }
     return html`
       <input id="file-input" style="display:none" type="file" accept=".json" @change=${(e: any) => { this.onFileSelected(e) }} >
 
@@ -439,13 +472,14 @@ export class NotebooksApp extends LitElement {
   @state()
   creatingNote = false;
 
-  async createNote(title: string) {
+  async createNote(title: string, documentType: string = "markdown") {
     if (this.creatingNote) return;
 
     this.creatingNote = true;
 
     try {
-      const noteHash = await createNote(this._synStore, title, undefined, `# ${title}\n\n`);
+      const editorType = documentType === "richtext" ? "richtext" : "markdown";
+      const noteHash = await createNote(this._synStore, title, undefined, `# ${title}\n\n`, editorType);
 
       this._newNoteDialog.hide();
       (this.shadowRoot?.getElementById("note-form") as HTMLFormElement).reset();
@@ -481,12 +515,12 @@ export class NotebooksApp extends LitElement {
             title.focus()
           }}
       >
-        <form ${onSubmit((f) => this.createNote(f.title))} id="note-form">
+        <form ${onSubmit((f) => this.createNote(f.title, f.documentType))} id="note-form">
           <sl-input id="title" name="title" .label=${msg("Title")} required></sl-input>
           <br>
-          <sl-radio-group label="Select a document type" name="a" value="1">
-            <sl-radio-button value="1">Markdown</sl-radio-button>
-            <sl-radio-button value="2">Rich Text</sl-radio-button>
+          <sl-radio-group label="Select a document type" name="documentType" value="markdown">
+            <sl-radio-button value="markdown">Markdown</sl-radio-button>
+            <sl-radio-button value="richtext">Rich Text (Experimental)</sl-radio-button>
           </sl-radio-group>
         </form>
 

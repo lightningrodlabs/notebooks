@@ -851,8 +851,13 @@ export class SynPmEditor extends LitElement {
       flex: 1;
       padding: 10px;
       overflow: auto;
+      height: calc(100vh - 96px);
+      margin: 0 !important;
+      padding: 0 !important;
+      box-sizing: border-box;
+      border: 1px solid #ddd;
     }
-
+    
     .ProseMirror {
       word-wrap: break-word;
       white-space: pre-wrap;
@@ -1104,16 +1109,6 @@ export class SynPmEditor extends LitElement {
 
     .ProseMirror-example-setup-style img {
       cursor: default;
-    }
-
-    #editor, .editor {
-      background: white;
-      color: black;
-      background-clip: padding-box;
-      border-radius: 4px;
-      border: 2px solid rgba(0, 0, 0, 0.2);
-      padding: 5px 0;
-      margin-bottom: 23px;
     }
 
     .ProseMirror p:first-child,
