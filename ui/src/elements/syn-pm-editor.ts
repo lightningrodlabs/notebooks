@@ -851,7 +851,6 @@ export class SynPmEditor extends LitElement {
       flex: 1;
       padding: 10px;
       overflow: auto;
-      height: calc(100vh - 96px);
       margin: 0 !important;
       padding: 0 !important;
       box-sizing: border-box;
@@ -1118,16 +1117,17 @@ export class SynPmEditor extends LitElement {
     .ProseMirror h4:first-child,
     .ProseMirror h5:first-child,
     .ProseMirror h6:first-child {
-      margin-top: 10px;
+      margin: 6px 0;
     }
 
     .ProseMirror {
       padding: 4px 8px 4px 14px;
       line-height: 1.2;
       outline: none;
+      height: calc(100vh - 131px);
     }
 
-    .ProseMirror p { margin-bottom: 1em }
+    .ProseMirror p { margin: 6px 0;}
   
   `;
 }
