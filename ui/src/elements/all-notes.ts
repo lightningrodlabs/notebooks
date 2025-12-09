@@ -34,6 +34,7 @@ enum SortColumn {
   Created,
   Modified,
   Title,
+  Style,
   Author
 }
 
@@ -45,6 +46,7 @@ type NoteRow = {
   actionHash: ActionHash,
   state: TextEditorState,
   authorSort: number,
+  style: string,
   archived: boolean
 }
 
@@ -143,6 +145,7 @@ export class AllNotes extends LitElement {
       actionHash:note.document.actionHash,
       state: note.latestState,
       authorSort,
+      style: (decode(note.document.entry.meta!) as any).editorType,
       archived
     }
   }
@@ -183,6 +186,10 @@ export class AllNotes extends LitElement {
         if (this.sortDirection=== SortDirection.Descending)
            return notes.sort((a, b) => b.authorSort - a.authorSort)
         return notes.sort((a, b) => a.authorSort - b.authorSort)
+      case SortColumn.Style:
+        if (this.sortDirection=== SortDirection.Descending)
+           return notes.sort((a, b) => b.style.localeCompare(a.style))
+        return notes.sort((a, b) => a.style.localeCompare(b.style))
       }
     return notes
   }
@@ -234,6 +241,9 @@ export class AllNotes extends LitElement {
           </span>
           <span class="note-created">
             ${createDate.toLocaleDateString()} ${createDate.toLocaleTimeString()}
+          </span>
+          <span class="note-style">
+            ${note.style === "richtext" ? msg("Rick Text") : msg("Markdown")}
           </span>
           <span class="note-author">
             <agent-avatar .agentPubKey=${note.author}></agent-avatar>
@@ -321,6 +331,13 @@ export class AllNotes extends LitElement {
             >${msg("Created")}
             </column-label >
           </span>
+          <span class="note-style"> 
+            <column-label id="style"
+              direction=${this.sortColumn === SortColumn.Style?this.sortDirection:SortDirection.None}
+              @column-selected=${(e:any)=>this.setSort(SortColumn.Style, e.detail.direction)}>
+              ${msg("Style")}
+            </column-label>
+          </span>
           <span class="note-author"> 
             <column-label id="author"
               direction=${this.sortColumn === SortColumn.Author?this.sortDirection:SortDirection.None}
@@ -365,6 +382,12 @@ export class AllNotes extends LitElement {
         padding:5px; 
         width:100%; 
         border-bottom: solid 1px #ccc;
+      }
+      .note-style {
+        display:flex;
+        width: 67px;
+        margin-left:10px;
+        justify-content:flex-start;
       }
       .note-row:hover {
         box-shadow: 1px 1px 8px #a7a7a7;
