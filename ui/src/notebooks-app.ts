@@ -223,7 +223,7 @@ export class NotebooksApp extends LitElement {
               }
             case "creatable":
               switch (weaveClient.renderInfo.view.name) {
-                case "note":
+                case "Note":
                   return {
                     view: {
                       type: "create",

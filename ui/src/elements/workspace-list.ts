@@ -108,7 +108,7 @@ export class WorkspaceList extends LitElement {
         const workspaces = this._allWorkspaces.value.value[0];
         const participants = this._allWorkspaces.value.value[1];
         return html`
-          <sl-card style="flex: 1; display: flex">
+          <sl-card style="flex: 1; display: flex;">
             <span slot="header" class="title">${msg("Workspaces")}</span>
             <div class="column" style="flex: 1; gap: 8px">
               ${workspaces.size === 0
@@ -146,6 +146,10 @@ export class WorkspaceList extends LitElement {
     css`
       :host {
         display: flex;
+      }
+      sl-card::part(body) {
+        margin-right: 10px;
+        overflow-y: scroll;
       }
     `,
   ];
