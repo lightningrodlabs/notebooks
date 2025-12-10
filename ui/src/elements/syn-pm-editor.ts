@@ -1241,7 +1241,7 @@ export class SynPmEditor extends LitElement {
       padding: 4px 8px 4px 14px;
       line-height: 1.2;
       outline: none;
-      height: calc(100vh - 131px);
+      height: calc(100vh - 135px);
     }
 
     .ProseMirror p { margin: 6px 0;}

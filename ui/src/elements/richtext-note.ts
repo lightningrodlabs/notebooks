@@ -494,7 +494,7 @@ export class RichtextNote extends LitElement {
         <div
           class="row"
           style="align-items: center; background-color: white; padding: 8px;
-          box-shadow: var(--sl-shadow-x-large); z-index: 10;"
+          z-index: 11;"
         >
           <span class="controls">
             ${!this.standalone ? html`
@@ -512,16 +512,9 @@ export class RichtextNote extends LitElement {
                 );
               }}
             ><sl-icon .src=${wrapPathInSvg(mdiArrowLeft)}></sl-icon></sl-button>`:""}
-          
-            <sl-button-group  label="View Options">
-            <sl-button variant=${this._view === View.Edit ? "primary" : "neutral"} @click=${() => { this._view = View.Edit }}><sl-icon .src=${wrapPathInSvg(mdiPencil)} label="Edit"></sl-icon></sl-button>
-            <sl-button variant=${this._view === View.Both ? "primary" : "neutral"} @click=${() => { this._view = View.Both }}><sl-icon .src=${wrapPathInSvg(mdiBookOpenOutline)} label="Both"></sl-icon></sl-button>
-            <sl-button variant=${this._view === View.View ? "primary" : "neutral"} @click=${() => { this._view = View.View }}><sl-icon .src=${wrapPathInSvg(mdiEye)} label="View"></sl-icon></sl-button>
-            </sl-button-group>
 
             ${ isWeaveContext() ? html`
             <sl-button
-              style="margin-left: 16px;"
               circle
               size="small"
               @click=${() => {
