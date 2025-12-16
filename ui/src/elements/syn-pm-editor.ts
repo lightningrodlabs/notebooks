@@ -12,14 +12,13 @@ import './agent-cursor.js';
 
 // ProseMirror imports
 import { EditorView } from 'prosemirror-view';
-import { EditorState, Transaction, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
+import { EditorState, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import { Schema, Node as PMNode } from 'prosemirror-model';
 import { schema as basicSchema } from 'prosemirror-schema-basic';
 import { addListNodes } from 'prosemirror-schema-list';
 import { history, undo, redo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import { exampleSetup } from 'prosemirror-example-setup';
-import { defaultMarkdownParser, defaultMarkdownSerializer } from 'prosemirror-markdown';
 
 import {
   AgentSelection,
@@ -758,6 +757,15 @@ export class SynPmEditor extends LitElement {
         // console.log('Updating editor from Syn - text changed');
         this.isUpdatingFromSyn = true;
           
+          // IMPORTANT: Capture the current cursor position BEFORE rebuilding
+          // We must use the current editor selection, not read from ephemeral state,
+          // to avoid cursor jumping when multiple users edit simultaneously
+          const currentSelection = this.view.state.selection;
+          const currentPmPos = currentSelection.anchor;
+          
+          // Convert current ProseMirror position to markdown position
+          const currentMarkdownPos = this.proseMirrorPosToMarkdownPos(currentPmPos);
+          
           const lines = stateText.split('\n');
           // console.log('Split into lines:', lines.length, 'lines:', JSON.stringify(lines));
           
@@ -772,23 +780,16 @@ export class SynPmEditor extends LitElement {
             newDoc.content
           );
           
-          // Try to preserve cursor position
-          const cursors = this._cursors.value;
-          const myAgentSelection = cursors[encodeHashToBase64(this.slice.myPubKey)];
-          if (myAgentSelection && state.text.length > 0) {
-            const position = elemIdToPosition(
-              myAgentSelection.left,
-              myAgentSelection.position,
-              state.text
-            );
-            if (position !== null && position !== undefined) {
-              const docSize = tr.doc.content.size;
-              const safePos = Math.max(0, Math.min(position, docSize));
-              try {
-                tr.setSelection(TextSelection.near(tr.doc.resolve(safePos)));
-              } catch (e) {
-                // Selection might be invalid, ignore
-              }
+          // Restore cursor position using the captured markdown position
+          // Convert back from markdown to new ProseMirror position
+          if (currentMarkdownPos !== null && currentMarkdownPos !== undefined) {
+            const newPmPos = this.markdownPosToProseMirrorPos(currentMarkdownPos);
+            const docSize = tr.doc.content.size;
+            const safePos = Math.max(0, Math.min(newPmPos, docSize));
+            try {
+              tr.setSelection(TextSelection.near(tr.doc.resolve(safePos)));
+            } catch (e) {
+              // Selection might be invalid, ignore
             }
           }
           

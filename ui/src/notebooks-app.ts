@@ -277,7 +277,7 @@ export class NotebooksApp extends LitElement {
 
   async connectToHolochain() {
     const { view, profilesClient, client, weaveClient } = await this.buildClient();
-    this._synStore = new SynStore(new SynClient(client, "notebooks"));
+    this._synStore = new SynStore(new SynClient(client, "notebooks"), true);
 
 
     const appInfo = await this._synStore.client.client.appInfo();

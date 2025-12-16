@@ -67,7 +67,8 @@ export class CrossAppletMain extends LitElement {
                     >
                       <syn-context
                         .store=${new SynStore(
-                          new SynClient(appletClient, "notebooks")
+                          new SynClient(appletClient, "notebooks"),
+                          true
                         )}
                       >
                         <div class="row title" style="align-items: center">
