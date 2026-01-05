@@ -784,38 +784,40 @@ export class SynPmEditor extends LitElement {
         // console.log('Updating editor from Syn - text changed');
         this.isUpdatingFromSyn = true;
           
-          // IMPORTANT: Capture the current cursor position in the OLD markdown text
+          // IMPORTANT: Capture both anchor and head to preserve selections
           const currentSelection = this.view.state.selection;
-          const currentPmPos = currentSelection.anchor;
+          const currentPmAnchor = currentSelection.anchor;
+          const currentPmHead = currentSelection.head;
           
-          // Convert current ProseMirror position to markdown position using OLD mapping
-          const oldMarkdownPos = this.proseMirrorPosToMarkdownPos(currentPmPos);
+          // Convert both positions to markdown using OLD mapping
+          const oldMarkdownAnchor = this.proseMirrorPosToMarkdownPos(currentPmAnchor);
+          const oldMarkdownHead = this.proseMirrorPosToMarkdownPos(currentPmHead);
           
-          // Calculate how much text was inserted/deleted BEFORE the cursor position
-          // by comparing old text to new text
+          // Calculate position shifts for both anchor and head
           const changes = this.diffTexts(currentText, stateText);
-          let positionShift = 0;
           
-          for (const change of changes) {
-            if (change.position < oldMarkdownPos) {
-              if (change.type === 'insert') {
-                // Text inserted before cursor, shift cursor forward
-                positionShift += change.text!.length;
-              } else if (change.type === 'delete') {
-                // Text deleted before cursor, shift cursor backward
-                const deleteEnd = change.position + change.length!;
-                if (deleteEnd <= oldMarkdownPos) {
-                  // Entire deletion is before cursor
-                  positionShift -= change.length!;
-                } else {
-                  // Deletion overlaps cursor position - place cursor at deletion start
-                  positionShift = change.position - oldMarkdownPos;
+          const calculateShift = (oldPos: number): number => {
+            let shift = 0;
+            for (const change of changes) {
+              if (change.position < oldPos) {
+                if (change.type === 'insert') {
+                  shift += change.text!.length;
+                } else if (change.type === 'delete') {
+                  const deleteEnd = change.position + change.length!;
+                  if (deleteEnd <= oldPos) {
+                    shift -= change.length!;
+                  } else {
+                    // Deletion overlaps position
+                    shift = change.position - oldPos;
+                  }
                 }
               }
             }
-          }
+            return shift;
+          };
           
-          const newMarkdownPos = oldMarkdownPos + positionShift;
+          const newMarkdownAnchor = oldMarkdownAnchor + calculateShift(oldMarkdownAnchor);
+          const newMarkdownHead = oldMarkdownHead + calculateShift(oldMarkdownHead);
           
           const lines = stateText.split('\n');
           // console.log('Split into lines:', lines.length, 'lines:', JSON.stringify(lines));
@@ -831,17 +833,31 @@ export class SynPmEditor extends LitElement {
             newDoc.content
           );
           
-          // Restore cursor position using the adjusted markdown position
-          // Convert from NEW markdown position to NEW ProseMirror position using NEW mapping
-          if (newMarkdownPos !== null && newMarkdownPos !== undefined) {
-            const clampedMarkdownPos = Math.max(0, Math.min(newMarkdownPos, stateText.length));
-            const newPmPos = this.markdownPosToProseMirrorPos(clampedMarkdownPos);
+          // Restore selection (both anchor and head) using adjusted positions
+          if (newMarkdownAnchor !== null && newMarkdownAnchor !== undefined &&
+              newMarkdownHead !== null && newMarkdownHead !== undefined) {
+            const clampedAnchor = Math.max(0, Math.min(newMarkdownAnchor, stateText.length));
+            const clampedHead = Math.max(0, Math.min(newMarkdownHead, stateText.length));
+            
+            const newPmAnchor = this.markdownPosToProseMirrorPos(clampedAnchor);
+            const newPmHead = this.markdownPosToProseMirrorPos(clampedHead);
+            
             const docSize = tr.doc.content.size;
-            const safePos = Math.max(0, Math.min(newPmPos, docSize));
+            const safeAnchor = Math.max(0, Math.min(newPmAnchor, docSize));
+            const safeHead = Math.max(0, Math.min(newPmHead, docSize));
+            
             try {
-              tr.setSelection(TextSelection.near(tr.doc.resolve(safePos)));
+              // Create a TextSelection with both anchor and head to preserve highlighting
+              const $anchor = tr.doc.resolve(safeAnchor);
+              const $head = tr.doc.resolve(safeHead);
+              tr.setSelection(new TextSelection($anchor, $head));
             } catch (e) {
-              // Selection might be invalid, ignore
+              // Selection might be invalid, fallback to cursor at anchor
+              try {
+                tr.setSelection(TextSelection.near(tr.doc.resolve(safeAnchor)));
+              } catch (e2) {
+                // Ignore if still fails
+              }
             }
           }
           
