@@ -653,29 +653,68 @@ export class SynPmEditor extends LitElement {
       if (child.isText && child.text) {
         const pmPos = pmStart + pos;
         
-        // For each character in the text, map to markdown position
+        // Check for link mark to skip link syntax
+        const linkMark = child.marks.find(m => m.type.name === 'link');
+        if (linkMark) {
+          // Skip opening bracket [
+          while (markdownIndex < markdown.length && markdown[markdownIndex] === '[') {
+            markdownIndex += 1;
+          }
+        }
+        
+        // Determine how many formatting characters to skip based on marks
+        let openingChars = 0;
+        const hasStrong = child.marks.some(m => m.type.name === 'strong');
+        const hasEm = child.marks.some(m => m.type.name === 'em');
+        const hasCode = child.marks.some(m => m.type.name === 'code');
+        
+        if (hasCode) {
+          openingChars += 1; // `
+        }
+        if (hasStrong && hasEm) {
+          openingChars += 3; // ***
+        } else if (hasStrong) {
+          openingChars += 2; // **
+        } else if (hasEm) {
+          openingChars += 1; // *
+        }
+        
+        // Skip opening formatting characters
+        markdownIndex += openingChars;
+        
+        // Map each content character
         for (let i = 0; i < child.text.length; i += 1) {
           const charPmPos = pmPos + i;
           const char = child.text[i];
-          
-          // Skip markdown syntax characters (**,  *, `)
-          while (markdownIndex < markdown.length && 
-                 (markdown[markdownIndex] === '*' || markdown[markdownIndex] === '`')) {
-            markdownIndex += 1;
-          }
           
           // Find this character in the markdown
           if (markdownIndex < markdown.length && markdown[markdownIndex] === char) {
             this.pmToMarkdownMap.set(charPmPos, markdownIndex);
             this.markdownToPmMap.set(markdownIndex, charPmPos);
             markdownIndex += 1;
+          } else {
+            // Character mismatch - position mapping is broken, stop mapping this node
+            console.warn('Position mapping mismatch at PM pos', charPmPos, 'expected', char, 'found', markdown[markdownIndex]);
+            break;
           }
         }
         
-        // Skip closing markdown syntax characters
-        while (markdownIndex < markdown.length && 
-               (markdown[markdownIndex] === '*' || markdown[markdownIndex] === '`')) {
-          markdownIndex += 1;
+        // Skip closing formatting characters
+        markdownIndex += openingChars;
+        
+        // Skip closing link syntax if present
+        if (linkMark) {
+          // Skip ](url)
+          while (markdownIndex < markdown.length && 
+                 (markdown[markdownIndex] === ']' || markdown[markdownIndex] === '(' ||
+                  markdown[markdownIndex] === ')' || 
+                  (markdownIndex > 0 && markdown[markdownIndex - 1] === ']' && markdown[markdownIndex] !== '('))) {
+            if (markdown[markdownIndex] === ')') {
+              markdownIndex += 1;
+              break;
+            }
+            markdownIndex += 1;
+          }
         }
       }
       return true;
@@ -698,7 +737,10 @@ export class SynPmEditor extends LitElement {
 
         // Sync selection changes
         const selectionChanged = transactions.some(tr => tr.selectionSet);
-        if (selectionChanged || docChanged) {
+        const isRemote = transactions.some(tr => tr.getMeta('remote'));
+        
+        // Only broadcast cursor position if it's a user-initiated change, not a remote adjustment
+        if ((selectionChanged || docChanged) && !isRemote) {
           const { from, to } = newState.selection;
           self.onSelectionChanged([{ from, to }]);
         }
@@ -784,30 +826,34 @@ export class SynPmEditor extends LitElement {
         // console.log('Updating editor from Syn - text changed');
         this.isUpdatingFromSyn = true;
           
-          // IMPORTANT: Capture both anchor and head to preserve selections
+          // Capture current cursor position in OLD document
           const currentSelection = this.view.state.selection;
           const currentPmAnchor = currentSelection.anchor;
           const currentPmHead = currentSelection.head;
           
-          // Convert both positions to markdown using OLD mapping
+          // Convert to markdown positions in OLD document
           const oldMarkdownAnchor = this.proseMirrorPosToMarkdownPos(currentPmAnchor);
           const oldMarkdownHead = this.proseMirrorPosToMarkdownPos(currentPmHead);
           
-          // Calculate position shifts for both anchor and head
+          // Calculate text changes
           const changes = this.diffTexts(currentText, stateText);
           
+          // Calculate how cursor positions should shift based on changes
           const calculateShift = (oldPos: number): number => {
             let shift = 0;
             for (const change of changes) {
               if (change.position < oldPos) {
                 if (change.type === 'insert') {
+                  // Text inserted before cursor - shift forward
                   shift += change.text!.length;
                 } else if (change.type === 'delete') {
+                  // Text deleted before cursor - shift backward
                   const deleteEnd = change.position + change.length!;
                   if (deleteEnd <= oldPos) {
+                    // Entire deletion before cursor
                     shift -= change.length!;
                   } else {
-                    // Deletion overlaps position
+                    // Deletion overlaps cursor - place cursor at deletion start
                     shift = change.position - oldPos;
                   }
                 }
@@ -816,15 +862,12 @@ export class SynPmEditor extends LitElement {
             return shift;
           };
           
+          // Apply shifts to markdown positions
           const newMarkdownAnchor = oldMarkdownAnchor + calculateShift(oldMarkdownAnchor);
           const newMarkdownHead = oldMarkdownHead + calculateShift(oldMarkdownHead);
           
-          const lines = stateText.split('\n');
-          // console.log('Split into lines:', lines.length, 'lines:', JSON.stringify(lines));
-          
+          // Build new document
           const newDoc = this.createDocFromText(stateText);
-          const newDocText = this.docToText(newDoc);
-          // console.log('Created doc, paragraphs:', newDoc.childCount, 'docToText:', JSON.stringify(newDocText), 'matches input:', newDocText === stateText);
           
           // Replace entire document
           const tr = this.view.state.tr.replaceWith(
@@ -833,31 +876,30 @@ export class SynPmEditor extends LitElement {
             newDoc.content
           );
           
-          // Restore selection (both anchor and head) using adjusted positions
-          if (newMarkdownAnchor !== null && newMarkdownAnchor !== undefined &&
-              newMarkdownHead !== null && newMarkdownHead !== undefined) {
-            const clampedAnchor = Math.max(0, Math.min(newMarkdownAnchor, stateText.length));
-            const clampedHead = Math.max(0, Math.min(newMarkdownHead, stateText.length));
-            
-            const newPmAnchor = this.markdownPosToProseMirrorPos(clampedAnchor);
-            const newPmHead = this.markdownPosToProseMirrorPos(clampedHead);
-            
-            const docSize = tr.doc.content.size;
-            const safeAnchor = Math.max(0, Math.min(newPmAnchor, docSize));
-            const safeHead = Math.max(0, Math.min(newPmHead, docSize));
-            
+          // Mark this transaction as remote so plugin doesn't broadcast cursor position
+          tr.setMeta('remote', true);
+          
+          // Convert adjusted markdown positions back to ProseMirror positions in NEW document
+          const clampedAnchor = Math.max(0, Math.min(newMarkdownAnchor, stateText.length));
+          const clampedHead = Math.max(0, Math.min(newMarkdownHead, stateText.length));
+          
+          const newPmAnchor = this.markdownPosToProseMirrorPos(clampedAnchor);
+          const newPmHead = this.markdownPosToProseMirrorPos(clampedHead);
+          
+          const docSize = tr.doc.content.size;
+          const safeAnchor = Math.max(0, Math.min(newPmAnchor, docSize));
+          const safeHead = Math.max(0, Math.min(newPmHead, docSize));
+          
+          try {
+            const $anchor = tr.doc.resolve(safeAnchor);
+            const $head = tr.doc.resolve(safeHead);
+            tr.setSelection(new TextSelection($anchor, $head));
+          } catch (e) {
+            // Selection might be invalid, fallback
             try {
-              // Create a TextSelection with both anchor and head to preserve highlighting
-              const $anchor = tr.doc.resolve(safeAnchor);
-              const $head = tr.doc.resolve(safeHead);
-              tr.setSelection(new TextSelection($anchor, $head));
-            } catch (e) {
-              // Selection might be invalid, fallback to cursor at anchor
-              try {
-                tr.setSelection(TextSelection.near(tr.doc.resolve(safeAnchor)));
-              } catch (e2) {
-                // Ignore if still fails
-              }
+              tr.setSelection(TextSelection.near(tr.doc.resolve(safeAnchor)));
+            } catch (e2) {
+              // If that fails too, just let ProseMirror use default selection
             }
           }
           
@@ -1029,13 +1071,16 @@ export class SynPmEditor extends LitElement {
       return pmPos + 1; // +1 for document opening
     }
     
-    // Fallback: find closest mapped position
+    // Fallback: find closest mapped position before this position
     let closestMd = markdownPos;
     while (closestMd > 0 && !this.markdownToPmMap.has(closestMd)) {
       closestMd -= 1;
     }
+    
     const closestPm = this.markdownToPmMap.get(closestMd) || 0;
-    return closestPm + (markdownPos - closestMd) + 1;
+    // Apply offset proportionally - this handles formatting characters between mapped positions
+    const offset = markdownPos - closestMd;
+    return closestPm + offset + 1;
   }
 
   // Map a ProseMirror document position to markdown text position
@@ -1047,21 +1092,21 @@ export class SynPmEditor extends LitElement {
     
     // Use cached mapping if available
     const mdPos = this.pmToMarkdownMap.get(adjustedPmPos);
-    // console.log('PM to MD mapping:', { pmPos, adjustedPmPos, mdPos, hasMapping: mdPos !== undefined });
     
     if (mdPos !== undefined) {
       return mdPos;
     }
     
-    // Fallback: find closest mapped position
+    // Fallback: find closest mapped position before this position
     let closestPm = adjustedPmPos;
     while (closestPm > 0 && !this.pmToMarkdownMap.has(closestPm)) {
       closestPm -= 1;
     }
+    
     const closestMd = this.pmToMarkdownMap.get(closestPm) || 0;
-    const result = closestMd + (adjustedPmPos - closestPm);
-    // console.log('PM to MD fallback:', { closestPm, closestMd, result });
-    return result;
+    // Apply offset proportionally
+    const offset = adjustedPmPos - closestPm;
+    return closestMd + offset;
   }
 
   renderCursor(agent: AgentPubKey, agentSelection: AgentSelection) {
@@ -1087,7 +1132,9 @@ export class SynPmEditor extends LitElement {
     );
     
     if (position === null || position === undefined) return html``;
-    if (markdown.length < position) return html``;
+    
+    // Validate position is within document bounds
+    if (position < 0 || position > markdown.length) return html``;
 
     // Map markdown position to ProseMirror position
     const pmPos = this.markdownPosToProseMirrorPos(position);
@@ -1102,7 +1149,14 @@ export class SynPmEditor extends LitElement {
     // Clamp position to valid range
     const clampedPos = Math.max(0, Math.min(pmPos, this.view.state.doc.content.size));
     
-    const coords = this.view.coordsAtPos(clampedPos);
+    // Try to get coordinates, return empty if invalid position
+    let coords;
+    try {
+      coords = this.view.coordsAtPos(clampedPos);
+    } catch (e) {
+      // Invalid position, skip rendering
+      return html``;
+    }
 
     if (!coords) return html``;
 
@@ -1124,7 +1178,14 @@ export class SynPmEditor extends LitElement {
 
     return html`
       <div style="position: relative; overflow: auto; flex: 1; background-color: white; display: flex; flex-direction: column;">
-        ${this._showSecretButton ? html`
+        <div id="editor"></div>
+        ${Object.entries(this._cursors.value)
+          .filter(([pubKeyB64, _]) => pubKeyB64 !== encodeHashToBase64(this.slice.myPubKey))
+          .map(([pubKeyB64, position]) =>
+            this.renderCursor(decodeHashFromBase64(pubKeyB64), position)
+          )}
+      </div>
+      ${this._showSecretButton ? html`
           <div style="display: flex; justify-content: center; padding: 12px; background-color: #f8f9fa; border-bottom: 2px solid #e9ecef;">
             <button
               @click=${this._toggleAutoType}
@@ -1155,13 +1216,6 @@ export class SynPmEditor extends LitElement {
             </button>
           </div>
         ` : ''}
-        <div id="editor"></div>
-        ${Object.entries(this._cursors.value)
-          .filter(([pubKeyB64, _]) => pubKeyB64 !== encodeHashToBase64(this.slice.myPubKey))
-          .map(([pubKeyB64, position]) =>
-            this.renderCursor(decodeHashFromBase64(pubKeyB64), position)
-          )}
-      </div>
     `;
   }
 
