@@ -784,14 +784,38 @@ export class SynPmEditor extends LitElement {
         // console.log('Updating editor from Syn - text changed');
         this.isUpdatingFromSyn = true;
           
-          // IMPORTANT: Capture the current cursor position BEFORE rebuilding
-          // We must use the current editor selection, not read from ephemeral state,
-          // to avoid cursor jumping when multiple users edit simultaneously
+          // IMPORTANT: Capture the current cursor position in the OLD markdown text
           const currentSelection = this.view.state.selection;
           const currentPmPos = currentSelection.anchor;
           
-          // Convert current ProseMirror position to markdown position
-          const currentMarkdownPos = this.proseMirrorPosToMarkdownPos(currentPmPos);
+          // Convert current ProseMirror position to markdown position using OLD mapping
+          const oldMarkdownPos = this.proseMirrorPosToMarkdownPos(currentPmPos);
+          
+          // Calculate how much text was inserted/deleted BEFORE the cursor position
+          // by comparing old text to new text
+          const changes = this.diffTexts(currentText, stateText);
+          let positionShift = 0;
+          
+          for (const change of changes) {
+            if (change.position < oldMarkdownPos) {
+              if (change.type === 'insert') {
+                // Text inserted before cursor, shift cursor forward
+                positionShift += change.text!.length;
+              } else if (change.type === 'delete') {
+                // Text deleted before cursor, shift cursor backward
+                const deleteEnd = change.position + change.length!;
+                if (deleteEnd <= oldMarkdownPos) {
+                  // Entire deletion is before cursor
+                  positionShift -= change.length!;
+                } else {
+                  // Deletion overlaps cursor position - place cursor at deletion start
+                  positionShift = change.position - oldMarkdownPos;
+                }
+              }
+            }
+          }
+          
+          const newMarkdownPos = oldMarkdownPos + positionShift;
           
           const lines = stateText.split('\n');
           // console.log('Split into lines:', lines.length, 'lines:', JSON.stringify(lines));
@@ -807,10 +831,11 @@ export class SynPmEditor extends LitElement {
             newDoc.content
           );
           
-          // Restore cursor position using the captured markdown position
-          // Convert back from markdown to new ProseMirror position
-          if (currentMarkdownPos !== null && currentMarkdownPos !== undefined) {
-            const newPmPos = this.markdownPosToProseMirrorPos(currentMarkdownPos);
+          // Restore cursor position using the adjusted markdown position
+          // Convert from NEW markdown position to NEW ProseMirror position using NEW mapping
+          if (newMarkdownPos !== null && newMarkdownPos !== undefined) {
+            const clampedMarkdownPos = Math.max(0, Math.min(newMarkdownPos, stateText.length));
+            const newPmPos = this.markdownPosToProseMirrorPos(clampedMarkdownPos);
             const docSize = tr.doc.content.size;
             const safePos = Math.max(0, Math.min(newPmPos, docSize));
             try {
