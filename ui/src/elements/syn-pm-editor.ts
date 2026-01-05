@@ -1,5 +1,5 @@
 import { LitElement, html, css } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { SliceStore } from '@holochain-syn/core';
 import {
   AgentPubKey,
@@ -71,6 +71,27 @@ export class SynPmEditor extends LitElement {
 
   private markdownToPmMap: Map<number, number> = new Map();
 
+  @state()
+  private _ctrlPressCount = 0;
+
+  @state()
+  private _showSecretButton = false;
+
+  @state()
+  private _isAutoTyping = false;
+
+  private _ctrlPressTimer: any = null;
+
+  private _autoTypeInterval: any = null;
+
+  private _loremIpsum = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. ';
+
+  private _loremIndex = 0;
+
+  private _boundHandleKeyDown = this._handleKeyDown.bind(this);
+
+  private _boundHandleKeyUp = this._handleKeyUp.bind(this);
+
   constructor() {
     super();
     // Create schema with lists
@@ -79,6 +100,12 @@ export class SynPmEditor extends LitElement {
       marks: basicSchema.spec.marks,
     });
     this.schema = mySchema;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    window.addEventListener('keydown', this._boundHandleKeyDown);
+    window.addEventListener('keyup', this._boundHandleKeyUp);
   }
 
   firstUpdated() {
@@ -824,6 +851,12 @@ export class SynPmEditor extends LitElement {
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    window.removeEventListener('keydown', this._boundHandleKeyDown);
+    window.removeEventListener('keyup', this._boundHandleKeyUp);
+    this._stopAutoTyping();
+    if (this._ctrlPressTimer) {
+      clearTimeout(this._ctrlPressTimer);
+    }
     this.view?.destroy();
     this.view = null;
   }
@@ -833,6 +866,111 @@ export class SynPmEditor extends LitElement {
     const newDoc = this.createDocFromText(text);
     const tr = this.view.state.tr.replaceWith(0, this.view.state.doc.content.size, newDoc.content);
     this.view.dispatch(tr);
+  }
+
+  private _handleKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Control' && !e.repeat) {
+      this._ctrlPressCount += 1;
+      console.log(`Ctrl pressed ${this._ctrlPressCount} times`);
+      
+      if (this._ctrlPressTimer) {
+        clearTimeout(this._ctrlPressTimer);
+      }
+      
+      if (this._ctrlPressCount >= 9) {
+        console.log('Secret button revealed!');
+        this._showSecretButton = true;
+        this._ctrlPressCount = 0;
+      } else {
+        this._ctrlPressTimer = setTimeout(() => {
+          console.log('Ctrl press count reset');
+          this._ctrlPressCount = 0;
+        }, 2000);
+      }
+    }
+  }
+
+  private _handleKeyUp(e: KeyboardEvent) {
+    // Key up handler if needed
+  }
+
+  private _toggleAutoType() {
+    if (this._isAutoTyping) {
+      this._stopAutoTyping();
+    } else {
+      this._startAutoTyping();
+    }
+  }
+
+  private _startAutoTyping() {
+    if (!this._state.value || !this.view) return;
+    
+    this._isAutoTyping = true;
+    this._loremIndex = 0;
+    
+    this._autoTypeInterval = setInterval(() => {
+      if (!this.view) return;
+      
+      if (this._loremIndex < this._loremIpsum.length) {
+        const char = this._loremIpsum[this._loremIndex];
+        
+        // Simulate typing by dispatching keyboard events to the editor
+        const editorDom = this.view.dom;
+        
+        // Create and dispatch keydown event
+        const keydownEvent = new KeyboardEvent('keydown', {
+          key: char,
+          code: `Key${char.toUpperCase()}`,
+          charCode: char.charCodeAt(0),
+          keyCode: char.charCodeAt(0),
+          which: char.charCodeAt(0),
+          bubbles: true,
+          cancelable: true,
+        });
+        editorDom.dispatchEvent(keydownEvent);
+        
+        // Create and dispatch keypress event (for character input)
+        const keypressEvent = new KeyboardEvent('keypress', {
+          key: char,
+          code: `Key${char.toUpperCase()}`,
+          charCode: char.charCodeAt(0),
+          keyCode: char.charCodeAt(0),
+          which: char.charCodeAt(0),
+          bubbles: true,
+          cancelable: true,
+        });
+        editorDom.dispatchEvent(keypressEvent);
+        
+        // Directly insert text into ProseMirror (since keyboard events might not work perfectly)
+        const tr = this.view.state.tr.insertText(char);
+        this.view.dispatch(tr);
+        
+        // Create and dispatch keyup event
+        const keyupEvent = new KeyboardEvent('keyup', {
+          key: char,
+          code: `Key${char.toUpperCase()}`,
+          charCode: char.charCodeAt(0),
+          keyCode: char.charCodeAt(0),
+          which: char.charCodeAt(0),
+          bubbles: true,
+          cancelable: true,
+        });
+        editorDom.dispatchEvent(keyupEvent);
+        
+        this._loremIndex += 1;
+      } else {
+        // Loop back to start
+        this._loremIndex = 0;
+      }
+    }, 50);
+  }
+
+  private _stopAutoTyping() {
+    this._isAutoTyping = false;
+    if (this._autoTypeInterval) {
+      clearInterval(this._autoTypeInterval);
+      this._autoTypeInterval = null;
+    }
   }
 
   getPlainText(): string {
@@ -944,7 +1082,38 @@ export class SynPmEditor extends LitElement {
     if (this._state.value === undefined) return html``;
 
     return html`
-      <div style="position: relative; overflow: auto; flex: 1; background-color: white;">
+      <div style="position: relative; overflow: auto; flex: 1; background-color: white; display: flex; flex-direction: column;">
+        ${this._showSecretButton ? html`
+          <div style="display: flex; justify-content: center; padding: 12px; background-color: #f8f9fa; border-bottom: 2px solid #e9ecef;">
+            <button
+              @click=${this._toggleAutoType}
+              style="
+                padding: 12px 24px;
+                background: ${this._isAutoTyping ? '#dc2626' : '#2563eb'};
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 600;
+                cursor: pointer;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                transition: all 0.2s;
+              "
+              @mouseenter=${(e: MouseEvent) => {
+                const btn = e.target as HTMLElement;
+                btn.style.transform = 'translateY(-2px)';
+                btn.style.boxShadow = '0 6px 12px rgba(0, 0, 0, 0.15)';
+              }}
+              @mouseleave=${(e: MouseEvent) => {
+                const btn = e.target as HTMLElement;
+                btn.style.transform = 'translateY(0)';
+                btn.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+              }}
+            >
+              ${this._isAutoTyping ? 'Stop Auto-Typing' : 'Start Auto-Typing'}
+            </button>
+          </div>
+        ` : ''}
         <div id="editor"></div>
         ${Object.entries(this._cursors.value)
           .filter(([pubKeyB64, _]) => pubKeyB64 !== encodeHashToBase64(this.slice.myPubKey))
