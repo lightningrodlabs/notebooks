@@ -108,6 +108,9 @@ export class SynPmEditor extends LitElement {
       marks: basicSchema.spec.marks,
     });
     this.schema = mySchema;
+    
+    // Debug: log schema nodes
+    console.log('[Schema] Available nodes:', Object.keys(this.schema.nodes));
   }
 
   connectedCallback() {
@@ -233,6 +236,21 @@ export class SynPmEditor extends LitElement {
           }
         }
         
+        // Check for standalone image on its own line
+        if (!handled) {
+          const imageMatch = line.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+          if (imageMatch) {
+            const alt = imageMatch[1];
+            const src = imageMatch[2];
+            console.log('[createDocFromText] Parsing standalone image:', { alt, src });
+            // Images are inline nodes, so wrap them in a paragraph
+            const imageNode = this.schema.node('image', { src, alt, title: alt });
+            nodes.push(this.schema.node('paragraph', null, [imageNode]));
+            i += 1;
+            handled = true;
+          }
+        }
+        
         // Regular paragraph
         if (!handled) {
           const content = this.parseInlineFormatting(line);
@@ -253,6 +271,22 @@ export class SynPmEditor extends LitElement {
     
     while (i < text.length) {
       let handled = false;
+      
+      // Check for images ![alt](src)
+      if (!handled && text[i] === '!' && text[i + 1] === '[') {
+        const closeBracket = text.indexOf(']', i + 2);
+        if (closeBracket !== -1 && text[closeBracket + 1] === '(') {
+          const closeParen = text.indexOf(')', closeBracket + 2);
+          if (closeParen !== -1) {
+            const alt = text.substring(i + 2, closeBracket);
+            const src = text.substring(closeBracket + 2, closeParen);
+            console.log('[parseInlineFormatting] Parsing inline image:', { alt, src });
+            nodes.push(this.schema.node('image', { src, alt, title: alt }));
+            i = closeParen + 1;
+            handled = true;
+          }
+        }
+      }
       
       // Check for links [text](url)
       if (!handled && text[i] === '[') {
@@ -341,7 +375,13 @@ export class SynPmEditor extends LitElement {
         // Serialize the paragraph content to markdown (for bold, italic, etc.)
         let text = '';
         node.forEach((child) => {
-          if (child.isText) {
+          if (child.type.name === 'image') {
+            // Handle images within paragraphs
+            const alt = child.attrs.alt || '';
+            const src = child.attrs.src || '';
+            console.log('[docToText] Serializing image:', { alt, src });
+            text += `![${alt}](${src})`;
+          } else if (child.isText) {
             let prefix = '';
             let suffix = '';
             
@@ -636,8 +676,15 @@ export class SynPmEditor extends LitElement {
         return; // Already handled newline
         
       } else if (node.type.name === 'paragraph') {
+        const startIndex = markdownIndex;
         this.mapTextContent(node, nodeStart + 1, markdown, markdownIndex);
-        markdownIndex += node.textContent.length;
+        // Find how much markdown we consumed by looking at the next newline or end
+        const lineEnd = markdown.indexOf('\n', startIndex);
+        if (lineEnd !== -1) {
+          markdownIndex = lineEnd;
+        } else {
+          markdownIndex = markdown.length;
+        }
       }
       
       // Account for newline after this node
@@ -658,6 +705,23 @@ export class SynPmEditor extends LitElement {
     let markdownIndex = mdStart;
     
     node.descendants((child, pos) => {
+      if (child.type.name === 'image') {
+        // Handle inline images within paragraphs
+        const pmPos = pmStart + pos;
+        const alt = child.attrs.alt || '';
+        const src = child.attrs.src || '';
+        const imageMarkdown = `![${alt}](${src})`;
+        
+        // Map the image node to its markdown position
+        this.pmToMarkdownMap.set(pmPos, markdownIndex);
+        this.markdownToPmMap.set(markdownIndex, pmPos);
+        
+        // Skip the entire image markdown
+        markdownIndex += imageMarkdown.length;
+        
+        return false; // Don't descend into image node
+      }
+      
       if (child.isText && child.text) {
         const pmPos = pmStart + pos;
         
@@ -761,6 +825,9 @@ export class SynPmEditor extends LitElement {
   private syncDocumentToSyn(oldDoc: PMNode, newDoc: PMNode) {
     const oldText = this.docToText(oldDoc);
     const newText = this.docToText(newDoc);
+
+    console.log('[syncDocumentToSyn] old:', oldText);
+    console.log('[syncDocumentToSyn] new:', newText);
 
     if (oldText === newText) return;
 
