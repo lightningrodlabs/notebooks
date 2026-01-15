@@ -31,6 +31,9 @@ import "@shoelace-style/shoelace/dist/components/icon-button/icon-button.js";
 import "@shoelace-style/shoelace/dist/components/button/button.js";
 import "@shoelace-style/shoelace/dist/components/alert/alert.js";
 import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
+import "@shoelace-style/shoelace/dist/components/input/input.js";
+import "@shoelace-style/shoelace/dist/components/radio-group/radio-group.js";
+import "@shoelace-style/shoelace/dist/components/radio-button/radio-button.js";
 import "@holochain-syn/core/dist/elements/syn-document-context.js";
 import { textEditorGrammar } from "@holochain-syn/text-editor";
 import {
@@ -49,6 +52,7 @@ import {
   AsyncStatus,
   StoreSubscriber,
   get,
+  pipe,
   subscribe,
   toPromise,
 } from "@holochain-open-dev/stores";
@@ -64,12 +68,14 @@ import SlDialog from "@shoelace-style/shoelace/dist/components/dialog/dialog.js"
 import SlInput from "@shoelace-style/shoelace/dist/components/input/input.js";
 
 import "./elements/markdown-note.js";
+import "./elements/richtext-note.js";
 import "./elements/all-notes.js";
 import { createNote } from "./index.js";
 import { appletServices } from "./we-applet.js";
 import { NoteMeta, NoteWorkspace, Notebook, noteMetaB64ToRaw, noteMetaToB64 } from "./types.js";
 import { deserializeExport, exportNotes } from "./export.js";
 import { NotebooksStore, notebooksContext } from "./store.js";
+import { renderAsyncStatus } from "./utils.js";
 
 // @ts-ignore
 const appPort = import.meta.env.VITE_APP_PORT ? import.meta.env.VITE_APP_PORT : 8888
@@ -219,7 +225,7 @@ export class NotebooksApp extends LitElement {
               }
             case "creatable":
               switch (weaveClient.renderInfo.view.name) {
-                case "note":
+                case "Note":
                   return {
                     view: {
                       type: "create",
@@ -271,7 +277,7 @@ export class NotebooksApp extends LitElement {
 
   async connectToHolochain() {
     const { view, profilesClient, client, weaveClient } = await this.buildClient();
-    this._synStore = new SynStore(new SynClient(client, "notebooks"));
+    this._synStore = new SynStore(new SynClient(client, "notebooks"), true);
 
 
     const appInfo = await this._synStore.client.client.appInfo();
@@ -329,7 +335,7 @@ export class NotebooksApp extends LitElement {
         for (const n of importedNotebooks) {
           const noteMeta = noteMetaB64ToRaw(n.meta)
           console.log(n)
-          const _noteHash = await createNote(this._synStore, noteMeta.title, noteMeta.attachedToHrl, n.workspaces[0].note);
+          const _noteHash = await createNote(this._synStore, noteMeta.title, noteMeta.attachedToHrl, n.workspaces[0].note, noteMeta.editorType || "markdown");
         }
       }
       this.importing = false
@@ -340,25 +346,37 @@ export class NotebooksApp extends LitElement {
   renderContent() {
     if (this.view.type === "create")
       return html`
-      <div style="display:flex; flex-direction:column;padding:20px;">
-        <sl-input
-          id="create-title"
-          @sl-input=${(e: any) => this.disabled = !e.target.value}
-          .label=${msg("Title")}></sl-input>
-          <div style="margin-top:10px;display:flex;justify-content:flex-end;width:400px">
-            <sl-button @click=${() => {
+      <div style="display:flex; flex-direction:column;padding:20px; background: #ededed00; z-index: 999; position: absolute;">
+        <form id="create-note-form">
+          <sl-input
+            id="create-title"
+            name="title"
+            @sl-input=${(e: any) => this.disabled = !e.target.value}
+            .label=${msg("Title")}></sl-input>
+          <br>
+          <sl-radio-group label="Select a document type" name="documentType" value="markdown">
+            <sl-radio-button value="markdown">Markdown</sl-radio-button>
+            <sl-radio-button value="richtext">Rich Text (Experimental)</sl-radio-button>
+          </sl-radio-group>
+        </form>
+        <div style="margin-top:10px;display:flex;justify-content:flex-end;width:400px">
+          <sl-button @click=${() => {
           // @ts-ignore
           this.view.data.cancel()
         }}>Cancel</sl-button>
 
-            <sl-button 
-              style="margin-left:10px;"
-              variant="primary"
-              .disabled=${this.disabled}
-              @click=${async () => {
+          <sl-button 
+            style="margin-left:10px;"
+            variant="primary"
+            .disabled=${this.disabled}
+            @click=${async () => {
           try {
-            const title = this._createTitle.value
-            const noteHash = await createNote(this._synStore, title, undefined, `# ${title}\n\n`);
+            const form = this.shadowRoot?.getElementById("create-note-form") as HTMLFormElement;
+            const formData = new FormData(form);
+            const title = formData.get("title") as string;
+            const documentType = formData.get("documentType") as string;
+            const editorType = documentType === "richtext" ? "richtext" : "markdown";
+            const noteHash = await createNote(this._synStore, title, undefined, `# ${title}\n\n`, editorType);
 
             const hrlWithContext: WAL = {
               hrl: [this._notebooksStore.dnaHash, noteHash],
@@ -372,21 +390,52 @@ export class NotebooksApp extends LitElement {
             this.view.reject(e)
           }
         }}>Create</sl-button>
-          </div>
         </div>
+      </div>
       `;
-    if (this.view.type === "note" || this.view.type === "standalone-note")
+    if (this.view.type === "note" || this.view.type === "standalone-note") {
+      const documentStore = this._synStore.documents.get(this.view.noteHash);
+      
       return html`
         <syn-document-context
-          .documentstore=${this._synStore.documents.get(this.view.noteHash)}
+          .documentstore=${documentStore}
         >
-          <markdown-note 
-          @close=${()=>this.view = {
-            type: "main",
-          }}
-          .standalone=${this.view.type === "standalone-note"} style="flex: 1;"></markdown-note>
+          ${subscribe(
+            pipe(
+              documentStore.record,
+              (record) => decode(record.entry.meta!) as NoteMeta
+            ),
+            renderAsyncStatus({
+              complete: (meta: NoteMeta) => {
+                const editorType = meta.editorType || "markdown";
+                if (editorType === "richtext") {
+                  return html`<richtext-note 
+                    @close=${()=>this.view = {
+                      type: "main",
+                    }}
+                    .standalone=${this.view.type === "standalone-note"} 
+                    style="flex: 1;">
+                  </richtext-note>`;
+                }
+                return html`<markdown-note 
+                  @close=${()=>this.view = {
+                    type: "main",
+                  }}
+                  .standalone=${this.view.type === "standalone-note"} 
+                  style="flex: 1;">
+                </markdown-note>`;
+              },
+              pending: () => html`<div class="column center-content" style="flex: 1;">
+                <sl-spinner></sl-spinner>
+              </div>`,
+              error: (e: Error) => html`<div class="column center-content" style="flex: 1;">
+                <span>Error loading note: ${e.message}</span>
+              </div>`
+            })
+          )}
         </syn-document-context>
       `;
+    }
     return html`
       <input id="file-input" style="display:none" type="file" accept=".json" @change=${(e: any) => { this.onFileSelected(e) }} >
 
@@ -435,13 +484,14 @@ export class NotebooksApp extends LitElement {
   @state()
   creatingNote = false;
 
-  async createNote(title: string) {
+  async createNote(title: string, documentType: string = "markdown") {
     if (this.creatingNote) return;
 
     this.creatingNote = true;
 
     try {
-      const noteHash = await createNote(this._synStore, title, undefined, `# ${title}\n\n`);
+      const editorType = documentType === "richtext" ? "richtext" : "markdown";
+      const noteHash = await createNote(this._synStore, title, undefined, `# ${title}\n\n`, editorType);
 
       this._newNoteDialog.hide();
       (this.shadowRoot?.getElementById("note-form") as HTMLFormElement).reset();
@@ -477,8 +527,13 @@ export class NotebooksApp extends LitElement {
             title.focus()
           }}
       >
-        <form ${onSubmit((f) => this.createNote(f.title))} id="note-form">
+        <form ${onSubmit((f) => this.createNote(f.title, f.documentType))} id="note-form">
           <sl-input id="title" name="title" .label=${msg("Title")} required></sl-input>
+          <br>
+          <sl-radio-group label="Select a document type" name="documentType" value="markdown">
+            <sl-radio-button value="markdown">Markdown</sl-radio-button>
+            <sl-radio-button value="richtext">Rich Text (Experimental)</sl-radio-button>
+          </sl-radio-group>
         </form>
 
         <sl-button slot="footer" @click=${() => this._newNoteDialog.hide()}>

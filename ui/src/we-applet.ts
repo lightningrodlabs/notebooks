@@ -25,6 +25,7 @@ export const appletServices: AppletServices = {
     note: {
       label: msg('Note'),
       icon_src: wrapPathInSvg(mdiNotebook),
+      height: "medium"
     },
   }, // Types of UI widgets/blocks that this Applet supports
   blockTypes: {},

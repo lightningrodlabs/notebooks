@@ -23,6 +23,7 @@ import {
 
 import "@lightningrodlabs/notebooks/dist/elements/all-notes.js";
 import "@lightningrodlabs/notebooks/dist/elements/column-header.js";
+import "@lightningrodlabs/notebooks/dist/elements/richtext-note.js";
 import "@lightningrodlabs/notebooks/dist/elements/markdown-note.js";
 import "@holochain-open-dev/profiles/dist/elements/profiles-context.js";
 import "@theweave/api/dist/elements/we-services-context.js";
@@ -50,7 +51,7 @@ function wrapAppletView(
   weServices: WeServices,
   innerTemplate: TemplateResult
 ): TemplateResult {
-  const synStore = new SynStore(new SynClient(client, "notebooks"));
+  const synStore = new SynStore(new SynClient(client, "notebooks"), true);
   return html`
     <attachments-context
       .store=${new AttachmentsStore(new AttachmentsClient(client, "notebooks"))}
@@ -208,7 +209,7 @@ const applet: WeApplet = {
       label: msg("Note"),
       icon_src: wrapPathInSvg(mdiNotebook),
       async create(attachToHrl: Hrl) {
-        const synStore = new SynStore(new SynClient(appletClient, "notebooks"));
+        const synStore = new SynStore(new SynClient(appletClient, "notebooks"), true);
 
         const note = await createNote(synStore, msg(`Note`), attachToHrl, undefined);
         const appInfo = await appletClient.appInfo();

@@ -14,7 +14,6 @@ import {
   SessionStore,
   SynConfig,
 } from "@holochain-syn/core";
-import { MarkdownRenderer } from "@scoped-elements/markdown-renderer";
 
 import "@holochain-syn/core/dist/elements/syn-context.js";
 import "@holochain-syn/core/dist/elements/session-participants.js";
@@ -28,7 +27,6 @@ import "@shoelace-style/shoelace/dist/components/button-group/button-group.js";
 import "@shoelace-style/shoelace/dist/components/card/card.js";
 import "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
 import "@shoelace-style/shoelace/dist/components/split-panel/split-panel.js";
-import "@shoelace-style/shoelace/dist/components/icon-button/icon-button.js";
 import '@shoelace-style/shoelace/dist/components/radio-group/radio-group.js';
 import '@shoelace-style/shoelace/dist/components/radio-button/radio-button.js';
 import "@holochain-open-dev/profiles/dist/elements/agent-avatar.js";
@@ -38,6 +36,7 @@ import "@shoelace-style/shoelace/dist/components/drawer/drawer.js";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import "./session-status"
 import "./syn-md-editor";
+import "./syn-pm-editor"
 
 import { Profile, ProfilesStore, profilesStoreContext } from '@holochain-open-dev/profiles';
 
@@ -62,7 +61,7 @@ import { SlChangeEvent, SlDialog, SlDrawer, SlRadioGroup } from "@shoelace-style
 import { msg } from "@lit/localize";
 import { decode } from "@msgpack/msgpack";
 import { Marked } from "@ts-stack/markdown";
-import { mdiArrowLeft, mdiBookOpenOutline, mdiEye, mdiPencil, mdiClose, mdiGrid, mdiDotsGrid } from "@mdi/js";
+import { mdiArrowLeft, mdiBookOpenOutline, mdiEye, mdiPencil, mdiClose, mdiDotsGrid } from "@mdi/js";
 import { isWeaveContext, WAL } from "@theweave/api";
 import {
   TextEditorEphemeralState,
@@ -85,7 +84,6 @@ interface HistoryTypes {
 }
 
 const POCKET_ICON=`<svg width="20" height="20" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M74.2273 83.9C71.7318 83.9 69.3386 84.8956 67.574 86.6678C65.8095 88.4401 64.8182 90.8437 64.8182 93.35V150.05C64.8182 172.607 73.74 194.239 89.6209 210.189C105.502 226.139 127.041 235.1 149.5 235.1C196.27 235.1 234.182 197.023 234.182 150.05V93.35C234.182 90.8437 233.191 88.4401 231.426 86.6678C229.661 84.8956 227.268 83.9 224.773 83.9H74.2273ZM54.2676 73.3035C59.5612 67.9869 66.7409 65 74.2273 65H224.773C232.259 65 239.439 67.9869 244.732 73.3035C250.026 78.6202 253 85.8311 253 93.35V150.05C253 207.461 206.663 254 149.5 254C122.05 254 95.7245 243.048 76.3144 223.554C56.9044 204.059 46 177.619 46 150.05V93.35C46 85.8311 48.9739 78.6202 54.2676 73.3035Z" fill="black"/><path d="M188.841 141.469H158.596V110.124C158.596 105.635 154.961 102 150.474 102C145.986 102 142.351 105.635 142.351 110.124V141.469H110.085C105.635 141.469 102 145.104 102 149.593C102 154.081 105.635 157.717 110.122 157.717H142.388V188.876C142.388 193.365 146.023 197 150.511 197C154.998 197 158.633 193.365 158.633 188.876V157.717H188.878C193.365 157.717 197 154.081 197 149.593C196.944 145.104 193.328 141.469 188.841 141.469Z" fill="black"/></svg>`
-customElements.define("markdown-renderer", MarkdownRenderer);
 
 const WORKSPACE_NOT_FOUND = "The requested workspace was not found";
 
@@ -96,8 +94,8 @@ const SYN_CONFIG: SynConfig = {
   commitStrategy: { CommitEveryNDeltas: 200, CommitEveryNMs: 1000 * 30 }, // TODO: reduce ms
 }
 
-@customElement("markdown-note")
-export class MarkdownNote extends LitElement {
+@customElement("richtext-note")
+export class RichtextNote extends LitElement {
   @consume({ context: synDocumentContext, subscribe: true })
   @property()
   documentStore!: DocumentStore<TextEditorState, TextEditorEphemeralState>;
@@ -204,15 +202,12 @@ export class MarkdownNote extends LitElement {
 
     this.creatingWorkspace = true;
 
-    await sessionStore.commitChanges();
     await sessionStore.leaveSession();
-    console.log("left session, creating workspace");
     try {
       await this.documentStore.createWorkspace(name, initialTipHash);
       (
         this.shadowRoot?.getElementById("new-workspace-dialog") as SlDialog
-      )?.hide();
-      this._joiningSession = false;
+      ).hide();
       this._workspaceName = name;
     } catch (e) {
       notifyError(msg("Error creating the workspace"));
@@ -224,8 +219,7 @@ export class MarkdownNote extends LitElement {
   renderNewWorkspaceButton(
     sessionStore: SessionStore<TextEditorState, TextEditorEphemeralState>
   ) {
-    return html` 
-      <sl-button
+    return html` <sl-button
         style="flex: 1"
         .disabled=${this._selectedCommitHash === undefined}
         variant="primary"
@@ -240,14 +234,12 @@ export class MarkdownNote extends LitElement {
 
       <sl-dialog .label=${msg("Create Workspace")} id="new-workspace-dialog"
         ><form
-          ${onSubmit((f) => {
-            this.createWorkspace(
-              f.name,
-              this._selectedCommitHash!,
-              sessionStore
-            )
-            this._historyTypes.workspaces = true;
-          }
+          ${onSubmit((f) =>
+        this.createWorkspace(
+          f.name,
+          this._selectedCommitHash!,
+          sessionStore
+        )
       )}
           id="new-workspace-form"
         >
@@ -279,12 +271,7 @@ export class MarkdownNote extends LitElement {
         >
           ${msg("Create")}
         </sl-button>
-      </sl-dialog>
-    `;
-  }
-
-  get drawer() {
-    return this.shadowRoot?.getElementById("drawer") as SlDrawer;
+      </sl-dialog>`;
   }
 
   renderSelectedCommitDiff() {
@@ -326,7 +313,7 @@ export class MarkdownNote extends LitElement {
       renderAsyncStatus({
         complete: (v) => html` <div class="flex-scrollable-parent" style="height:100%; overflow-x: hidden;">
           <div class="flex-scrollable-y" style="width:100%; overflow-x: hidden;">
-            <sl-card style="max-width: 100%; overflow-x: hidden;">
+            <sl-card style="max-width: 100%; overflow-x: hidden; margin: 8px;">
               <div slot="header">Commit: ${this._selectedCommitHash ? encodeHashToBase64(this._selectedCommitHash):""}</div>
               <div slot="header">
                 <span style="display:flex;align-items:center">by ${subscribe(this.profilesStore.profiles.get(v.action.author),
@@ -344,10 +331,8 @@ export class MarkdownNote extends LitElement {
                 
               </div>
 
-              <div class="commit-content">
-                ${unsafeHTML(Marked.parse(
-                  (stateFromCommit(v.entry) as TextEditorState
-                  ).text.join('')))}
+              <div class="commit-content" style="white-space: pre-wrap; word-wrap: break-word;">
+                ${(stateFromCommit(v.entry) as TextEditorState).text.join('')}
               </div>
             </sl-card>
           </div>
@@ -509,7 +494,7 @@ export class MarkdownNote extends LitElement {
         <div
           class="row"
           style="align-items: center; background-color: white; padding: 8px;
-          box-shadow: var(--sl-shadow-x-large); z-index: 10 height: 100%;"
+          z-index: 11;"
         >
           <span class="controls">
             ${!this.standalone ? html`
@@ -527,16 +512,9 @@ export class MarkdownNote extends LitElement {
                 );
               }}
             ><sl-icon .src=${wrapPathInSvg(mdiArrowLeft)}></sl-icon></sl-button>`:""}
-          
-            <sl-button-group  label="View Options">
-            <sl-button variant=${this._view === View.Edit ? "primary" : "neutral"} @click=${() => { this._view = View.Edit }}><sl-icon .src=${wrapPathInSvg(mdiPencil)} label="Edit"></sl-icon></sl-button>
-            <sl-button variant=${this._view === View.Both ? "primary" : "neutral"} @click=${() => { this._view = View.Both }}><sl-icon .src=${wrapPathInSvg(mdiBookOpenOutline)} label="Both"></sl-icon></sl-button>
-            <sl-button variant=${this._view === View.View ? "primary" : "neutral"} @click=${() => { this._view = View.View }}><sl-icon .src=${wrapPathInSvg(mdiEye)} label="View"></sl-icon></sl-button>
-            </sl-button-group>
 
             ${ isWeaveContext() ? html`
             <sl-button
-              style="margin-left: 16px;"
               circle
               size="small"
               @click=${() => {
@@ -572,33 +550,22 @@ export class MarkdownNote extends LitElement {
           <slot name="toolbar-action"></slot>
         </div>
         <div class="row" style="flex: 1;">
-        <sl-split-panel position=${ this._view === View.Both ? "50" : this._view === View.View ? "0" : "100"} style="flex: 1; height: 100%; --divider-width: 8px;">
-          <div slot="start" class="flex-scrollable-parent">
-            <div class="flex-scrollable-container">
-              <div class="flex-scrollable-y">
-                <syn-md-editor
-                  .slice=${sessionStore}
-                ></syn-md-editor>
-              </div>
-            </div>
-          </div>
 
-          <div slot="end" class="flex-scrollable-parent">
+          ${this._view === View.Both || this._view === View.Edit ? html`
+          <div class="flex-scrollable-parent">
             <div class="flex-scrollable-container">
               <div class="flex-scrollable-y">
-                <div style="margin: 8px">
-                  <sl-card style="width: 100%">
-                  <div class="markd">
-                    ${unsafeHTML(Marked.parse(state.text.join('')))}
-                  </div>
-                  </sl-card>
-                </div>
+
+                <syn-pm-editor
+                .slice=${sessionStore}
+                ></syn-pm-editor>
+
               </div>
             </div>
-          </div>
-        </sl-split-panel>
+          </div>` : ""}
         </div>
       </div>
+    </sl-split-panel>
     `;
   }
 
