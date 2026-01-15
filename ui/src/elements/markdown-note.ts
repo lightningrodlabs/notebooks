@@ -572,9 +572,8 @@ export class MarkdownNote extends LitElement {
           <slot name="toolbar-action"></slot>
         </div>
         <div class="row" style="flex: 1;">
-
-          ${this._view === View.Both || this._view === View.Edit ? html`
-          <div class="flex-scrollable-parent">
+        <sl-split-panel position=${ this._view === View.Both ? "50" : this._view === View.View ? "0" : "100"} style="flex: 1; height: 100%; --divider-width: 8px;">
+          <div slot="start" class="flex-scrollable-parent">
             <div class="flex-scrollable-container">
               <div class="flex-scrollable-y">
                 <syn-md-editor
@@ -582,10 +581,9 @@ export class MarkdownNote extends LitElement {
                 ></syn-md-editor>
               </div>
             </div>
-          </div>` : ""}
+          </div>
 
-          ${this._view === View.Both || this._view === View.View ? html`
-          <div class="flex-scrollable-parent">
+          <div slot="end" class="flex-scrollable-parent">
             <div class="flex-scrollable-container">
               <div class="flex-scrollable-y">
                 <div style="margin: 8px">
@@ -597,7 +595,8 @@ export class MarkdownNote extends LitElement {
                 </div>
               </div>
             </div>
-          </div>` : ""}
+          </div>
+        </sl-split-panel>
         </div>
       </div>
     `;
