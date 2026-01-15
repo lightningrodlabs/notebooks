@@ -80,7 +80,15 @@ export class SynPmEditor extends LitElement {
   @state()
   private _isAutoTyping = false;
 
+  @state()
+  private _delayedCursors: TextEditorEphemeralState = {};
+
+  @state()
+  private _showCursors = true;
+
   private _ctrlPressTimer: any = null;
+
+  private _cursorUpdateTimer: any = null;
 
   private _autoTypeInterval: any = null;
 
@@ -807,6 +815,25 @@ export class SynPmEditor extends LitElement {
   }
 
   private subscribeToSynChanges() {
+    // Subscribe to ephemeral (cursors) with debounce
+    this.slice.ephemeral.subscribe((cursors) => {
+      // Initialize on first call
+      if (!this._delayedCursors || Object.keys(this._delayedCursors).length === 0) {
+        this._delayedCursors = cursors;
+      }
+      
+      if (this._cursorUpdateTimer) {
+        clearTimeout(this._cursorUpdateTimer);
+      }
+      
+      // Delay cursor updates - use shorter delay if cursor is on new line
+      this._showCursors = false;
+      this._cursorUpdateTimer = setTimeout(() => {
+        this._delayedCursors = cursors;
+        this._showCursors = true;
+      }, 500);
+    });
+    
     // Subscribe to state separately from ephemeral (cursors)
     // This way cursor changes don't trigger document rebuilds
     this.slice.state.subscribe((state) => {
@@ -939,6 +966,9 @@ export class SynPmEditor extends LitElement {
     this._stopAutoTyping();
     if (this._ctrlPressTimer) {
       clearTimeout(this._ctrlPressTimer);
+    }
+    if (this._cursorUpdateTimer) {
+      clearTimeout(this._cursorUpdateTimer);
     }
     this.view?.destroy();
     this.view = null;
@@ -1110,6 +1140,8 @@ export class SynPmEditor extends LitElement {
   }
 
   renderCursor(agent: AgentPubKey, agentSelection: AgentSelection) {
+    if (!this._showCursors) return html``;
+
     // Don't render cursors while we're updating from Syn to avoid flickering
     if (this.isUpdatingFromSyn) return html``;
     
@@ -1179,7 +1211,7 @@ export class SynPmEditor extends LitElement {
     return html`
       <div style="position: relative; overflow: auto; flex: 1; background-color: white; display: flex; flex-direction: column;">
         <div id="editor"></div>
-        ${Object.entries(this._cursors.value)
+        ${Object.entries(this._delayedCursors)
           .filter(([pubKeyB64, _]) => pubKeyB64 !== encodeHashToBase64(this.slice.myPubKey))
           .map(([pubKeyB64, position]) =>
             this.renderCursor(decodeHashFromBase64(pubKeyB64), position)
@@ -1480,6 +1512,7 @@ export class SynPmEditor extends LitElement {
 
     .ProseMirror ul, .ProseMirror ol {
       padding-left: 30px;
+      margin: 0;
     }
 
     .ProseMirror blockquote {
@@ -1499,7 +1532,7 @@ export class SynPmEditor extends LitElement {
     .ProseMirror h4:first-child,
     .ProseMirror h5:first-child,
     .ProseMirror h6:first-child {
-      margin: 6px 0;
+      margin: 0;
     }
 
     .ProseMirror {
@@ -1509,7 +1542,7 @@ export class SynPmEditor extends LitElement {
       height: calc(100vh - 135px);
     }
 
-    .ProseMirror p { margin: 6px 0;}
+    .ProseMirror p { margin: 0;}
   
   `;
 }

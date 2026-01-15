@@ -243,7 +243,7 @@ export class AllNotes extends LitElement {
             ${createDate.toLocaleDateString()} ${createDate.toLocaleTimeString()}
           </span>
           <span class="note-style">
-            ${note.style === "richtext" ? msg("Rick Text") : msg("Markdown")}
+            ${note.style === "richtext" ? msg("Rich Text") : msg("Markdown")}
           </span>
           <span class="note-author">
             <agent-avatar .agentPubKey=${note.author}></agent-avatar>
