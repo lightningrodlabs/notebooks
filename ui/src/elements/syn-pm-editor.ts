@@ -146,6 +146,15 @@ export class SynPmEditor extends LitElement {
 
     // Subscribe to Syn changes
     this.subscribeToSynChanges();
+    
+    // Listen for scroll events on the ProseMirror DOM to update cursor positions
+    this.view.dom.addEventListener('scroll', () => {
+      this.requestUpdate();
+    });
+    // Also listen on the editor container in case scroll happens there
+    this.editorEl.addEventListener('scroll', () => {
+      this.requestUpdate();
+    });
 
     setTimeout(() => this.view?.focus(), 100);
   }
@@ -1276,7 +1285,7 @@ export class SynPmEditor extends LitElement {
     if (this._state.value === undefined) return html``;
 
     return html`
-      <div style="position: relative; overflow: auto; flex: 1; background-color: white; display: flex; flex-direction: column;">
+      <div class="editor-container" style="position: relative; overflow: auto; flex: 1; background-color: white; display: flex; flex-direction: column;">
         <div id="editor"></div>
         ${Object.entries(this._delayedCursors)
           .filter(([pubKeyB64, _]) => pubKeyB64 !== encodeHashToBase64(this.slice.myPubKey))
