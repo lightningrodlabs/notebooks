@@ -356,7 +356,7 @@ export class NotebooksApp extends LitElement {
           <br>
           <sl-radio-group label="Select a document type" name="documentType" value="markdown">
             <sl-radio-button value="markdown">Markdown</sl-radio-button>
-            <sl-radio-button value="richtext">Rich Text (Experimental)</sl-radio-button>
+            <sl-radio-button value="richtext">Rich Text</sl-radio-button>
           </sl-radio-group>
         </form>
         <div style="margin-top:10px;display:flex;justify-content:flex-end;width:400px">
@@ -532,7 +532,7 @@ export class NotebooksApp extends LitElement {
           <br>
           <sl-radio-group label="Select a document type" name="documentType" value="markdown">
             <sl-radio-button value="markdown">Markdown</sl-radio-button>
-            <sl-radio-button value="richtext">Rich Text (Experimental)</sl-radio-button>
+            <sl-radio-button value="richtext">Rich Text</sl-radio-button>
           </sl-radio-group>
         </form>
 
