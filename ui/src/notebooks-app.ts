@@ -36,6 +36,7 @@ import "@shoelace-style/shoelace/dist/components/radio-group/radio-group.js";
 import "@shoelace-style/shoelace/dist/components/radio-button/radio-button.js";
 import "@holochain-syn/core/dist/elements/syn-document-context.js";
 import { textEditorGrammar } from "@holochain-syn/text-editor";
+import { isEqual } from "lodash-es";
 import {
   AppletServices,
   WAL,
@@ -180,11 +181,31 @@ export class NotebooksApp extends LitElement {
           switch (weaveClient.renderInfo.view.type) {
             case "main":
               // here comes your rendering logic for the main view
+
+              // === Profile synchronization logic ===
+              const profilesClient = new ProfilesClient(weaveClient.renderInfo.appletClient, "notebooks");
+              const myLocalProfileRaw = await profilesClient.getAgentProfile(weaveClient.renderInfo.appletClient.myPubKey)
+              const localEncodedField = (myLocalProfileRaw?.record?.entry as any)?.Present?.entry
+              const myLocalProfile = localEncodedField ? decode(localEncodedField) as Profile : undefined
+              const weaveProfilesClient = weaveClient.renderInfo.profilesClient as ProfilesClient
+              const myWeaveProfileRaw = await weaveProfilesClient.getAgentProfile(weaveClient.renderInfo.appletClient.myPubKey)
+              const weaveEncodedField = (myWeaveProfileRaw?.record?.entry as any)?.Present?.entry
+              const myWeaveProfile = weaveEncodedField ? decode(weaveEncodedField) as Profile : undefined
+              const areProfilesInSync = isEqual(myLocalProfile, myWeaveProfile)
+              if (!areProfilesInSync && myWeaveProfile) {
+                if (!myLocalProfile) {
+                  await profilesClient.createProfile({...myWeaveProfile})
+                } else {
+                  await profilesClient.updateProfile({...myWeaveProfile})
+                }
+              }
+              // === Profile synchronization logic ends ===
+
               return {
                 view: {
                   type: "main",
                 },
-                profilesClient: weaveClient.renderInfo.profilesClient as any,
+                profilesClient,
                 client: weaveClient.renderInfo.appletClient,
                 weaveClient
               };
