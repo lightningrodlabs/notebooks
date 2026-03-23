@@ -556,6 +556,7 @@ export class MarkdownNote extends LitElement {
           <span style="margin: 0 8px">${msg("Participants:")}</span>
           <session-participants
             direction="row"
+            showOffline=true
             .sessionstore=${sessionStore}
           ></session-participants>
           <span>${msg("Active Workspace:")}</span>

@@ -1417,6 +1417,14 @@ export class SynPmEditor extends LitElement {
       display: inline-block;
     }
 
+    .ProseMirror-menuitem button {
+      display: inline-block;
+      padding: 2px 8px;
+      border: none;
+      background: none;
+      cursor: pointer;
+    }
+
     .ProseMirror-menuseparator {
       border-right: 1px solid #ddd;
       margin-right: 3px;
@@ -1425,6 +1433,12 @@ export class SynPmEditor extends LitElement {
     .ProseMirror-menu-dropdown, .ProseMirror-menu-dropdown-menu {
       font-size: 90%;
       white-space: nowrap;
+    }
+
+    .ProseMirror-menu-dropdown ul, .ProseMirror-menu-dropdown-menu ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
     }
 
     .ProseMirror-menu-dropdown {
@@ -1442,13 +1456,14 @@ export class SynPmEditor extends LitElement {
 
     .ProseMirror-menu-dropdown:after {
       content: "";
+      display: inline-block;
       border-left: 4px solid transparent;
       border-right: 4px solid transparent;
       border-top: 4px solid currentColor;
       opacity: .6;
-      position: absolute;
-      right: 4px;
-      top: calc(50% - 2px);
+      position: relative;
+      top: -2px;
+      left: 2px;
     }
 
     .ProseMirror-menu-dropdown-menu, .ProseMirror-menu-submenu {
