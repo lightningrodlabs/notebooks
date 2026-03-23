@@ -304,20 +304,28 @@ export class NotebooksApp extends LitElement {
     this.exporting = true
     const docs = await toPromise(this._synStore.documentsByTag.get("note"))
     for (const docStore of Array.from(docs.values())) {
-      const record = await toPromise(docStore.record)
-      const noteMeta: NoteMeta = decode(record.entry.meta!) as NoteMeta
-      const workspaceStores = await toPromise(docStore.allWorkspaces)
-      const workspaces: Array<NoteWorkspace> = []
-      for (const wsStore of Array.from(workspaceStores.values())) {
-        const name = await toPromise(wsStore.name)
-        const note = await toPromise(wsStore.latestSnapshot)
-        const text = Array.isArray(note.text) ? note.text.join('') : note.text as string
-        workspaces.push({ name, note: text })
+      if (!docStore) {
+        console.warn("Document store is undefined, skipping")
+      } else {
+        const record = await toPromise(docStore.record)
+        const noteMeta: NoteMeta = decode(record.entry.meta!) as NoteMeta
+        const workspaceStores = await toPromise(docStore.allWorkspaces)
+        const workspaces: Array<NoteWorkspace> = []
+        for (const wsStore of Array.from(workspaceStores.values())) {
+          if (!wsStore) {
+            console.warn("Workspace store is undefined, skipping")
+          } else {
+            const name = await toPromise(wsStore.name)
+            const note = await toPromise(wsStore.latestSnapshot)
+            const text = Array.isArray(note.text) ? note.text.join('') : note.text as string
+            workspaces.push({ name, note: text })
+          }
+        }
+        notes.push({
+          meta: noteMetaToB64(noteMeta),
+          workspaces
+        })
       }
-      notes.push({
-        meta: noteMetaToB64(noteMeta),
-        workspaces
-      })
     }
     exportNotes(notes)
     this.exporting = false

@@ -1,14 +1,17 @@
 import {
   alwaysSubscribed,
   asyncDerived,
+  AsyncReadable,
   AsyncStatus,
   joinAsync,
   joinAsyncMap,
   mapAndJoin,
+  Option,
   pipe,
   sliceAndJoin,
   StoreSubscriber,
 } from "@holochain-open-dev/stores";
+import { GetonlyMap } from "@holochain-open-dev/utils";
 import { synContext, SynStore, Document, WorkspaceStore, Commit } from "@holochain-syn/core";
 import { consume } from "@lit/context";
 import { css, html, LitElement } from "lit";
@@ -24,9 +27,9 @@ import "@shoelace-style/shoelace/dist/components/relative-time/relative-time.js"
 import "@shoelace-style/shoelace/dist/components/skeleton/skeleton.js";
 import "@shoelace-style/shoelace/dist/components/checkbox/checkbox.js";
 import { mdiDelete, mdiRestore } from "@mdi/js";
-import { ActionHash, AgentPubKey, encodeHashToBase64, EntryHash, Timestamp } from "@holochain/client";
+import { ActionHash, AgentPubKey, encodeHashToBase64, EntryHash, HoloHash, Timestamp, LazyHoloHashMap, HoloHashMap } from "@holochain/client";
 import SlCheckbox from "@shoelace-style/shoelace/dist/components/checkbox/checkbox.js";
-import { EntryRecord, LazyHoloHashMap } from "@holochain-open-dev/utils";
+import { EntryRecord } from "@holochain-open-dev/utils";
 import { SortDirection } from "./column-label.js";
 import { TextEditorEphemeralState, TextEditorState } from "../grammar.js";
 
@@ -74,7 +77,7 @@ export class AllNotes extends LitElement {
 
   noteData = new LazyHoloHashMap( documentHash => {
     const docStore = this.synStore.documents.get(documentHash)
-    const workspace = pipe(docStore.allWorkspaces,
+    const workspace = pipe(docStore!.allWorkspaces,
         workspaces =>  Array.from(workspaces.values())[0]
     )
     const latestState = pipe(workspace, 
@@ -83,32 +86,34 @@ export class AllNotes extends LitElement {
     const tip = pipe(workspace,
       workspace => workspace.tip
         )
-    const document = pipe(docStore.record,
+    const document = pipe(docStore!.record,
       document => document
         )
 
-    return alwaysSubscribed(pipe(joinAsync([workspace, latestState, tip, document]), ([workspace, latestState, tip, document]) => (
-         {workspace,latestState, tip, document})))
+    return alwaysSubscribed(pipe(joinAsync([workspace, latestState, tip, document]), ([workspace, latestState, tip, document]) => {
+      if (!workspace) throw new Error("Workspace is undefined");
+      return {workspace, latestState, tip, document} as NoteAndLatestState;
+    }))
   })
 
  
-  activeNotes: StoreSubscriber<AsyncStatus<ReadonlyMap<Uint8Array,NoteAndLatestState>>> = new StoreSubscriber(
+  activeNotes: StoreSubscriber<AsyncStatus<HoloHashMap<Uint8Array,NoteAndLatestState>>> = new StoreSubscriber(
     this,
     () => {
       const activeNoteHashes = asyncDerived(this.synStore.documentsByTag.get("note"),x=>Array.from(x.keys()))
       return pipe(activeNoteHashes,
-        docHashes =>  sliceAndJoin(this.noteData, docHashes, {errors: "filter_out"})
+        docHashes =>  sliceAndJoin(this.noteData as unknown as GetonlyMap<HoloHash, AsyncReadable<Option<NoteAndLatestState>>>, docHashes, {errors: "filter_out"})
         )
     },
     () => [this.synStore]
   );
 
-  archivedNotes: StoreSubscriber<AsyncStatus<ReadonlyMap<Uint8Array,NoteAndLatestState>>> = new StoreSubscriber(
+  archivedNotes: StoreSubscriber<AsyncStatus<HoloHashMap<Uint8Array,NoteAndLatestState>>> = new StoreSubscriber(
     this,
     () => {
       const activeNoteHashes = asyncDerived(this.synStore.documentsByTag.get("arc"),x=>Array.from(x.keys()))
       return pipe(activeNoteHashes,
-        docHashes =>  sliceAndJoin(this.noteData, docHashes, {errors: "filter_out"})
+        docHashes =>  sliceAndJoin(this.noteData as unknown as GetonlyMap<HoloHash, AsyncReadable<Option<NoteAndLatestState>>>, docHashes, {errors: "filter_out"})
         )
     },
     () => [this.synStore]
@@ -150,7 +155,7 @@ export class AllNotes extends LitElement {
     }
   }
 
-  processNoteRecords(subscriber: StoreSubscriber<AsyncStatus<ReadonlyMap<Uint8Array, NoteAndLatestState>>>, archived: boolean) {
+  processNoteRecords(subscriber: StoreSubscriber<AsyncStatus<HoloHashMap<Uint8Array, NoteAndLatestState>>>, archived: boolean) {
     switch (subscriber.value.status) {
       case "pending":
           break;
