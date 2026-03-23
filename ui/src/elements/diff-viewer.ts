@@ -366,7 +366,7 @@ export class DiffViewer extends LitElement {
       const selectedCommit = await new Promise((resolve, reject) => {
         let cleanup: (() => void) | null = null;
         
-        cleanup = selectedCommitStore.subscribe(value => {
+        cleanup = selectedCommitStore!.subscribe(value => {
           if (value.status === 'complete') {
             if (cleanup) cleanup();
             resolve(value.value);

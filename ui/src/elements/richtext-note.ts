@@ -48,7 +48,7 @@ import {
   sharedStyles,
   wrapPathInSvg,
 } from "@holochain-open-dev/elements";
-import { ActionHash, encodeHashToBase64, EntryHash } from "@holochain/client";
+import { ActionHash, encodeHashToBase64, EntryHash, HoloHashMap } from "@holochain/client";
 import {
   completed,
   joinAsyncMap,
@@ -88,7 +88,8 @@ const POCKET_ICON=`<svg width="20" height="20" viewBox="0 0 300 300" xmlns="http
 const WORKSPACE_NOT_FOUND = "The requested workspace was not found";
 
 const SYN_CONFIG: SynConfig = {
-  hearbeatInterval: 5 * 1000,
+  heartbeatInterval: 5 * 1000,
+  inactiveSessionThreshold: 20 * 1000,
   newPeersDiscoveryInterval: 30 * 1000,
   outOfSessionTimeout: 60 * 1000,
   commitStrategy: { CommitEveryNDeltas: 200, CommitEveryNMs: 1000 * 30 }, // TODO: reduce ms
@@ -138,16 +139,16 @@ export class RichtextNote extends LitElement {
     () =>
       pipe(
         this.documentStore.allWorkspaces,
-        (map) => mapAndJoin(map, (w) => w.name),
+        (map) => mapAndJoin(map as unknown as HoloHashMap<Uint8Array, WorkspaceStore<TextEditorState, TextEditorEphemeralState>>, (w) => w.name),
         (allWorkspaces) => {
           const workspace: [EntryHash, String] | undefined = Array.from(
-            allWorkspaces.entries()
+            allWorkspaces.entries() as IterableIterator<[EntryHash, string]>
           ).find(([hash, name]) => name === this._workspaceName);
 
           if (!workspace) throw new Error(WORKSPACE_NOT_FOUND);
           return this.documentStore.workspaces.get(workspace[0]);
         },
-        (workspaceStore) => workspaceStore.session,
+        (workspaceStore) => workspaceStore!.session,
         (sessionStore, w) => {
           if (sessionStore) {
             return sessionStore;
@@ -158,7 +159,7 @@ export class RichtextNote extends LitElement {
             this._joiningSession = true;
             console.log("joining session for workspace", this._workspaceName);
             
-            const sessionPromise = w.joinSession(SYN_CONFIG);
+            const sessionPromise = w!.joinSession(SYN_CONFIG);
             sessionPromise.finally(() => {
               this._joiningSession = false;
             });
@@ -309,14 +310,14 @@ export class RichtextNote extends LitElement {
       </div>`;
 
     return html`${subscribe(
-      this.documentStore.commits.get(this._selectedCommitHash),
+      this.documentStore.commits.get(this._selectedCommitHash)!,
       renderAsyncStatus({
         complete: (v) => html` <div class="flex-scrollable-parent" style="height:100%; overflow-x: hidden;">
           <div class="flex-scrollable-y" style="width:100%; overflow-x: hidden;">
             <sl-card style="max-width: 100%; overflow-x: hidden; margin: 8px;">
               <div slot="header">Commit: ${this._selectedCommitHash ? encodeHashToBase64(this._selectedCommitHash):""}</div>
               <div slot="header">
-                <span style="display:flex;align-items:center">by ${subscribe(this.profilesStore.profiles.get(v.action.author),
+                <span style="display:flex;align-items:center">by ${subscribe(this.profilesStore.profiles.get(v.action.author)!,
                 renderAsyncStatus({
                   complete: (v) => html`<agent-avatar style="margin-left:5px;margin-right:5px;" size="20" .agentPubKey=${v?.action.author}></agent-avatar> ${v?.entry.nickname}`,
                   pending: () => this.renderLoading(),        

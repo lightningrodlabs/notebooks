@@ -46,8 +46,8 @@ export class WorkspaceList extends LitElement {
         this.documentStore.allWorkspaces,
         (workspaces) =>
           joinAsync(
-            Array.from(workspaces.values()).map((w) =>
-              joinAsync([w.sessionParticipants, w.name])
+            Array.from(workspaces.values() as IterableIterator<WorkspaceStore<TextEditorState, TextEditorEphemeralState> | undefined>).map((w) =>
+              joinAsync([(w as WorkspaceStore<TextEditorState, TextEditorEphemeralState>).sessionParticipants, (w as WorkspaceStore<TextEditorState, TextEditorEphemeralState>).name])
             )
           ),
         (participants, workspaces) =>

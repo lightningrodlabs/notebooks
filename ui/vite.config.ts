@@ -40,6 +40,14 @@ export default defineConfig({
     target: 'esnext', // Support modern JS features including top-level await
   },
 
+  resolve: {
+    dedupe: [
+      "@holochain-open-dev/elements",
+      "@holochain-open-dev/profiles",
+      "lit",
+    ],
+  },
+
   optimizeDeps: {
     exclude: [
       ...exclude,

@@ -26,11 +26,11 @@ export async function createNote(
       editorType,
     } as NoteMeta
   );
-  await documentStore.synStore.client.tagDocument(
-    documentStore.documentHash,
+  await documentStore!.synStore.client.tagDocument(
+    documentStore!.documentHash,
     "note"
   );
-  await documentStore.createWorkspace("main", undefined);
+  await documentStore!.createWorkspace("main", undefined);
 
-  return documentStore.documentHash;
+  return documentStore!.documentHash;
 }

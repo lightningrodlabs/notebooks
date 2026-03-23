@@ -11,7 +11,7 @@ import {
   sliceAndJoin,
   StoreSubscriber,
 } from "@holochain-open-dev/stores";
-import { GetonlyMap } from "@holochain-open-dev/utils";
+import { GetonlyMap, EntryRecord } from "@holochain-open-dev/utils";
 import { synContext, SynStore, Document, WorkspaceStore, Commit } from "@holochain-syn/core";
 import { consume } from "@lit/context";
 import { css, html, LitElement } from "lit";
@@ -29,7 +29,6 @@ import "@shoelace-style/shoelace/dist/components/checkbox/checkbox.js";
 import { mdiDelete, mdiRestore } from "@mdi/js";
 import { ActionHash, AgentPubKey, encodeHashToBase64, EntryHash, HoloHash, Timestamp, LazyHoloHashMap, HoloHashMap } from "@holochain/client";
 import SlCheckbox from "@shoelace-style/shoelace/dist/components/checkbox/checkbox.js";
-import { EntryRecord } from "@holochain-open-dev/utils";
 import { SortDirection } from "./column-label.js";
 import { TextEditorEphemeralState, TextEditorState } from "../grammar.js";
 
@@ -78,13 +77,13 @@ export class AllNotes extends LitElement {
   noteData = new LazyHoloHashMap( documentHash => {
     const docStore = this.synStore.documents.get(documentHash)
     const workspace = pipe(docStore!.allWorkspaces,
-        workspaces =>  Array.from(workspaces.values())[0]
+        workspaces =>  Array.from(workspaces.values() as IterableIterator<WorkspaceStore<TextEditorState,TextEditorEphemeralState>|undefined>)[0]
     )
-    const latestState = pipe(workspace, 
-      workspace => workspace.latestState
+    const latestState = pipe(workspace,
+      (workspace: WorkspaceStore<TextEditorState,TextEditorEphemeralState>|undefined) => workspace!.latestState
         )
     const tip = pipe(workspace,
-      workspace => workspace.tip
+      (workspace: WorkspaceStore<TextEditorState,TextEditorEphemeralState>|undefined) => workspace!.tip
         )
     const document = pipe(docStore!.record,
       document => document
@@ -100,9 +99,9 @@ export class AllNotes extends LitElement {
   activeNotes: StoreSubscriber<AsyncStatus<HoloHashMap<Uint8Array,NoteAndLatestState>>> = new StoreSubscriber(
     this,
     () => {
-      const activeNoteHashes = asyncDerived(this.synStore.documentsByTag.get("note"),x=>Array.from(x.keys()))
+      const activeNoteHashes = asyncDerived(this.synStore.documentsByTag.get("note"),x=>Array.from(x.keys() as IterableIterator<Uint8Array>))
       return pipe(activeNoteHashes,
-        docHashes =>  sliceAndJoin(this.noteData as unknown as GetonlyMap<HoloHash, AsyncReadable<Option<NoteAndLatestState>>>, docHashes, {errors: "filter_out"})
+        docHashes =>  sliceAndJoin(this.noteData as unknown as GetonlyMap<HoloHash, AsyncReadable<Option<NoteAndLatestState>>>, docHashes as Uint8Array[], {errors: "filter_out"})
         )
     },
     () => [this.synStore]
@@ -111,9 +110,9 @@ export class AllNotes extends LitElement {
   archivedNotes: StoreSubscriber<AsyncStatus<HoloHashMap<Uint8Array,NoteAndLatestState>>> = new StoreSubscriber(
     this,
     () => {
-      const activeNoteHashes = asyncDerived(this.synStore.documentsByTag.get("arc"),x=>Array.from(x.keys()))
+      const activeNoteHashes = asyncDerived(this.synStore.documentsByTag.get("arc"),x=>Array.from(x.keys() as IterableIterator<Uint8Array>))
       return pipe(activeNoteHashes,
-        docHashes =>  sliceAndJoin(this.noteData as unknown as GetonlyMap<HoloHash, AsyncReadable<Option<NoteAndLatestState>>>, docHashes, {errors: "filter_out"})
+        docHashes =>  sliceAndJoin(this.noteData as unknown as GetonlyMap<HoloHash, AsyncReadable<Option<NoteAndLatestState>>>, docHashes as Uint8Array[], {errors: "filter_out"})
         )
     },
     () => [this.synStore]
@@ -164,8 +163,7 @@ export class AllNotes extends LitElement {
         break;
       case "complete":
         this.error = ""
-        Array.from(subscriber.value.value.values())
-        .forEach((note) => {
+        subscriber.value.value.forEach((note) => {
           this.noteRows.push(this.processNoteRecord(note, archived))
           })
     }

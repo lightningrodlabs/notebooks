@@ -21,7 +21,7 @@ import SlRange from "@shoelace-style/shoelace/dist/components/range/range.js";
 import '@holochain-open-dev/elements/dist/elements/display-error.js';
 
 import { Commit, DocumentStore } from '@holochain-syn/core';
-import { joinAsync, pipe, StoreSubscriber } from '@holochain-open-dev/stores';
+import { AsyncReadable, joinAsync, pipe, StoreSubscriber } from '@holochain-open-dev/stores';
 import { sharedStyles } from '@holochain-open-dev/elements';
 import { localized, msg, str } from '@lit/localize';
 import { createGitgraph } from "@gitgraph/js";
@@ -99,7 +99,7 @@ export class CommitHistory extends LitElement {
 
   updated() {
     if (!this._cytoscape && this.graph && this._allCommits.value.status === "complete"  ) {
-      const allCommits:RecordBag<Commit> = new RecordBag(this._allCommits.value.value.map(er => er.record))
+      const allCommits:RecordBag<Commit> = new RecordBag((this._allCommits.value.value as EntryRecord<Commit>[]).map((er: EntryRecord<Commit>) => er.record))
       this.drawGraph(allCommits)
     }
   }
@@ -268,7 +268,7 @@ export class CommitHistory extends LitElement {
     this,
     () =>
       pipe(this.documentstore.allCommits, c =>
-        joinAsync(Array.from(c.values()))
+        joinAsync((Array.from(c.values() as IterableIterator<AsyncReadable<EntryRecord<Commit>> | undefined>)).filter((v): v is AsyncReadable<EntryRecord<Commit>> => v !== undefined))
       ),
     () => []
   );
@@ -351,7 +351,7 @@ export class CommitHistory extends LitElement {
           </div>
         `;
       case 'complete':
-        const allCommits:RecordBag<Commit> = new RecordBag(this._allCommits.value.value.map(er => er.record))
+        const allCommits:RecordBag<Commit> = new RecordBag((this._allCommits.value.value as EntryRecord<Commit>[]).map((er: EntryRecord<Commit>) => er.record))
 
         return html`<sl-card>
           <div slot="header" style="display: flex; gap: 1em; align-items: center;">

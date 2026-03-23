@@ -38,7 +38,7 @@ export const appletServices: AppletServices = {
   // },
 
   getAssetInfo: async (
-    appletClient: AppClient,
+    appletClient,
     wal: WAL,
     recordInfo?: RecordInfo
   ): Promise<AssetInfo | undefined> => {
@@ -66,7 +66,7 @@ export const appletServices: AppletServices = {
     }
   },
   search: async (
-    appletClient: AppClient,
+    appletClient,
     appletHash: AppletHash,
     weServices: WeaveServices,
     searchFilter: string

@@ -21,6 +21,7 @@ import {
   synContext,
   SynClient,
   DocumentStore,
+  WorkspaceStore,
 } from "@holochain-syn/core";
 
 import "@holochain-open-dev/elements/dist/elements/display-error.js";
@@ -43,7 +44,7 @@ import {
   isWeaveContext,
   WeaveClient,
 } from "@theweave/api";
-import { EntryRecord, LazyHoloHashMap } from "@holochain-open-dev/utils";
+import { EntryRecord } from "@holochain-open-dev/utils";
 
 import { provide } from "@lit/context";
 import { localized, msg } from "@lit/localize";
@@ -185,7 +186,7 @@ export class NotebooksApp extends LitElement {
                   type: "main",
                 },
                 profilesClient: weaveClient.renderInfo.profilesClient as any,
-                client: weaveClient.renderInfo.appletClient,
+                client: weaveClient.renderInfo.appletClient as unknown as AppClient,
                 weaveClient
               };
             case "block":
@@ -208,7 +209,7 @@ export class NotebooksApp extends LitElement {
                                 type: "standalone-note",
                                 noteHash: weaveClient.renderInfo.view.wal.hrl[1],
                               },
-                              client: weaveClient.renderInfo.appletClient,
+                              client: weaveClient.renderInfo.appletClient as unknown as AppClient,
                               profilesClient: weaveClient.renderInfo
                                 .profilesClient as any,
                               weaveClient
@@ -231,7 +232,7 @@ export class NotebooksApp extends LitElement {
                       type: "create",
                       data: weaveClient.renderInfo.view
                     },
-                    client: weaveClient.renderInfo.appletClient,
+                    client: weaveClient.renderInfo.appletClient as unknown as AppClient,
                     profilesClient: weaveClient.renderInfo
                       .profilesClient as any,
                     weaveClient
@@ -277,7 +278,7 @@ export class NotebooksApp extends LitElement {
 
   async connectToHolochain() {
     const { view, profilesClient, client, weaveClient } = await this.buildClient();
-    this._synStore = new SynStore(new SynClient(client, "notebooks"), true);
+    this._synStore = new SynStore(new SynClient(client as unknown as ConstructorParameters<typeof SynClient>[0], "notebooks"), true);
 
 
     const appInfo = await this._synStore.client.client.appInfo();
@@ -303,7 +304,7 @@ export class NotebooksApp extends LitElement {
     const notes: Array<Notebook> = []
     this.exporting = true
     const docs = await toPromise(this._synStore.documentsByTag.get("note"))
-    for (const docStore of Array.from(docs.values())) {
+    for (const docStore of Array.from(docs.values() as IterableIterator<DocumentStore<any,any>|undefined>)) {
       if (!docStore) {
         console.warn("Document store is undefined, skipping")
       } else {
@@ -311,12 +312,12 @@ export class NotebooksApp extends LitElement {
         const noteMeta: NoteMeta = decode(record.entry.meta!) as NoteMeta
         const workspaceStores = await toPromise(docStore.allWorkspaces)
         const workspaces: Array<NoteWorkspace> = []
-        for (const wsStore of Array.from(workspaceStores.values())) {
+        for (const wsStore of Array.from(workspaceStores.values() as IterableIterator<WorkspaceStore<any,any>|undefined>)) {
           if (!wsStore) {
             console.warn("Workspace store is undefined, skipping")
           } else {
             const name = await toPromise(wsStore.name)
-            const note = await toPromise(wsStore.latestSnapshot)
+            const note = await toPromise(wsStore.latestSnapshot) as any
             const text = Array.isArray(note.text) ? note.text.join('') : note.text as string
             workspaces.push({ name, note: text })
           }
@@ -402,7 +403,7 @@ export class NotebooksApp extends LitElement {
       </div>
       `;
     if (this.view.type === "note" || this.view.type === "standalone-note") {
-      const documentStore = this._synStore.documents.get(this.view.noteHash);
+      const documentStore = this._synStore.documents.get(this.view.noteHash)!;
       
       return html`
         <syn-document-context
@@ -531,7 +532,7 @@ export class NotebooksApp extends LitElement {
       <sl-dialog .label=${msg("Create Note")} id="new-note-dialog"
         @sl-initial-focus=${(e: { preventDefault: () => void }) => {
             e.preventDefault();
-            const title = this.shadowRoot?.getElementById("title") as SlInput
+            const title = this.shadowRoot?.getElementById("title") as unknown as SlInput
             title.focus()
           }}
       >
