@@ -3,7 +3,7 @@
   "description": "Notebooks UI",
   "license": "MIT",
   "author": "dev@holochain.org",
-  "version": "0.6.10",
+  "version": "0.6.11",
   "dnaVersion": "0.6.0",
   "scripts": {
     "start": "vite --port $UI_PORT --clearScreen false",

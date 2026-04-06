@@ -15,7 +15,7 @@ import { EditorView } from 'prosemirror-view';
 import { EditorState, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import { Schema, Node as PMNode } from 'prosemirror-model';
 import { schema as basicSchema } from 'prosemirror-schema-basic';
-import { addListNodes } from 'prosemirror-schema-list';
+import { addListNodes, sinkListItem, liftListItem } from 'prosemirror-schema-list';
 import { history, undo, redo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import { exampleSetup } from 'prosemirror-example-setup';
@@ -136,7 +136,19 @@ export class SynPmEditor extends LitElement {
       doc,
       plugins: [
         ...exampleSetup({ schema: this.schema }),
-        keymap({ 'Mod-z': undo, 'Mod-y': redo }),
+        keymap({
+          'Mod-z': undo,
+          'Mod-y': redo,
+          'Tab': (state, dispatch) => {
+            // Try to sink list item first
+            if (sinkListItem(this.schema.nodes.list_item)(state, dispatch)) return true;
+            // Otherwise insert two spaces
+            if (dispatch) dispatch(state.tr.insertText('  ').scrollIntoView());
+            return true;
+          },
+          'Shift-Tab': (state, dispatch) =>
+            liftListItem(this.schema.nodes.list_item)(state, dispatch),
+        }),
         this.createSynPlugin(),
       ],
     });
