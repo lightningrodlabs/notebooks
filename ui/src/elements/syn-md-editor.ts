@@ -52,6 +52,20 @@ export class SynMarkdownEditor extends LitElement {
     return this.shadowRoot?.getElementById('editor')! as any;
   }
 
+  refreshEditor() {
+    if (!this.editor) return;
+
+    this.editor.refresh();
+    this.requestUpdate();
+  }
+
+  focusEditor() {
+    if (!this.editor) return;
+
+    this.editor.focus();
+    this.editor.getInputField()?.focus();
+  }
+
   firstUpdated() {
     this.editor = this.editorEl.editor;
     this.editor.setOption('lineWrapping', true)

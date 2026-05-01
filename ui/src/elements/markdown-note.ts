@@ -493,6 +493,27 @@ export class MarkdownNote extends LitElement {
     this.notebooksStore.weaveClient?.assets.assetToPocket(attachment)
   }
 
+  async updateView(view: View) {
+    if (this._view === view) return;
+
+    this._view = view;
+    await this.updateComplete;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const editor = this.shadowRoot?.querySelector('syn-md-editor') as {
+          refreshEditor?: () => void;
+          focusEditor?: () => void;
+        } | null;
+
+        editor?.refreshEditor?.();
+        if (view !== View.View) {
+          editor?.focusEditor?.();
+        }
+      });
+    });
+  }
+
   renderNoteWorkspace(
     sessionStore: SessionStore<TextEditorState, TextEditorEphemeralState>,
     state: TextEditorState
@@ -530,9 +551,9 @@ export class MarkdownNote extends LitElement {
             ><sl-icon .src=${wrapPathInSvg(mdiArrowLeft)}></sl-icon></sl-button>`:""}
           
             <sl-button-group  label="View Options">
-            <sl-button variant=${this._view === View.Edit ? "primary" : "neutral"} @click=${() => { this._view = View.Edit }}><sl-icon .src=${wrapPathInSvg(mdiPencil)} label="Edit"></sl-icon></sl-button>
-            <sl-button variant=${this._view === View.Both ? "primary" : "neutral"} @click=${() => { this._view = View.Both }}><sl-icon .src=${wrapPathInSvg(mdiBookOpenOutline)} label="Both"></sl-icon></sl-button>
-            <sl-button variant=${this._view === View.View ? "primary" : "neutral"} @click=${() => { this._view = View.View }}><sl-icon .src=${wrapPathInSvg(mdiEye)} label="View"></sl-icon></sl-button>
+            <sl-button variant=${this._view === View.Edit ? "primary" : "neutral"} @click=${() => { this.updateView(View.Edit); }}><sl-icon .src=${wrapPathInSvg(mdiPencil)} label="Edit"></sl-icon></sl-button>
+            <sl-button variant=${this._view === View.Both ? "primary" : "neutral"} @click=${() => { this.updateView(View.Both); }}><sl-icon .src=${wrapPathInSvg(mdiBookOpenOutline)} label="Both"></sl-icon></sl-button>
+            <sl-button variant=${this._view === View.View ? "primary" : "neutral"} @click=${() => { this.updateView(View.View); }}><sl-icon .src=${wrapPathInSvg(mdiEye)} label="View"></sl-icon></sl-button>
             </sl-button-group>
 
             ${ isWeaveContext() ? html`
