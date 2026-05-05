@@ -1,7 +1,8 @@
 import { css, html, LitElement } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { SliceStore } from '@holochain-syn/core';
 import '@vanillawc/wc-codemirror/index.js';
+import * as Automerge from '@automerge/automerge';
 import {
   AgentPubKey,
   decodeHashFromBase64,
@@ -19,8 +20,62 @@ import {
 } from '../grammar.js';
 import './agent-cursor.js';
 
+type CodeMirrorPosition = {
+  line: number;
+  ch: number;
+  sticky?: 'before' | 'after';
+  xRel?: number;
+};
+
+type TextEditorChange = {
+  canceled?: boolean;
+  from: CodeMirrorPosition;
+  to: CodeMirrorPosition;
+  text: string[];
+  removed?: string[];
+  origin?: string;
+  cancel(): void;
+};
+
+type HistoryAnchor = {
+  beforeId: string | null;
+  afterId: string | null;
+};
+
+type EditorChangePatch = {
+  anchor: HistoryAnchor;
+  deleteCount: number;
+  insertText: string;
+};
+
+type LocalHistoryEntry = {
+  undo: EditorChangePatch;
+  redo: EditorChangePatch;
+};
+
 @customElement('syn-md-editor')
 export class SynMarkdownEditor extends LitElement {
+  private _editorHistoryKeyMap = {
+    'Ctrl-Z': () => {
+      this.onUndoShortcut();
+    },
+    'Cmd-Z': () => {
+      this.onUndoShortcut();
+    },
+    'Shift-Ctrl-Z': () => {
+      this.onRedoShortcut();
+    },
+    'Shift-Cmd-Z': () => {
+      this.onRedoShortcut();
+    },
+    'Ctrl-Y': () => {
+      this.onRedoShortcut();
+    },
+    'Cmd-Y': () => {
+      this.onRedoShortcut();
+    },
+  };
+
   @property({ type: Object })
   slice!: SliceStore<TextEditorState, TextEditorEphemeralState>;
 
@@ -29,6 +84,12 @@ export class SynMarkdownEditor extends LitElement {
     const e = this.editorEl
     e.set(val)
   }
+
+  @state()
+  _localChanges: LocalHistoryEntry[] = [];
+
+  @state()
+  _localChangeCurrentIndex: number = -1;
 
   _state = new StoreSubscriber(
     this,
@@ -66,9 +127,148 @@ export class SynMarkdownEditor extends LitElement {
     this.editor.getInputField()?.focus();
   }
 
+  get canUndo() {
+    return this._localChangeCurrentIndex >= 0;
+  }
+
+  get canRedo() {
+    return this._localChangeCurrentIndex < this._localChanges.length - 1;
+  }
+
+  private emitHistoryState() {
+    this.dispatchEvent(
+      new CustomEvent('history-state-changed', {
+        detail: {
+          canUndo: this.canUndo,
+          canRedo: this.canRedo,
+        },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
+  private historyText() {
+    return this._state.value?.text ?? [];
+  }
+
+  private createHistoryAnchorForText(text: string[], index: number): HistoryAnchor {
+    return {
+      beforeId:
+        index > 0 ? Automerge.getObjectId(text, index - 1) || null : null,
+      afterId:
+        index < text.length ? Automerge.getObjectId(text, index) || null : null,
+    };
+  }
+
+  private createHistoryAnchor(index: number): HistoryAnchor {
+    return this.createHistoryAnchorForText(this.historyText(), index);
+  }
+
+  private resolveHistoryAnchorForText(text: string[], anchor: HistoryAnchor) {
+    if (!anchor.beforeId && !anchor.afterId) return 0;
+
+    if (anchor.beforeId) {
+      const position = elemIdToPosition(false, anchor.beforeId, text);
+      if (position !== undefined) return position;
+    }
+
+    if (anchor.afterId) {
+      const position = elemIdToPosition(true, anchor.afterId, text);
+      if (position !== undefined) return position;
+    }
+
+    if (anchor.beforeId && !anchor.afterId) return text.length;
+    if (!anchor.beforeId && anchor.afterId) return 0;
+
+    return undefined;
+  }
+
+  private resolveHistoryAnchor(anchor: HistoryAnchor) {
+    return this.resolveHistoryAnchorForText(this.historyText(), anchor);
+  }
+
+  applyChange(change: EditorChangePatch | undefined) {
+    if (!change) return undefined;
+
+    let inverseChange: EditorChangePatch | undefined;
+
+    this.slice.change((state, eph) => {
+      const from = this.resolveHistoryAnchorForText(state.text, change.anchor);
+      if (from === undefined) return;
+
+      const deletedText = state.text
+        .slice(from, from + change.deleteCount)
+        .join('');
+      const grammar = textEditorGrammar.changes(this.slice.myPubKey, state, eph);
+
+      if (change.deleteCount > 0) {
+        grammar.delete(from, change.deleteCount);
+      }
+
+      if (change.insertText.length > 0) {
+        grammar.insert(from, change.insertText);
+      }
+
+      if (change.deleteCount > 0 || change.insertText.length > 0) {
+        inverseChange = {
+          anchor: this.createHistoryAnchorForText(state.text, from),
+          deleteCount: change.insertText.length,
+          insertText: deletedText,
+        };
+      }
+    });
+
+    return inverseChange;
+  }
+
+  onUndoShortcut() {
+    if (this._localChangeCurrentIndex < 0) return;
+
+    const historyIndex = this._localChangeCurrentIndex;
+    const change = this._localChanges[historyIndex];
+    const inverseChange = this.applyChange(change?.undo);
+    if (!inverseChange) return;
+
+    this._localChanges = this._localChanges.map((entry, index) =>
+      index === historyIndex
+        ? {
+            ...entry,
+            redo: inverseChange,
+          }
+        : entry
+    );
+
+    this._localChangeCurrentIndex -= 1;
+    this.emitHistoryState();
+  }
+
+  onRedoShortcut() {
+    if (this._localChangeCurrentIndex >= this._localChanges.length - 1) return;
+
+    const nextIndex = this._localChangeCurrentIndex + 1;
+    const change = this._localChanges[nextIndex];
+    const inverseChange = this.applyChange(change?.redo);
+    if (!inverseChange) return;
+
+    this._localChanges = this._localChanges.map((entry, index) =>
+      index === nextIndex
+        ? {
+            ...entry,
+            undo: inverseChange,
+          }
+        : entry
+    );
+
+    this._localChangeCurrentIndex = nextIndex;
+    this.emitHistoryState();
+  }
+
   firstUpdated() {
     this.editor = this.editorEl.editor;
     this.editor.setOption('lineWrapping', true)
+    this.editor.addKeyMap(this._editorHistoryKeyMap);
+    this.emitHistoryState();
 
     setTimeout(() => {
       this.editor.getInputField().click();
@@ -109,9 +309,10 @@ export class SynMarkdownEditor extends LitElement {
       }
     );
 
-    this.editor.on('beforeChange', (_:any, e:any) => {
+    this.editor.on('beforeChange', (_:any, e: TextEditorChange) => {
       if (e.origin === 'setValue') return;
       e.cancel();
+
       const fromIndex = this.editor.indexFromPos({
         line: e.from.line,
         ch: e.from.ch,
@@ -120,15 +321,39 @@ export class SynMarkdownEditor extends LitElement {
         line: e.to.line,
         ch: e.to.ch,
       });
+      const insertedText = e.text.join('\n');
+      const removedText = e.removed ? e.removed.join('\n') : '';
+      const redoStart = this.createHistoryAnchor(fromIndex);
+
       if (toIndex > fromIndex) {
         this.onTextDeleted(fromIndex, toIndex - fromIndex);
       }
 
       if (e.text[0] !== '' || e.text.length > 1) {
-        this.onTextInserted(
-          this.editor.indexFromPos(e.from),
-          e.text.join('\n')
-        );
+        this.onTextInserted(fromIndex, insertedText);
+      }
+
+      const historyEntry: LocalHistoryEntry = {
+        redo: {
+          anchor: redoStart,
+          deleteCount: toIndex - fromIndex,
+          insertText: insertedText,
+        },
+        undo: {
+          anchor: redoStart,
+          deleteCount: insertedText.length,
+          insertText: removedText,
+        },
+      };
+
+      if (e.origin !== 'undo' && e.origin !== 'redo') {
+        if (this._localChangeCurrentIndex < this._localChanges.length - 1) {
+          this._localChanges = this._localChanges.slice(0, this._localChangeCurrentIndex + 1);
+        }
+
+        this._localChanges = [...this._localChanges, historyEntry];
+        this._localChangeCurrentIndex = this._localChanges.length - 1;
+        this.emitHistoryState();
       }
     });
 
@@ -143,6 +368,11 @@ export class SynMarkdownEditor extends LitElement {
         this.onSelectionChanged(transformedRanges);
       }
     });
+  }
+
+  disconnectedCallback() {
+    this.editor?.removeKeyMap(this._editorHistoryKeyMap);
+    super.disconnectedCallback();
   }
 
   onTextInserted(from: number, text: string) {

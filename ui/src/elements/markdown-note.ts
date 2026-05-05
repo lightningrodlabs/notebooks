@@ -62,7 +62,7 @@ import { SlChangeEvent, SlDialog, SlDrawer, SlRadioGroup } from "@shoelace-style
 import { msg } from "@lit/localize";
 import { decode } from "@msgpack/msgpack";
 import { Marked } from "@ts-stack/markdown";
-import { mdiArrowLeft, mdiBookOpenOutline, mdiEye, mdiPencil, mdiClose, mdiGrid, mdiDotsGrid } from "@mdi/js";
+import { mdiArrowLeft, mdiBookOpenOutline, mdiEye, mdiPencil, mdiClose, mdiGrid, mdiDotsGrid, mdiUndoVariant, mdiRedoVariant } from "@mdi/js";
 import { isWeaveContext, WAL } from "@theweave/api";
 import {
   TextEditorEphemeralState,
@@ -83,6 +83,11 @@ interface HistoryTypes {
   commit: boolean;
   workspaces: boolean;
 }
+
+type EditorHistoryState = {
+  canUndo: boolean;
+  canRedo: boolean;
+};
 
 const POCKET_ICON=`<svg width="20" height="20" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M74.2273 83.9C71.7318 83.9 69.3386 84.8956 67.574 86.6678C65.8095 88.4401 64.8182 90.8437 64.8182 93.35V150.05C64.8182 172.607 73.74 194.239 89.6209 210.189C105.502 226.139 127.041 235.1 149.5 235.1C196.27 235.1 234.182 197.023 234.182 150.05V93.35C234.182 90.8437 233.191 88.4401 231.426 86.6678C229.661 84.8956 227.268 83.9 224.773 83.9H74.2273ZM54.2676 73.3035C59.5612 67.9869 66.7409 65 74.2273 65H224.773C232.259 65 239.439 67.9869 244.732 73.3035C250.026 78.6202 253 85.8311 253 93.35V150.05C253 207.461 206.663 254 149.5 254C122.05 254 95.7245 243.048 76.3144 223.554C56.9044 204.059 46 177.619 46 150.05V93.35C46 85.8311 48.9739 78.6202 54.2676 73.3035Z" fill="black"/><path d="M188.841 141.469H158.596V110.124C158.596 105.635 154.961 102 150.474 102C145.986 102 142.351 105.635 142.351 110.124V141.469H110.085C105.635 141.469 102 145.104 102 149.593C102 154.081 105.635 157.717 110.122 157.717H142.388V188.876C142.388 193.365 146.023 197 150.511 197C154.998 197 158.633 193.365 158.633 188.876V157.717H188.878C193.365 157.717 197 154.081 197 149.593C196.944 145.104 193.328 141.469 188.841 141.469Z" fill="black"/></svg>`
 customElements.define("markdown-renderer", MarkdownRenderer);
@@ -195,6 +200,12 @@ export class MarkdownNote extends LitElement {
 
   @state()
   _joiningSession = false;
+
+  @state()
+  _editorHistoryState: EditorHistoryState = {
+    canUndo: false,
+    canRedo: false,
+  };
 
   async createWorkspace(
     name: string,
@@ -514,6 +525,26 @@ export class MarkdownNote extends LitElement {
     });
   }
 
+  triggerUndo() {
+    const editor = this.shadowRoot?.querySelector('syn-md-editor') as {
+      onUndoShortcut?: () => void;
+    } | null;
+
+    editor?.onUndoShortcut?.();
+  }
+
+  triggerRedo() {
+    const editor = this.shadowRoot?.querySelector('syn-md-editor') as {
+      onRedoShortcut?: () => void;
+    } | null;
+
+    editor?.onRedoShortcut?.();
+  }
+
+  updateEditorHistoryState(event: CustomEvent<EditorHistoryState>) {
+    this._editorHistoryState = event.detail;
+  }
+
   renderNoteWorkspace(
     sessionStore: SessionStore<TextEditorState, TextEditorEphemeralState>,
     state: TextEditorState
@@ -555,6 +586,31 @@ export class MarkdownNote extends LitElement {
             <sl-button variant=${this._view === View.Both ? "primary" : "neutral"} @click=${() => { this.updateView(View.Both); }}><sl-icon .src=${wrapPathInSvg(mdiBookOpenOutline)} label="Both"></sl-icon></sl-button>
             <sl-button variant=${this._view === View.View ? "primary" : "neutral"} @click=${() => { this.updateView(View.View); }}><sl-icon .src=${wrapPathInSvg(mdiEye)} label="View"></sl-icon></sl-button>
             </sl-button-group>
+
+            ${this._view !== View.View ? html`
+            <sl-button-group 
+              label="Edit History"
+              style="margin-left: 16px;"
+            >
+            <sl-button
+              ?disabled=${!this._editorHistoryState.canUndo}
+              @click=${() => {
+                this.triggerUndo();
+              }}
+            >
+              <sl-icon .src=${wrapPathInSvg(mdiUndoVariant)}></sl-icon>
+            </sl-button>
+
+            <sl-button
+              ?disabled=${!this._editorHistoryState.canRedo}
+              @click=${() => {
+                this.triggerRedo();
+              }}
+            >
+              <sl-icon .src=${wrapPathInSvg(mdiRedoVariant)}></sl-icon>
+            </sl-button>
+            </sl-button-group>
+            ` : html``}
 
             ${ isWeaveContext() ? html`
             <sl-button
@@ -601,6 +657,9 @@ export class MarkdownNote extends LitElement {
               <div class="flex-scrollable-y">
                 <syn-md-editor
                   .slice=${sessionStore}
+                  @history-state-changed=${(event: CustomEvent<EditorHistoryState>) => {
+                    this.updateEditorHistoryState(event);
+                  }}
                 ></syn-md-editor>
               </div>
             </div>
