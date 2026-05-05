@@ -270,7 +270,7 @@ export class CommitHistory extends LitElement {
       pipe(this.documentstore.allCommits, c =>
         joinAsync((Array.from(c.values() as IterableIterator<AsyncReadable<EntryRecord<Commit>> | undefined>)).filter((v): v is AsyncReadable<EntryRecord<Commit>> => v !== undefined))
       ),
-    () => []
+    () => [this.documentstore]
   );
 
   onNodeSelected(nodeId: string) {
