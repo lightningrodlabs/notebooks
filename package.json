@@ -35,6 +35,9 @@
     "rimraf": "^3.0.2",
     "vite-plugin-wasm": "^3.5.0"
   },
+  "overrides": {
+    "@holochain/client": "0.20.5"
+  },
   "engines": {
     "npm": ">=7.0.0"
   }

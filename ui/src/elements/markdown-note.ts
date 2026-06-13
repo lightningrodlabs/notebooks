@@ -94,7 +94,7 @@ customElements.define("markdown-renderer", MarkdownRenderer);
 
 const WORKSPACE_NOT_FOUND = "The requested workspace was not found";
 
-const SYN_CONFIG: SynConfig = {
+const SYN_CONFIG: Partial<SynConfig> = {
   heartbeatInterval: 5 * 1000,
   inactiveSessionThreshold: 20 * 1000,
   newPeersDiscoveryInterval: 30 * 1000,
