@@ -504,6 +504,11 @@ export class MarkdownNote extends LitElement {
     this.notebooksStore.weaveClient?.assets.assetToPocket(attachment)
   }
 
+  copyRenderedWALToPocket(documentHash: EntryHash) {
+    const attachment: WAL = { hrl: [this.notebooksStore.dnaHash, documentHash], context: { view: "rendered" } }
+    this.notebooksStore.weaveClient?.assets.assetToPocket(attachment)
+  }
+
   async updateView(view: View) {
     if (this._view === view) return;
 
@@ -617,14 +622,15 @@ export class MarkdownNote extends LitElement {
               style="margin-left: 16px;"
               circle
               size="small"
+              title=${msg("Copy note to pocket")}
               @click=${() => {
                 this.copyWALToClipboard(this.documentStore.documentHash);
               }}
-            > 
+            >
             <sl-icon style="font-size:20px;vertical-align:middle"
             .src=${`data:image/svg+xml;charset=utf-8,${POCKET_ICON}`}
 
-             label="Edit">
+             label=${msg("Copy note to pocket")}>
             </sl-icon>`:""}
           </span>
           <session-status
@@ -666,6 +672,21 @@ export class MarkdownNote extends LitElement {
           </div>
 
           <div slot="end" class="flex-scrollable-parent">
+            ${isWeaveContext() ? html`
+            <sl-button
+              class="rendered-pocket"
+              circle
+              size="small"
+              title=${msg("Copy rendered view to pocket")}
+              @click=${() => {
+                this.copyRenderedWALToPocket(this.documentStore.documentHash);
+              }}
+            >
+              <sl-icon style="font-size:20px;vertical-align:middle"
+                .src=${`data:image/svg+xml;charset=utf-8,${POCKET_ICON}`}
+                label=${msg("Copy rendered view to pocket")}>
+              </sl-icon>
+            </sl-button>`:""}
             <div class="flex-scrollable-container">
               <div class="flex-scrollable-y">
                 <div style="margin: 8px">
@@ -768,6 +789,12 @@ export class MarkdownNote extends LitElement {
         flex: 1;
         flex-wrap: nowrap;
         align-items: center;
+      }
+      .rendered-pocket {
+        position: absolute;
+        top: 16px;
+        right: 24px;
+        z-index: 11;
       }
       .marked {
         display:block;

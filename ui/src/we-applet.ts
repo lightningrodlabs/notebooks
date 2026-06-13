@@ -12,7 +12,7 @@ import {
   RecordInfo,
 } from '@theweave/api';
 import { msg } from '@lit/localize';
-import { mdiNotebook } from '@mdi/js';
+import { mdiNotebook, mdiNotebookOutline } from '@mdi/js';
 import { decode } from '@msgpack/msgpack';
 import { NoteMeta } from './types';
 
@@ -58,8 +58,9 @@ export const appletServices: AppletServices = {
 
         if (!root) return undefined;
 
+        const rendered = wal.context?.view === "rendered";
         return {
-          icon_src: wrapPathInSvg(mdiNotebook),
+          icon_src: wrapPathInSvg(rendered ? mdiNotebookOutline : mdiNotebook),
           name: (decode(root.entry.meta!) as NoteMeta).title,
         };
       }

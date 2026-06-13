@@ -70,6 +70,7 @@ import SlInput from "@shoelace-style/shoelace/dist/components/input/input.js";
 
 import "./elements/markdown-note.js";
 import "./elements/richtext-note.js";
+import "./elements/rendered-note.js";
 import "./elements/all-notes.js";
 import { createNote } from "./index.js";
 import { appletServices } from "./we-applet.js";
@@ -94,6 +95,10 @@ type View =
   }
   | {
     type: "standalone-note";
+    noteHash: EntryHash;
+  }
+  | {
+    type: "rendered-note";
     noteHash: EntryHash;
   }
   | {
@@ -206,7 +211,10 @@ export class NotebooksApp extends LitElement {
                             // here comes your rendering logic for that specific entry type
                             return {
                               view: {
-                                type: "standalone-note",
+                                type:
+                                  weaveClient.renderInfo.view.wal.context?.view === "rendered"
+                                    ? "rendered-note"
+                                    : "standalone-note",
                                 noteHash: weaveClient.renderInfo.view.wal.hrl[1],
                               },
                               client: weaveClient.renderInfo.appletClient as unknown as AppClient,
@@ -402,6 +410,17 @@ export class NotebooksApp extends LitElement {
         </div>
       </div>
       `;
+    if (this.view.type === "rendered-note") {
+      const documentStore = this._synStore.documents.get(this.view.noteHash)!;
+
+      return html`
+        <syn-document-context
+          .documentstore=${documentStore}
+        >
+          <rendered-note style="flex: 1;"></rendered-note>
+        </syn-document-context>
+      `;
+    }
     if (this.view.type === "note" || this.view.type === "standalone-note") {
       const documentStore = this._synStore.documents.get(this.view.noteHash)!;
       
@@ -612,7 +631,7 @@ export class NotebooksApp extends LitElement {
       >
         <sl-spinner style="font-size: 2rem"></sl-spinner>
       </div>`;
-    if (this.view.type === "standalone-note") {
+    if (this.view.type === "standalone-note" || this.view.type === "rendered-note") {
       return this.renderContent()
     }
 
