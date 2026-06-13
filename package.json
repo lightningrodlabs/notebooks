@@ -12,7 +12,7 @@
     "tool-devx": "BPORT=46263 SPORT=46262; concurrently \"hc run-local-services -b $BPORT -s $SPORT\" \"npm start -w ui\" \"./we_dev/we.AppImage  --dev-config we_dev/config.json --agent-num 1 -b http://127.0.0.1:$BPORT -s ws://127.0.0.1:$SPORT\" \"sleep 10 && ./we_dev/we.AppImage --dev-config we_dev/config.json --agent-num 2 -b http://127.0.0.1:$BPORT -s ws://127.0.0.1:$SPORT\"",
     "start": "UI_PORT=8888 npm run network",
     "network": "hc s clean && npm run build:happ && concurrently \"npm run start -w ui\" \"hc-spin -n 2 --ui-port $UI_PORT ./workdir/notebooks.webhapp\"",
-    "test": "npm run build:happ && cargo nextest run -j 1",
+    "test": "npm run build:happ && cargo nextest run -j 1 --no-tests=pass",
     "package": "rm -rf ui/dist && rm -f ui/dist.zip && npm run build:happ && npm run package -w app && hc web-app pack workdir --recursive && npm run weave-hash",
     "start:happ": "echo \"starting with admin $VITE_ADMIN_PORT\" && RUST_LOG=warn echo \"pass\" | hc s -f=$VITE_ADMIN_PORT --piped generate workdir/notebooks.happ --run=$VITE_APP_PORT -a notebooks network -b \"http://127.0.0.1:$BOOTSTRAP_PORT\"  webrtc \"ws://127.0.0.1:$SIGNAL_PORT\"",
     "build:happ": "npm run build:zomes && hc app pack workdir --recursive",

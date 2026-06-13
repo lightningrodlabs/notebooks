@@ -26,6 +26,7 @@
         ]) ++ (with pkgs; [
           nodejs_22 # For UI development
           binaryen # For WASM optimisation
+          cargo-nextest # Test runner used by `npm test`
           # Add any other packages you need here
         ]);
 
