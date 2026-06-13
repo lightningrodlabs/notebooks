@@ -35,5 +35,9 @@ jobs:
       - name: test holochain
         run: nix develop --no-update-lock-file --accept-flake-config --command bash -c "npm test"
 
+      # Note: this intentionally does not run the root `npm run package`, whose
+      # final `weave-hash` step launches the @theweave/cli Electron app to print
+      # a release hash and cannot run headless in CI (Chrome SUID sandbox abort).
+      # We build and pack the webhapp here; hashing is a release-time concern.
       - name: build & package UI
-        run: nix develop --no-update-lock-file --accept-flake-config --command bash -c "npm run package"
+        run: nix develop --no-update-lock-file --accept-flake-config --command bash -c "npm run package -w app && hc web-app pack workdir --recursive"
