@@ -1,0 +1,79 @@
+name: "release-webhapp"
+
+# Cut a notebooks release: build the current UI and pack it together with the
+# FROZEN canonical happ (downloaded from the happ-v* release), so the DNA — and
+# therefore the network — is identical to every previous install. The happ is
+# never rebuilt here (see scripts/release-happ.sh for why).
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  # The frozen DNA. The published webhapp MUST embed a happ with this sha256.
+  CANONICAL_HAPP_SHA256: 8a7584239b7cd4349b08f8083c9dd479b9dc112112cda5c58757f0aff1dda750
+
+jobs:
+  release-webhapp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install nix
+        uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = flakes nix-command
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: holochain-ci
+
+      - name: Download frozen canonical happ (never rebuilt)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          HAPP_TAG=$(tr -d '[:space:]' < .happ-version)
+          gh release download "$HAPP_TAG" -p notebooks.happ -D workdir
+          echo "${CANONICAL_HAPP_SHA256}  workdir/notebooks.happ" | sha256sum -c -
+
+      - name: Build UI and pack webhapp
+        run: |
+          nix develop --no-update-lock-file --accept-flake-config --command bash -c "\
+            npm i && \
+            npm run package -w app && \
+            hc web-app pack workdir"
+
+      - name: Verify the embedded DNA is unchanged
+        run: |
+          nix develop --no-update-lock-file --accept-flake-config --command bash -c "\
+            hc web-app unpack workdir/notebooks.webhapp -o /tmp/verify"
+          echo "${CANONICAL_HAPP_SHA256}  /tmp/verify/notebooks.happ" | sha256sum -c -
+
+      - name: Compute weave curation hashes
+        run: |
+          HAPP=$(sha256sum workdir/notebooks.happ | awk '{print $1}')
+          WEBHAPP=$(sha256sum workdir/notebooks.webhapp | awk '{print $1}')
+          UI=$(sha256sum ui/dist.zip | awk '{print $1}')
+          {
+            echo "### Weave curation hashes for \`${GITHUB_REF_NAME}\`"
+            echo ""
+            echo '```json'
+            echo '"hashes": {'
+            echo "  \"happSha256\": \"${HAPP}\","
+            echo "  \"webhappSha256\": \"${WEBHAPP}\","
+            echo "  \"uiSha256\": \"${UI}\""
+            echo '}'
+            echo '```'
+          } | tee release-notes.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create draft release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "workdir/notebooks.webhapp"
+          bodyFile: "release-notes.md"
+          draft: true
+          token: ${{ secrets.GITHUB_TOKEN }}

@@ -22,7 +22,9 @@
     "playground": "holochain-playground",
     "test:applet": "cross-env BOOTSTRAP_PORT=$(port) SIGNAL_PORT=$(port) concurrently -k \"npm run local-services\" \"weave -c we_dev/config.ts -b http://127.0.0.1:$BOOTSTRAP_PORT -s ws://127.0.0.1:$SIGNAL_PORT \"",
     "launch:applet": "we-alpha --test-applets workdir/notebooks.webhapp --network-seed test ",
-    "weave-hash":  "weave hash-webhapp 0.6.0 ./workdir/notebooks.webhapp"
+    "weave-hash": "node scripts/weave-hash.mjs",
+    "release:happ": "bash scripts/release-happ.sh",
+    "release:webhapp": "APP_VER=$(node -p \"require('./ui/package.json').version\") && git tag v$APP_VER && git push origin v$APP_VER"
   },
   "devDependencies": {
     "@theweave/cli": "0.15.21",
