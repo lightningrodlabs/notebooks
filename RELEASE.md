@@ -3,35 +3,50 @@
 Notebooks is distributed as a `.webhapp` referenced by the
 [weave-tool-curation](https://github.com/lightningrodlabs/weave-tool-curation)
 list. A release is **UI-only**: it bundles the current UI with the *exact same*
-frozen happ as every previous release, so all installs stay on the same DNA /
-network and existing users' data is preserved.
+frozen happ as every previous release on the same line, so all installs stay on
+the same DNA / network and existing users' data is preserved.
+
+## The 0.7 line is a new network
+
+This branch targets Holochain 0.7, which has no data migration path from 0.6:
+the DNA hash changed, 0.6 and 0.7 conductors cannot read each other's databases,
+and 0.6 and 0.7 agents form disjoint networks. Notes written on the 0.6 line do
+not carry over — use the Export/Import buttons in Settings to move them.
 
 ## Why the happ is frozen (never rebuilt)
 
-The zome wasm embeds the original builder's absolute paths (`~/.cargo/...` and
-source paths via the HDK macros). That makes the happ **non-reproducible** on a
+The zome wasm embeds the builder's absolute paths (`~/.cargo/...` and source
+paths via the HDK macros). That makes the happ **non-reproducible** on a
 different machine/user or in CI — a rebuild produces a different DNA hash, i.e. a
-different network. The live DNA was built once (by user "leo"). We reuse those
-exact bytes forever.
+different network. The happ is built once and those exact bytes are reused
+forever.
 
-Frozen DNA: `happSha256 = 8a7584239b7cd4349b08f8083c9dd479b9dc112112cda5c58757f0aff1dda750`
+The canonical bytes live as the `happ-v<dnaVersion>` GitHub release (tag in
+`.happ-version`); their sha256 is recorded in `.happ-sha256` and checked by both
+`scripts/release-happ.sh` and the release workflow.
 
 > ⚠️ Do **not** release by uploading the output of `npm run package`. That
-> rebuilds the happ locally (your paths → wrong DNA → a forked network). Releases
-> must go through the tag-triggered workflow below.
+> rebuilds the happ locally (your paths → wrong DNA → a forked network).
+> Releases must go through the tag-triggered workflow below.
 
 ## One-time per DNA version: publish the canonical happ
 
-The frozen happ lives as the `happ-v<dnaVersion>` GitHub release (tag in
-`.happ-version`). Recover it from an already-published webhapp and publish it:
-
 ```bash
+nix develop --command bash -c "npm run build:happ"
 nix develop --command bash scripts/release-happ.sh
 ```
 
-This downloads a published `.webhapp`, extracts its `notebooks.happ`, verifies
-the sha256 equals the frozen DNA above, and creates/updates the `happ-v0.6.0`
-release. It only needs to be redone if the DNA version changes (see below).
+The script verifies `workdir/notebooks.happ` against `.happ-sha256` and
+creates/updates the `happ-v<dnaVersion>` release. It also accepts the URL of an
+already-published `.webhapp` as its first argument, to recover the exact bytes of
+a line that is already live.
+
+This must be done **before the first 0.7 webhapp release**. If the local build
+does not match `.happ-sha256` (a different machine, a `cargo clean`, a dependency
+bump), the script refuses and tells you what to do: that mismatch is the tripwire
+that stops a silent network fork. Deliberately starting a new DNA line means
+bumping `dnaVersion` in `ui/package.json`, updating `.happ-version`, and writing
+the new sha into `.happ-sha256`.
 
 ## Each release: cut a webhapp
 
@@ -44,7 +59,8 @@ release. It only needs to be redone if the DNA version changes (see below).
    ```
 
 3. The [`release-webhapp`](.github/workflows/release-webhapp.yaml) workflow then:
-   - downloads the frozen happ from `happ-v0.6.0` and checks its sha256,
+   - downloads the frozen happ from `happ-v<dnaVersion>` and checks its sha256
+     against `.happ-sha256`,
    - builds the UI and packs `notebooks.webhapp` (no `--recursive`, so the happ
      is embedded verbatim — never rebuilt),
    - re-verifies the embedded happ still equals the frozen DNA,
@@ -58,21 +74,13 @@ The workflow run summary (and the draft release body) contains:
 
 ```json
 "hashes": {
-  "happSha256": "8a7584239b...",      // always the frozen DNA
+  "happSha256": "5e5afa47...",      // always the frozen DNA
   "webhappSha256": "<new>",
   "uiSha256": "<new>"
 }
 ```
 
-Add a new `versions[]` entry for `notebooks` in the curation list with the new
-`version`, the release's `notebooks.webhapp` `url`, and these `hashes`. Because
+Add a new `versions[]` entry for `notebooks` in the 0.16 curation list with the
+new `version`, the release's `notebooks.webhapp` `url`, and these hashes. Because
 `happSha256` is unchanged, Moss treats it as an in-place upgrade on the same
 network. To get the hashes for an artifact locally: `npm run weave-hash`.
-
-## Changing the DNA (rare)
-
-Only when zomes/integrity actually change. Bump `dnaVersion`, make the build
-reproducible first (add `--remap-path-prefix` / Cargo `trim-paths` so the wasm
-is path-independent), build the new canonical happ, update `.happ-version` and
-`scripts/release-happ.sh`'s expected sha, and publish a new `happ-v<dnaVersion>`
-release. This intentionally starts a new network.

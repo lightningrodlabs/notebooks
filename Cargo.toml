@@ -9,7 +9,7 @@ opt-level = "z"
 opt-level = "z"
 
 [workspace.dependencies]
-hdi = "0.7.0"
-hdk = "0.6.0"
+hdi = "0.8.0"
+hdk = "0.7.0"
 serde = "1"
-holochain = "0.6.0"
+holochain = "0.7.0"

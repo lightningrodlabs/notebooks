@@ -7,6 +7,7 @@ import {
   encodeHashToBase64,
   decodeHashFromBase64,
   ActionHashB64,
+  Record,
 } from '@holochain/client';
 import { EntryRecord, RecordBag } from '@holochain-open-dev/utils';
 
@@ -99,7 +100,7 @@ export class CommitHistory extends LitElement {
 
   updated() {
     if (!this._cytoscape && this.graph && this._allCommits.value.status === "complete"  ) {
-      const allCommits:RecordBag<Commit> = new RecordBag((this._allCommits.value.value as EntryRecord<Commit>[]).map((er: EntryRecord<Commit>) => er.record))
+      const allCommits:RecordBag<Commit> = new RecordBag((this._allCommits.value.value as EntryRecord<Commit>[]).map((er: EntryRecord<Commit>) => er.record as Record))
       this.drawGraph(allCommits)
     }
   }
@@ -145,21 +146,21 @@ export class CommitHistory extends LitElement {
       // First pass: build commit data and detect forks
       const childrenMap: {[key: string]: string[]} = {}
       
-      for (const [commitHash, entry] of commits.actionMap.entries()) {
+      for (const [commitHash, action] of commits.actionMap.entries()) {
         const strCommitHash = encodeHashToBase64(commitHash);
         const prevCommits = commits.entryRecord(commitHash)?.entry.previous_commit_hashes || []
         let author: string = ""
         if (profiles) {
-          const profileEntry = profiles.get(entry.author)
+          const profileEntry = profiles.get(action.header.author)
           if (profileEntry) {
             author = profileEntry.entry.nickname
           }
         }
-        if (!author) author = encodeHashToBase64(entry.author)
+        if (!author) author = encodeHashToBase64(action.header.author)
         const data = {
           hash: strCommitHash,
           author,
-          timestamp: entry.timestamp,
+          timestamp: action.header.timestamp,
           prevCommits: prevCommits.map(h=>encodeHashToBase64(h)),
         }
         // @ts-ignore
@@ -351,7 +352,7 @@ export class CommitHistory extends LitElement {
           </div>
         `;
       case 'complete':
-        const allCommits:RecordBag<Commit> = new RecordBag((this._allCommits.value.value as EntryRecord<Commit>[]).map((er: EntryRecord<Commit>) => er.record))
+        const allCommits:RecordBag<Commit> = new RecordBag((this._allCommits.value.value as EntryRecord<Commit>[]).map((er: EntryRecord<Commit>) => er.record as Record))
 
         return html`<sl-card>
           <div slot="header" style="display: flex; gap: 1em; align-items: center;">

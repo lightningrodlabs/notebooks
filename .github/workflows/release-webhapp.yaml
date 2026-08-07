@@ -12,10 +12,6 @@ on:
 permissions:
   contents: write
 
-env:
-  # The frozen DNA. The published webhapp MUST embed a happ with this sha256.
-  CANONICAL_HAPP_SHA256: 8a7584239b7cd4349b08f8083c9dd479b9dc112112cda5c58757f0aff1dda750
-
 jobs:
   release-webhapp:
     runs-on: ubuntu-latest
@@ -31,6 +27,11 @@ jobs:
       - uses: cachix/cachix-action@v15
         with:
           name: holochain-ci
+
+      # The frozen DNA: the published webhapp MUST embed a happ with the
+      # sha256 recorded in .happ-sha256 (see RELEASE.md).
+      - name: Read the canonical happ sha256
+        run: echo "CANONICAL_HAPP_SHA256=$(tr -d '[:space:]' < .happ-sha256)" >> "$GITHUB_ENV"
 
       - name: Download frozen canonical happ (never rebuilt)
         env:

@@ -91,6 +91,6 @@ export const appletServices: AppletServices = {
           .toLowerCase()
           .includes(searchFilter.toLowerCase());
       })
-      .map(r => ({ hrl: [dnaHash, r!.actionHash], context: {} }));
+      .map(r => ({ hrl: [dnaHash, r!.entryHash], context: {} }));
   },
 };

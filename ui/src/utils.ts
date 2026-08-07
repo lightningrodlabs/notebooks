@@ -117,5 +117,7 @@ Marked.setBlockRule(/\[([x ]*)\](.*)/, function x (execArr) {
 export function sortByDescendantTimestamp(
   notes: EntryRecord<Document>[]
 ): Array<EntryRecord<Document>> {
-  return notes.sort((a, b) => b.action.timestamp - a.action.timestamp);
+  return notes.sort(
+    (a, b) => b.action.header.timestamp - a.action.header.timestamp
+  );
 }

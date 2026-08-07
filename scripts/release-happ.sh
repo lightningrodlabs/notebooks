@@ -4,45 +4,63 @@
 #
 # Why this exists: the zome wasm embeds the original builder's absolute paths
 # (~/.cargo/... and source file paths via the HDK macros), so the happ cannot be
-# reproduced byte-for-byte on a different machine/user or in CI. The published
-# DNA was built once (by user "leo"); rebuilding anywhere else yields a DIFFERENT
-# DNA hash, i.e. a DIFFERENT network. To keep every install on the same network
-# we reuse the exact original happ bytes forever.
+# reproduced byte-for-byte on a different machine/user or in CI. Rebuilding
+# elsewhere yields a DIFFERENT DNA hash, i.e. a DIFFERENT network. To keep every
+# install on the same network we build the happ once and reuse those exact bytes
+# forever.
 #
-# This script recovers those exact bytes from an already-published .webhapp,
-# verifies the DNA sha256, and publishes them as the `happ-v<dnaVersion>` release
-# that release-webhapp.yaml downloads. Run it once per DNA version.
+# The canonical bytes are published as the `happ-v<dnaVersion>` GitHub release
+# (tag in `.happ-version`) and their sha256 is recorded in `.happ-sha256`;
+# release-webhapp.yaml downloads the former and checks it against the latter.
+#
+# Two sources, in order of preference:
+#   1. `workdir/notebooks.happ` from a local `npm run build:happ` — used when
+#      bootstrapping a new DNA line (0.7 started one: Holochain 0.7 has no data
+#      migration path, so its DNA hash and network are new by construction).
+#   2. An already-published .webhapp, passed as the first argument — used to
+#      recover the exact bytes of a line that is already live.
 #
 # Requirements: `hc` (enter `nix develop` first) and `gh` (authenticated).
 # Usage: nix develop --command bash scripts/release-happ.sh [SOURCE_WEBHAPP_URL]
 set -euo pipefail
 
-# The frozen DNA. Every webhapp release must embed a happ with this sha256.
-EXPECTED_SHA="8a7584239b7cd4349b08f8083c9dd479b9dc112112cda5c58757f0aff1dda750"
-
 HAPP_TAG=$(tr -d '[:space:]' < .happ-version)
-SRC_WEBHAPP_URL="${1:-https://github.com/lightningrodlabs/notebooks/releases/download/v0.6.0/notebooks.webhapp}"
+EXPECTED_SHA=$(tr -d '[:space:]' < .happ-sha256)
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-echo "Recovering canonical happ from: $SRC_WEBHAPP_URL"
-curl -fsSL -o "$tmp/src.webhapp" "$SRC_WEBHAPP_URL"
-hc web-app unpack "$tmp/src.webhapp" -o "$tmp/wa" >/dev/null
+if [ $# -ge 1 ]; then
+  echo "Recovering canonical happ from: $1"
+  curl -fsSL -o "$tmp/src.webhapp" "$1"
+  hc web-app unpack "$tmp/src.webhapp" -o "$tmp/wa" >/dev/null
+  happ="$tmp/wa/notebooks.happ"
+else
+  happ="workdir/notebooks.happ"
+  if [ ! -f "$happ" ]; then
+    echo "ERROR: $happ not found. Run 'npm run build:happ' first," >&2
+    echo "or pass the URL of a published .webhapp to recover it from." >&2
+    exit 1
+  fi
+  echo "Using locally built happ: $happ"
+fi
 
-got=$(sha256sum "$tmp/wa/notebooks.happ" | awk '{print $1}')
+got=$(sha256sum "$happ" | awk '{print $1}')
 if [ "$got" != "$EXPECTED_SHA" ]; then
-  echo "ERROR: recovered happ sha256 ($got) != expected canonical ($EXPECTED_SHA)." >&2
+  echo "ERROR: happ sha256 ($got) != canonical sha in .happ-sha256 ($EXPECTED_SHA)." >&2
   echo "Refusing to publish a happ that would change the DNA/network." >&2
+  echo "If you are deliberately starting a NEW DNA line, bump 'dnaVersion' in" >&2
+  echo "ui/package.json, update .happ-version, write $got into .happ-sha256," >&2
+  echo "and re-run. Everyone on the old DNA stays on the old network." >&2
   exit 1
 fi
 echo "Verified canonical happ sha256 = $got"
 
 if gh release view "$HAPP_TAG" >/dev/null 2>&1; then
   echo "Release $HAPP_TAG already exists; uploading/clobbering the happ asset."
-  gh release upload "$HAPP_TAG" "$tmp/wa/notebooks.happ" --clobber
+  gh release upload "$HAPP_TAG" "$happ" --clobber
 else
-  gh release create "$HAPP_TAG" "$tmp/wa/notebooks.happ" \
+  gh release create "$HAPP_TAG" "$happ" \
     --title "Canonical happ $HAPP_TAG (frozen DNA)" \
     --notes "Frozen canonical notebooks.happ reused by every webhapp release to keep all installs on the same network. DNA sha256: $EXPECTED_SHA. Do NOT rebuild."
 fi

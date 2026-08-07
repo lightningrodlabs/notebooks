@@ -45,7 +45,7 @@ type NoteRow = {
   created: Timestamp,
   modified: Timestamp|undefined
   author: AgentPubKey,
-  actionHash: ActionHash,
+  entryHash: EntryHash,
   state: TextEditorState,
   authorSort: number,
   style: string,
@@ -135,7 +135,7 @@ export class AllNotes extends LitElement {
   error = ""
 
   processNoteRecord(note: NoteAndLatestState, archived: boolean) : NoteRow {
-    const a = encodeHashToBase64(note.document.action.author)
+    const a = encodeHashToBase64(note.document.action.header.author)
     let authorSort = this.authors.findIndex(x=>x===a)
     if (authorSort === -1) {
       authorSort = this.authors.length
@@ -143,10 +143,10 @@ export class AllNotes extends LitElement {
     }
     return {
       title:(decode(note.document.entry.meta!) as any).title,
-      modified: note.tip ? note.tip.action.timestamp : undefined,
-      created: note.document.action.timestamp,
-      author:note.document.action.author,
-      actionHash:note.document.actionHash,
+      modified: note.tip ? note.tip.action.header.timestamp : undefined,
+      created: note.document.action.header.timestamp,
+      author:note.document.action.header.author,
+      entryHash:note.document.entryHash,
       state: note.latestState,
       authorSort,
       style: (decode(note.document.entry.meta!) as any).editorType,
@@ -216,7 +216,7 @@ export class AllNotes extends LitElement {
                 bubbles: true,
                 composed: true,
                 detail: {
-                  noteHash: note.actionHash,
+                  noteHash: note.entryHash,
                 },
               })
             )}
@@ -227,7 +227,7 @@ export class AllNotes extends LitElement {
                   bubbles: true,
                   composed: true,
                   detail: {
-                    noteHash: note.actionHash,
+                    noteHash: note.entryHash,
                   },
                 })
               );
@@ -256,13 +256,13 @@ export class AllNotes extends LitElement {
           .src=${wrapPathInSvg(note.archived ? mdiRestore : mdiDelete)}
           @click=${async (e:MouseEvent) => {
             e.stopPropagation()
-            const nB64 = encodeHashToBase64(note.actionHash)
-            const idx = this.noteRows.findIndex(n=>encodeHashToBase64(n.actionHash) === nB64)
+            const nB64 = encodeHashToBase64(note.entryHash)
+            const idx = this.noteRows.findIndex(n=>encodeHashToBase64(n.entryHash) === nB64)
 
             if (idx >= 0) {
               if (note.archived) {
-                await this.synStore.client.removeDocumentTag(note.actionHash, "arc")
-                await this.synStore.client.tagDocument(note.actionHash, "note")
+                await this.synStore.client.removeDocumentTag(note.entryHash, "arc")
+                await this.synStore.client.tagDocument(note.entryHash, "note")
                 this.noteRows[idx].archived = false
               }
               else {
@@ -271,8 +271,8 @@ export class AllNotes extends LitElement {
                 } else {
                   this.noteRows.splice(idx,1)
                 }
-                await this.synStore.client.removeDocumentTag(note.actionHash, "note")
-                await this.synStore.client.tagDocument(note.actionHash, "arc")
+                await this.synStore.client.removeDocumentTag(note.entryHash, "note")
+                await this.synStore.client.tagDocument(note.entryHash, "arc")
               }
               this.noReset = true
               this.requestUpdate();

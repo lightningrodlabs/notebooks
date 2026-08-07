@@ -7,7 +7,6 @@ import {
   Workspace,
   DocumentStore,
   WorkspaceStore,
-  stateFromCommit,
   SynStore,
   synContext,
   synDocumentContext,
@@ -50,6 +49,7 @@ import {
 } from "@holochain-open-dev/elements";
 import { ActionHash, encodeHashToBase64, EntryHash, HoloHashMap } from "@holochain/client";
 import {
+  asyncDerived,
   completed,
   joinAsyncMap,
   mapAndJoin,
@@ -92,7 +92,7 @@ const SYN_CONFIG: Partial<SynConfig> = {
   inactiveSessionThreshold: 20 * 1000,
   newPeersDiscoveryInterval: 30 * 1000,
   outOfSessionTimeout: 60 * 1000,
-  commitStrategy: { CommitEveryNDeltas: 200, CommitEveryNMs: 1000 * 30 }, // TODO: reduce ms
+  commitStrategy: { CommitEveryNDeltas: 200, CommitEveryNMs: 1000 * 30, SnapshotEveryNCommits: 20 }, // TODO: reduce ms
 }
 
 @customElement("richtext-note")
@@ -310,30 +310,40 @@ export class RichtextNote extends LitElement {
       </div>`;
 
     return html`${subscribe(
-      this.documentStore.commits.get(this._selectedCommitHash)!,
+      asyncDerived(
+        this.documentStore.commits.get(this._selectedCommitHash)!,
+        // Commits may be deltas, so the state has to be resolved by walking
+        // back to the nearest snapshot ancestor rather than read off the entry
+        async (commit) => ({
+          commit,
+          state: (await this.documentStore.resolveCommitState(
+            commit
+          )) as TextEditorState,
+        })
+      ),
       renderAsyncStatus({
-        complete: (v) => html` <div class="flex-scrollable-parent" style="height:100%; overflow-x: hidden;">
+        complete: ({ commit, state }) => html` <div class="flex-scrollable-parent" style="height:100%; overflow-x: hidden;">
           <div class="flex-scrollable-y" style="width:100%; overflow-x: hidden;">
             <sl-card style="max-width: 100%; overflow-x: hidden; margin: 8px;">
               <div slot="header">Commit: ${this._selectedCommitHash ? encodeHashToBase64(this._selectedCommitHash):""}</div>
               <div slot="header">
-                <span style="display:flex;align-items:center">by ${subscribe(this.profilesStore.profiles.get(v.action.author)!,
+                <span style="display:flex;align-items:center">by ${subscribe(this.profilesStore.profiles.get(commit.action.header.author)!,
                 renderAsyncStatus({
-                  complete: (v) => html`<agent-avatar style="margin-left:5px;margin-right:5px;" size="20" .agentPubKey=${v?.action.author}></agent-avatar> ${v?.entry.nickname}`,
-                  pending: () => this.renderLoading(),        
+                  complete: (v) => html`<agent-avatar style="margin-left:5px;margin-right:5px;" size="20" .agentPubKey=${v?.action.header.author}></agent-avatar> ${v?.entry.nickname}`,
+                  pending: () => this.renderLoading(),
                   error: (e) => html`<display-error
                     .headline=${msg("Error fetching the author")}
                     .error=${e}
                     ></display-error>`,
                     })
                   )}
-                  on ${(new Date(v.action.timestamp)).toLocaleDateString()} ${(new Date(v.action.timestamp)).toLocaleTimeString()}
+                  on ${(new Date(commit.action.header.timestamp)).toLocaleDateString()} ${(new Date(commit.action.header.timestamp)).toLocaleTimeString()}
                 </span>
-                
+
               </div>
 
               <div class="commit-content" style="white-space: pre-wrap; word-wrap: break-word;">
-                ${(stateFromCommit(v.entry) as TextEditorState).text.join('')}
+                ${state.text.join('')}
               </div>
             </sl-card>
           </div>

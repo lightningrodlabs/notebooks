@@ -2,7 +2,8 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { consume } from '@lit/context';
 import { ActionHash } from '@holochain/client';
-import { stateFromCommit, DocumentStore, synDocumentContext } from '@holochain-syn/core';
+import { Commit, DocumentStore, synDocumentContext } from '@holochain-syn/core';
+import { EntryRecord } from '@holochain-open-dev/utils';
 import { TextEditorState, TextEditorEphemeralState } from '@holochain-syn/text-editor';
 import { msg } from '@lit/localize';
 
@@ -381,7 +382,11 @@ export class DiffViewer extends LitElement {
         return;
       }
 
-      const selectedState = stateFromCommit((selectedCommit as any).entry) as TextEditorState;
+      // Commits may be deltas, so the state has to be resolved by walking
+      // back to the nearest snapshot ancestor rather than read off the entry
+      const selectedState = (await this.documentStore.resolveCommitState(
+        selectedCommit as EntryRecord<Commit>
+      )) as TextEditorState;
       const selectedText = selectedState.text.join('');
 
       // Use the provided current state or empty string as fallback
