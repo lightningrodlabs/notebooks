@@ -49,12 +49,14 @@ release. It only needs to be redone if the DNA version changes (see below).
      is embedded verbatim — never rebuilt),
    - re-verifies the embedded happ still equals the frozen DNA,
    - prints the three curation hashes to the run summary,
-   - creates a **draft** GitHub release with `notebooks.webhapp` attached.
-4. Publish the draft release.
+   - publishes a **prerelease** GitHub release with `notebooks.webhapp` attached.
+      It is deliberately not a draft: draft assets are not served at the public
+      `releases/download/<tag>/...` URL Moss fetches, so they 404.
+4. Nothing is live yet — updating the curation list below is the go-live gate.
 
 ## Update the curation list
 
-The workflow run summary (and the draft release body) contains:
+The workflow run summary (and the release body) contains:
 
 ```json
 "hashes": {

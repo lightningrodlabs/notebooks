@@ -70,10 +70,15 @@ jobs:
             echo '```'
           } | tee release-notes.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Create draft release
+      # NOT a draft: draft-release assets are not served at the public
+      # releases/download/<tag>/... URL (they 404), so Moss would download a
+      # "Not Found" body and fail with "invalid gzip header". Publishing makes
+      # the tag URL resolve. The real go-live gate is updating the curation list.
+      - name: Create release
         uses: ncipollo/release-action@v1
         with:
           artifacts: "workdir/notebooks.webhapp"
           bodyFile: "release-notes.md"
-          draft: true
+          draft: false
+          prerelease: true
           token: ${{ secrets.GITHUB_TOKEN }}
