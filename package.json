@@ -18,7 +18,6 @@
     "build:happ": "npm run build:zomes && hc app pack workdir --recursive",
     "build:zomes": "CARGO_TARGET_DIR=target RUSTFLAGS='--cfg getrandom_backend=\"custom\"' cargo build --release --target wasm32-unknown-unknown",
     "local-services": "kitsune2-bootstrap-srv --listen 127.0.0.1:$BOOTSTRAP_PORT",
-    "playground": "holochain-playground",
     "test:applet": "cross-env BOOTSTRAP_PORT=$(port) concurrently -k \"npm run local-services\" \"weave -c we_dev/config.ts -b http://127.0.0.1:$BOOTSTRAP_PORT\"",
     "weave-hash": "node scripts/weave-hash.mjs",
     "release:happ": "bash scripts/release-happ.sh",
@@ -27,7 +26,6 @@
   "devDependencies": {
     "@theweave/cli": "0.16.0-dev.3",
     "@holochain/hc-spin": "^0.700.0",
-    "@holochain-playground/cli": "^0.300.1",
     "bestzip": "^2.2.0",
     "concurrently": "^6.2.1",
     "cross-env": "^7.0.3",

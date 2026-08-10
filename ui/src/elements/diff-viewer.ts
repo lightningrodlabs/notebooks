@@ -6,6 +6,8 @@ import { Commit, DocumentStore, synDocumentContext } from '@holochain-syn/core';
 import { EntryRecord } from '@holochain-open-dev/utils';
 import { TextEditorState, TextEditorEphemeralState } from '@holochain-syn/text-editor';
 import { msg } from '@lit/localize';
+import { wrapPathInSvg } from '@holochain-open-dev/elements';
+import { mdiFileCompare } from '@mdi/js';
 
 @customElement('diff-viewer')
 export class DiffViewer extends LitElement {
@@ -466,7 +468,7 @@ export class DiffViewer extends LitElement {
     if (!this.selectedCommitHash) {
       return html`
         <div class="no-selection-container">
-          <sl-icon name="file-diff" style="font-size: 3rem; color: var(--sl-color-neutral-400);"></sl-icon>
+          <sl-icon .src=${wrapPathInSvg(mdiFileCompare)} style="font-size: 3rem; color: var(--sl-color-neutral-400);"></sl-icon>
           <span>${msg('Select a commit to view differences')}</span>
         </div>
       `;

@@ -1,7 +1,5 @@
-import path from "path";
 import { defineConfig } from "vite";
 import checker from "vite-plugin-checker";
-import { viteStaticCopy } from "vite-plugin-static-copy";
 import { version, dnaVersion } from './package.json';  // Import version from package.json
 import wasm from 'vite-plugin-wasm';
 
@@ -61,17 +59,6 @@ export default defineConfig({
       eslint: {
         lintCommand: "eslint --ext .ts,.html src",
       },
-    }),
-    viteStaticCopy({
-      targets: [
-        {
-          src: path.resolve(
-            __dirname,
-            "../../node_modules/@shoelace-style/shoelace/dist/assets"
-          ),
-          dest: path.resolve(__dirname, "dist/shoelace"),
-        },
-      ],
     }),
   ],
 });
