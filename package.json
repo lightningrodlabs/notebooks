@@ -24,7 +24,7 @@
     "release:webhapp": "APP_VER=$(node -p \"require('./ui/package.json').version\") && git tag v$APP_VER && git push origin v$APP_VER"
   },
   "devDependencies": {
-    "@theweave/cli": "0.16.0-dev.3",
+    "@theweave/cli": "0.16.0-dev.4",
     "@holochain/hc-spin": "^0.700.0",
     "bestzip": "^2.2.0",
     "concurrently": "^6.2.1",

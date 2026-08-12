@@ -76,7 +76,7 @@ The workflow run summary (and the release body) contains:
 
 ```json
 "hashes": {
-  "happSha256": "5e5afa47...",      // always the frozen DNA
+  "happSha256": "3939d930...",      // always the frozen DNA
   "webhappSha256": "<new>",
   "uiSha256": "<new>"
 }
