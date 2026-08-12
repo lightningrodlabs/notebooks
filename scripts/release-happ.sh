@@ -56,12 +56,17 @@ if [ "$got" != "$EXPECTED_SHA" ]; then
 fi
 echo "Verified canonical happ sha256 = $got"
 
+notes="Frozen canonical notebooks.happ reused by every webhapp release to keep all installs on the same network. DNA sha256: $EXPECTED_SHA. Do NOT rebuild."
+
 if gh release view "$HAPP_TAG" >/dev/null 2>&1; then
   echo "Release $HAPP_TAG already exists; uploading/clobbering the happ asset."
   gh release upload "$HAPP_TAG" "$happ" --clobber
+  # The notes quote the sha, so they have to move with the asset — otherwise a
+  # re-cut release advertises the previous DNA.
+  gh release edit "$HAPP_TAG" --notes "$notes" >/dev/null
 else
   gh release create "$HAPP_TAG" "$happ" \
     --title "Canonical happ $HAPP_TAG (frozen DNA)" \
-    --notes "Frozen canonical notebooks.happ reused by every webhapp release to keep all installs on the same network. DNA sha256: $EXPECTED_SHA. Do NOT rebuild."
+    --notes "$notes"
 fi
 echo "Done. release-webhapp.yaml will download notebooks.happ from $HAPP_TAG."
