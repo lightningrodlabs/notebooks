@@ -91,9 +91,13 @@ export class SynMarkdownEditor extends LitElement {
   @state()
   _localChangeCurrentIndex: number = -1;
 
+  // docState (the live automerge doc), not state: cursor and undo anchors
+  // resolve element ids via Automerge.getObjectId, which needs a real
+  // document — on the materialized toJS snapshot it throws "must be the
+  // document root" for every index past 0
   _state = new StoreSubscriber(
     this,
-    () => this.slice.state,
+    () => this.slice.docState,
     () => [this.slice]
   );
 
@@ -274,7 +278,7 @@ export class SynMarkdownEditor extends LitElement {
       this.editor.getInputField().click();
     }, 500);
 
-    derived([this.slice.state, this.slice.ephemeral], i => i).subscribe(
+    derived([this.slice.docState, this.slice.ephemeral], i => i).subscribe(
       ([state, cursors]) => {
         const stateText = state.text.join('');
         const myAgentSelection =

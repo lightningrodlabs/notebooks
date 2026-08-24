@@ -43,9 +43,12 @@ export class SynPmEditor extends LitElement {
     this.setPlainTextContent(val);
   }
 
+  // docState (the live automerge doc), not state: cursor positions resolve
+  // element ids via Automerge.getObjectId, which needs a real document — on
+  // the materialized toJS snapshot it throws "must be the document root"
   _state = new StoreSubscriber(
     this,
-    () => this.slice.state,
+    () => this.slice.docState,
     () => [this.slice]
   );
 
@@ -924,7 +927,7 @@ export class SynPmEditor extends LitElement {
     
     // Subscribe to state separately from ephemeral (cursors)
     // This way cursor changes don't trigger document rebuilds
-    this.slice.state.subscribe((state) => {
+    this.slice.docState.subscribe((state) => {
       if (!this.view) return;
 
       const stateText = state.text.join('');
