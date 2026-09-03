@@ -20,6 +20,7 @@
     "local-services": "kitsune2-bootstrap-srv --listen 127.0.0.1:$BOOTSTRAP_PORT",
     "test:applet": "cross-env BOOTSTRAP_PORT=$(port) concurrently -k \"npm run local-services\" \"npm run weave -- -c we_dev/config.ts -b http://127.0.0.1:$BOOTSTRAP_PORT\"",
     "weave": "env -u ELECTRON_RUN_AS_NODE TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\",\"target\":\"es2020\",\"esModuleInterop\":true}' weave",
+    "test:typing": "node tests/typing-perf.mjs",
     "weave-hash": "node scripts/weave-hash.mjs",
     "release:happ": "bash scripts/release-happ.sh",
     "release:webhapp": "APP_VER=$(node -p \"require('./ui/package.json').version\") && git tag v$APP_VER && git push origin v$APP_VER"
