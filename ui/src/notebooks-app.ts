@@ -465,27 +465,10 @@ export class NotebooksApp extends LitElement {
       `;
     }
     return html`
-      <input id="file-input" style="display:none" type="file" accept=".json" @change=${(e: any) => { this.onFileSelected(e) }} >
-
       <div class="flex-scrollable-parent">
         <div class="flex-scrollable-container">
           <div class="flex-scrollable-y">
             <div class="column" style="flex: 1; margin: 16px">
-              <sl-dialog id="settings" label="Settings">
-                  <sl-button
-                    @click=${async () => { await this.doExport() }}
-                    .loading=${this.exporting}
-                    >
-                    Export All Notes
-                  </sl-button>
-                  <sl-button
-                    @click=${() => this._fileInput.click()}
-                    .loading=${this.importing}
-                    >
-                    Import Notes
-                  </sl-button> 
-
-                  </sl-dialog>
               ${ this._synStore ? html`
               <all-notes
                 style="flex: 1;"
@@ -636,6 +619,23 @@ export class NotebooksApp extends LitElement {
     }
 
     return html`
+      <input id="file-input" style="display:none" type="file" accept=".json" @change=${(e: any) => { this.onFileSelected(e) }} >
+
+      <sl-dialog id="settings" label="Settings">
+          <sl-button
+            @click=${async () => { await this.doExport() }}
+            .loading=${this.exporting}
+            >
+            Export All Notes
+          </sl-button>
+          <sl-button
+            @click=${() => this._fileInput.click()}
+            .loading=${this.importing}
+            >
+            Import Notes
+          </sl-button> 
+
+          </sl-dialog>
       <sl-dialog label="Notebooks: UI v${__APP_VERSION__} for DNA v${__DNA_VERSION__}" id="about-dialog" width={600} >
           <div class="about">
               <p>Notebooks is a demonstration Holochain app built by Lighning Rod Labs.</p>
