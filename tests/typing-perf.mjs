@@ -22,6 +22,7 @@
  *
  * Usage:  nix develop --command node tests/typing-perf.mjs
  * Env:    CPS=25 A_FIRST=600 B_CHARS=2500 A_CONT=600 HEADFUL=1 KEEP=1
+ *         RUN_TIMEOUT_MS=900000   hard ceiling on a whole run
  */
 import { spawn, execSync } from 'node:child_process';
 import { createServer } from 'node:net';
@@ -46,6 +47,9 @@ const HEADFUL  = !!process.env.HEADFUL;
 // real-time collaboration broken. Human-paced runs measure 0%.
 const SYNC_FAIL_PCT = Number(process.env.SYNC_FAIL_PCT ?? 2);
 const KEEP     = !!process.env.KEEP;
+// Hard ceiling on a whole run. Without it a hang anywhere in main() leaves a
+// conductor and three vite dev servers running until someone notices.
+const RUN_TIMEOUT_MS = Number(process.env.RUN_TIMEOUT_MS ?? 15 * 60_000);
 const AGENTS   = 3;
 
 const procs = [];
@@ -81,14 +85,19 @@ async function waitHttp(url, timeoutMs, label) {
   }, timeoutMs, 500, label);
 }
 
+let cleanedUp = false;
 function cleanup() {
-  for (const p of pages) p.close();
+  if (cleanedUp) return;
+  cleanedUp = true;
+  // Each of these is guarded on its own: page.close() throws once the browser
+  // is gone, and an unguarded throw here used to skip every kill below it.
+  for (const p of pages) { try { p.close(); } catch {} }
   if (chromeProc) { try { process.kill(-chromeProc.pid, 'SIGKILL'); } catch {} }
   for (const p of procs) { try { process.kill(-p.pid, 'SIGKILL'); } catch {} }
   try { execSync('hc s clean', { cwd: REPO, stdio: 'ignore' }); } catch {}
 }
 process.on('exit', () => { if (!KEEP) cleanup(); });
-for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { cleanup(); process.exit(1); });
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => { cleanup(); process.exit(1); });
 
 // ---------------------------------------------------------------- prose
 const WORDS = `the quick brown fox jumps over a lazy dog while syn keeps every
@@ -355,4 +364,26 @@ async function main() {
   else console.log(`PASS: 3 agents, ${typed} real keystrokes, ${commits} commits (budget ${budget}), all converged`);
 }
 
-main().catch(e => { console.error('\nERROR:', e.message); process.exitCode = 1; });
+// The dev servers are spawned detached but with piped stdio, so their pipes keep
+// this process's event loop alive. Relying on the 'exit' handler alone was the
+// bug: when main() hung, node never exited, cleanup never ran, and every run
+// left one conductor and three vite servers behind for good.
+const watchdog = setTimeout(() => {
+  console.error(`\nERROR: run exceeded RUN_TIMEOUT_MS (${RUN_TIMEOUT_MS} ms)`);
+  process.exitCode = 1;
+  finish();
+}, RUN_TIMEOUT_MS);
+
+function finish() {
+  clearTimeout(watchdog);
+  if (KEEP) console.log('KEEP=1: leaving conductors, dev servers and Chrome running');
+  else cleanup();
+  // Killing the children closes their pipes, so node normally drains and exits
+  // here on its own, with stdout fully flushed. If anything is still holding the
+  // loop open (KEEP=1 always does), force it rather than hanging.
+  setTimeout(() => process.exit(process.exitCode ?? 0), 5000).unref();
+}
+
+main()
+  .catch(e => { console.error('\nERROR:', e.message); process.exitCode = 1; })
+  .finally(finish);
