@@ -7,8 +7,8 @@
   "scripts": {
     "dev": "VITE_ADMIN_PORT=$(port) VITE_APP_PORT=$(port) BOOTSTRAP_PORT=$(port) UI_PORT=8888 npm run x",
     "x": "hc s clean &&  npm run build:happ && UI_PORT=8888 concurrently \"npm start -w ui\" \"npm run start:happ\" \"npm run local-services\"",
-    "start:moss": " UI_PORT=8888 npm run tool-devy",
-    "tool-devy": "concurrently \"npm start -w ui\" \"sleep 1 && npm run weave -- --agent-idx 1 --dev-config we_dev/config.ts\" \"sleep 10 && npm run weave -- --agent-idx 2 --dev-config we_dev/config.ts\"",
+    "start:moss": " UI_PORT=8888 npm run launch:moss",
+    "launch:moss": "concurrently \"npm start -w ui\" \"sleep 1 && npm run weave -- --agent-idx 1 --dev-config we_dev/config.ts\" \"sleep 10 && npm run weave -- --agent-idx 2 --dev-config we_dev/config.ts\"",
     "tool-devx": "BPORT=46263; concurrently \"kitsune2-bootstrap-srv --listen 127.0.0.1:$BPORT\" \"npm start -w ui\" \"./we_dev/we.AppImage  --dev-config we_dev/config.json --agent-num 1 -b http://127.0.0.1:$BPORT\" \"sleep 10 && ./we_dev/we.AppImage --dev-config we_dev/config.json --agent-num 2 -b http://127.0.0.1:$BPORT\"",
     "start": "UI_PORT=8888 npm run network",
     "network": "hc s clean && npm run build:happ && concurrently \"npm run start -w ui\" \"env -u ELECTRON_RUN_AS_NODE hc-spin -n 2 --ui-port $UI_PORT ./workdir/notebooks.webhapp\"",
