@@ -57,6 +57,7 @@ import {
   pipe,
   StoreSubscriber,
   subscribe,
+  get,
 } from "@holochain-open-dev/stores";
 import { SlChangeEvent, SlDialog, SlDrawer, SlRadioGroup } from "@shoelace-style/shoelace";
 import { msg } from "@lit/localize";
@@ -69,6 +70,8 @@ import {
   TextEditorState,
 } from "../grammar";
 import { isMigrated, migrateText, textOf } from "../text";
+import { commentsView } from "../comments/model";
+import { clearRendered, paintRendered, renderedHighlightStyles } from "../comments/rendered-highlights";
 import { NoteMeta } from "../types.js";
 import { notebooksContext, NotebooksStore } from "../store";
 import { renderAsyncStatus } from "../utils.js";
@@ -568,9 +571,17 @@ export class MarkdownNote extends LitElement {
     const value = this._session.value.value;
     if (!value) return;
     const [sessionStore, state] = value;
+    this.paintPreview(sessionStore);
     if (this._migratedFor === sessionStore || isMigrated(state)) return;
     this._migratedFor = sessionStore;
     sessionStore.change((s) => migrateText(s));
+  }
+
+  /** Comment highlights over the rendered preview (best effort, by quote). */
+  private paintPreview(sessionStore: SessionStore<TextEditorState, TextEditorEphemeralState>) {
+    const preview = this.shadowRoot?.querySelector(".markd.preview") as HTMLElement | null;
+    const doc = get(sessionStore.docState);
+    paintRendered(this, preview, textOf(doc), doc ? commentsView(doc, false) : []);
   }
 
   renderNoteWorkspace(
@@ -714,7 +725,7 @@ export class MarkdownNote extends LitElement {
               <div class="flex-scrollable-y">
                 <div style="margin: 8px">
                   <sl-card style="width: 100%">
-                  <div class="markd">
+                  <div class="markd preview">
                     ${unsafeHTML(Marked.parse(textOf(state)))}
                   </div>
                   </sl-card>
@@ -782,6 +793,7 @@ export class MarkdownNote extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    clearRendered(this);
     if (this._session.value.status === "complete" && this._session.value.value?.[0]) {
       this._session.value.value[0].commitChanges();
       this._session.value.value[0].leaveSession();
@@ -791,6 +803,7 @@ export class MarkdownNote extends LitElement {
 
   static styles = [
     sharedStyles,
+    renderedHighlightStyles,
     css`
       .active::part(base) {
         background-color: var(--sl-color-primary-600);

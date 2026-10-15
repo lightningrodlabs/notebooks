@@ -27,6 +27,8 @@ import {
   TextEditorState,
 } from "../grammar";
 import { textOf } from "../text";
+import { commentsView } from "../comments/model";
+import { clearRendered, paintRendered, renderedHighlightStyles } from "../comments/rendered-highlights";
 import { NoteMeta } from "../types.js";
 
 const WORKSPACE_NOT_FOUND = "The requested workspace was not found";
@@ -73,6 +75,17 @@ export class RenderedNote extends LitElement {
       ),
     () => [this.documentStore, this.workspaceName]
   );
+
+  updated() {
+    const container = this.shadowRoot?.querySelector(".markd") as HTMLElement | null;
+    const state = this._state.value.status === "complete" ? this._state.value.value : undefined;
+    paintRendered(this, container, textOf(state), state ? commentsView(state as any, false) : []);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    clearRendered(this);
+  }
 
   renderLoading() {
     return html`
@@ -127,6 +140,7 @@ export class RenderedNote extends LitElement {
 
   static styles = [
     sharedStyles,
+    renderedHighlightStyles,
     css`
       :host {
         display: flex;

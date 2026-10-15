@@ -8,11 +8,21 @@ import {
   decodeHashFromBase64,
   encodeHashToBase64,
 } from '@holochain/client';
-import { sharedStyles } from '@holochain-open-dev/elements';
+import { sharedStyles, wrapPathInSvg } from '@holochain-open-dev/elements';
 import { derived, StoreSubscriber } from '@holochain-open-dev/stores';
 import { styleMap } from 'lit/directives/style-map.js';
+import { query } from 'lit/decorators.js';
+import { mdiCommentPlusOutline } from '@mdi/js';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
+import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import { cursorToPosition } from '../utils.js';
 import { textOf } from '../text.js';
+import { CommentsController, CommentsHost } from '../comments/controller.js';
+import { Segment } from '../comments/ranges.js';
+import { commentAt } from '../comments/model.js';
+import { commentStyles } from '../comments/styles.js';
+import './comment-margin.js';
+import { CommentMargin } from './comment-margin.js';
 import {
   AgentSelection,
   TextEditorEphemeralState,
@@ -55,7 +65,7 @@ type LocalHistoryEntry = {
 };
 
 @customElement('syn-md-editor')
-export class SynMarkdownEditor extends LitElement {
+export class SynMarkdownEditor extends LitElement implements CommentsHost {
   private _editorHistoryKeyMap = {
     'Ctrl-Z': () => {
       this.onUndoShortcut();
@@ -109,6 +119,21 @@ export class SynMarkdownEditor extends LitElement {
   );
 
   _lastCursorPosition = 0;
+
+  /** Comments: derived state, mutations and margin cards (see comments/controller.ts). */
+  comments = new CommentsController(this);
+
+  @query('.nb-row') private rowEl!: HTMLDivElement;
+
+  @query('.nb-text') private textEl!: HTMLDivElement;
+
+  @query('comment-margin') private marginEl!: CommentMargin | null;
+
+  /** CodeMirror TextMarkers currently painted for comments. */
+  private _commentMarks: Array<{ clear(): void }> = [];
+
+  /** Where the floating "+ Comment" button sits while there is a selection, relative to the text column. */
+  @state() private _addButton: { left: number; top: number } | null = null;
 
   _cursorPosition = 0;
 
@@ -265,6 +290,8 @@ export class SynMarkdownEditor extends LitElement {
           // console.log("Setting State Text")
           this.editor.doc.setValue(stateText);
           // console.log("Done setting State Text")
+          // setValue dropped the comment marks with the old text.
+          this.comments.repaint();
         }
         if (myAgentSelection) {
           if (stateText.length > 0) {
@@ -343,13 +370,99 @@ export class SynMarkdownEditor extends LitElement {
           to: this.editor.indexFromPos(r.head),
         }));
         this.onSelectionChanged(transformedRanges);
+        this.updateAddButton(ranges[0]);
       }
+    });
+
+    this.editor.getWrapperElement().addEventListener('click', (e: MouseEvent) => {
+      const pos = this.editor.coordsChar({ left: e.clientX, top: e.clientY }, 'window');
+      this.comments.activate(commentAt(this.comments.ranges, this.editor.indexFromPos(pos)));
     });
   }
 
   disconnectedCallback() {
     this.editor?.removeKeyMap(this._editorHistoryKeyMap);
     super.disconnectedCallback();
+  }
+
+  // ---- comments (CommentsHost) ----
+
+  paint(segs: Segment[], activeId: string | null) {
+    if (!this.editor) return;
+    for (const m of this._commentMarks) m.clear();
+    this._commentMarks = [];
+    // Skip while the editor still shows older text than Syn: the state
+    // subscriber repaints after setValue.
+    if (this._state.value && this.editor.doc.getValue() !== textOf(this._state.value)) return;
+    for (const seg of segs) {
+      const active = activeId !== null && seg.ids.includes(activeId);
+      const className = `nb-comment nb-depth-${Math.min(seg.ids.length, 3)}${active ? ' nb-comment-active' : ''}`;
+      this._commentMarks.push(
+        this.editor.markText(this.editor.posFromIndex(seg.start), this.editor.posFromIndex(seg.end), {
+          className,
+          attributes: { 'data-comment-ids': seg.ids.join(' ') },
+        })
+      );
+    }
+  }
+
+  anchorTop(offset: number): number | null {
+    if (!this.editor || !this.rowEl) return null;
+    const coords = this.editor.charCoords(this.editor.posFromIndex(offset), 'window');
+    return coords.top - this.rowEl.getBoundingClientRect().top;
+  }
+
+  commentSelection(): { from: number; to: number } | null {
+    if (!this.editor) return null;
+    const from = this.editor.indexFromPos(this.editor.getCursor('from'));
+    const to = this.editor.indexFromPos(this.editor.getCursor('to'));
+    return from < to ? { from, to } : null;
+  }
+
+  private updateAddButton(range: { anchor: CodeMirrorPosition; head: CodeMirrorPosition } | undefined) {
+    if (!range || !this.textEl) {
+      this._addButton = null;
+      return;
+    }
+    const a = this.editor.indexFromPos(range.anchor);
+    const h = this.editor.indexFromPos(range.head);
+    if (a === h) {
+      this._addButton = null;
+      return;
+    }
+    const end = a > h ? range.anchor : range.head;
+    const coords = this.editor.charCoords(end, 'window');
+    const rect = this.textEl.getBoundingClientRect();
+    this._addButton = { left: coords.left - rect.left, top: coords.bottom - rect.top + 4 };
+  }
+
+  private async addCommentFromSelection() {
+    const id = this.comments.createFromSelection();
+    this._addButton = null;
+    if (!id) return;
+    await this.updateComplete;
+    this.marginEl?.focusCard(id);
+  }
+
+  private renderMargin() {
+    const c = this.comments;
+    if (c.total === 0) return html``;
+    return html`<comment-margin
+      .cards=${c.cards()}
+      .activeId=${c.activeId}
+      .myPubKeyB64=${c.myPubKeyB64}
+      .showResolved=${c.showResolved}
+      .total=${c.total}
+      @comment-activate=${(e: CustomEvent) => c.activate(e.detail.id)}
+      @comment-change=${(e: CustomEvent) => c.setText(e.detail.id, e.detail.text)}
+      @comment-delete=${(e: CustomEvent) => c.remove(e.detail.id)}
+      @comment-resolve=${(e: CustomEvent) => c.resolve(e.detail.id, e.detail.resolved)}
+      @comment-reply=${(e: CustomEvent) => c.reply(e.detail.id, e.detail.text)}
+      @reply-change=${(e: CustomEvent) => c.setReplyText(e.detail.id, e.detail.replyId, e.detail.text)}
+      @reply-delete=${(e: CustomEvent) => c.removeReply(e.detail.id, e.detail.replyId)}
+      @toggle-resolved=${(e: CustomEvent) => c.setShowResolved(e.detail.show)}
+      @copy-markdown=${() => c.copyCriticMarkup()}
+    ></comment-margin>`;
   }
 
   onTextInserted(from: number, text: string) {
@@ -405,7 +518,8 @@ export class SynMarkdownEditor extends LitElement {
     if (this._state.value === undefined) return html``;
 
     return html`
-      <div
+      <div class="nb-row">
+      <div class="nb-text"
         style="position: relative; overflow: auto; flex: 1; background-color: white;"
       >
         <wc-codemirror
@@ -424,12 +538,22 @@ export class SynMarkdownEditor extends LitElement {
           .map(([pubKeyB64, position]) =>
             this.renderCursor(decodeHashFromBase64(pubKeyB64), position)
           )}
+        ${this._addButton ? html`<sl-button class="nb-add-comment" size="small" variant="primary" circle
+            style=${styleMap({ left: `${this._addButton.left}px`, top: `${this._addButton.top}px` })}
+            title="Add comment"
+            @mousedown=${(e: MouseEvent) => e.preventDefault()}
+            @click=${() => this.addCommentFromSelection()}>
+            <sl-icon .src=${wrapPathInSvg(mdiCommentPlusOutline)}></sl-icon>
+          </sl-button>` : ''}
+      </div>
+      ${this.renderMargin()}
       </div>
     `;
   }
 
   static styles = [
     sharedStyles,
+    commentStyles,
     css`
       :host {
         display: flex;
