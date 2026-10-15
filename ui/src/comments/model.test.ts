@@ -52,3 +52,21 @@ describe('visibleRanges', () => {
     expect(visibleRanges(doc(), true).map(r => r.id)).toEqual(['early', 'done', 'late']);
   });
 });
+
+describe('filters in the view model', () => {
+  const filtered = (): Automerge.Doc<TextEditorState> =>
+    Automerge.change(Automerge.from<TextEditorState>({ body: 'hello world', comments: {} }), s => {
+      s.comments!.mine = { ...c('mine', 1), author: 'me' };
+      s.comments!.theirs = { ...c('theirs', 2), assignee: { agent: 'me', by: 'x', at: 3 } };
+      Automerge.mark(s, ['body'], { start: 0, end: 5, expand: 'none' }, markName('mine'), true);
+      Automerge.mark(s, ['body'], { start: 6, end: 11, expand: 'none' }, markName('theirs'), true);
+    });
+  it('commentsView keeps only matching comments', () => {
+    expect(commentsView(filtered(), false, { filter: 'assigned', me: 'me' }).map(x => x.id)).toEqual(['theirs']);
+    expect(commentsView(filtered(), false, { filter: 'mine', me: 'me' }).map(x => x.id)).toEqual(['mine']);
+    expect(commentsView(filtered(), false, { filter: 'all', me: 'me' }).map(x => x.id)).toEqual(['mine', 'theirs']);
+  });
+  it('visibleRanges hides the highlights of filtered-out comments', () => {
+    expect(visibleRanges(filtered(), false, { filter: 'assigned', me: 'me' }).map(r => r.id)).toEqual(['theirs']);
+  });
+});

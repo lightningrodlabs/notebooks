@@ -5,6 +5,17 @@ export interface Reply {
   /** ms since epoch */
   created: number;
   text: string;
+  /** Agents mentioned in `text` (AgentPubKeyB64). */
+  mentions?: string[];
+}
+
+export interface Assignment {
+  /** AgentPubKeyB64 of the assignee */
+  agent: string;
+  /** AgentPubKeyB64 of whoever assigned it */
+  by: string;
+  /** ms since epoch */
+  at: number;
 }
 
 export interface Comment {
@@ -18,6 +29,9 @@ export interface Comment {
   quote: string;
   resolved: boolean;
   replies: Reply[];
+  /** Agents mentioned in `text` (AgentPubKeyB64). */
+  mentions?: string[];
+  assignee?: Assignment;
 }
 
 /** A comment's range is the Automerge mark `comment:<id>` on the body. */

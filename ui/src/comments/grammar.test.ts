@@ -103,3 +103,27 @@ describe('comment operations', () => {
     expect(merged.comments!.a.replies.map(r => r.id).sort()).toEqual(['r1', 'r2']);
   });
 });
+
+describe('mentions and assignment', () => {
+  it('stores mentions with comment and reply text', () => {
+    let d = withComment();
+    d = apply(d, g => g.setCommentText('a', 'hey @Bob', ['kB']));
+    d = apply(d, g => g.addReply('a', { id: 'r1', text: 'and @Ann', created: 5, mentions: ['kA'] }));
+    d = apply(d, g => g.setReplyText('a', 'r1', 'and @Ann @Bob', ['kA', 'kB']));
+    expect(d.state.comments!.a.mentions).toEqual(['kB']);
+    expect(d.state.comments!.a.replies[0].mentions).toEqual(['kA', 'kB']);
+  });
+  it('leaves mentions alone when none are passed', () => {
+    let d = withComment();
+    d = apply(d, g => g.setCommentText('a', 'hey @Bob', ['kB']));
+    d = apply(d, g => g.setResolved('a', true));
+    expect(d.state.comments!.a.mentions).toEqual(['kB']);
+  });
+  it('assigns, reassigns and unassigns, recording who and when', () => {
+    let d = withComment();
+    d = apply(d, g => g.setAssignee('a', 'kB', 50));
+    expect(d.state.comments!.a.assignee).toEqual({ agent: 'kB', by: meB64, at: 50 });
+    d = apply(d, g => g.setAssignee('a', null));
+    expect(d.state.comments!.a.assignee).toBeUndefined();
+  });
+});

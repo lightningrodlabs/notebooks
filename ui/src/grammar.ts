@@ -26,6 +26,7 @@ export interface AddReplyInput {
   id: string;
   text: string;
   created?: number;
+  mentions?: string[];
 }
 export type TextEditorEphemeralState = { [agentB64: string]: AgentSelection };
 
@@ -80,9 +81,21 @@ export const textEditorGrammar = {
           replies: [],
         };
       },
-      setCommentText(id: string, text: string) {
+      setCommentText(id: string, text: string, mentions?: string[]) {
         const c = state.comments?.[id];
-        if (c) c.text = text;
+        if (!c) return;
+        c.text = text;
+        if (mentions) c.mentions = mentions;
+      },
+      /** `agent` null unassigns. */
+      setAssignee(id: string, agent: string | null, at?: number) {
+        const c = state.comments?.[id];
+        if (!c) return;
+        if (agent === null) {
+          if (c.assignee) delete c.assignee;
+        } else {
+          c.assignee = { agent, by: me, at: at ?? Date.now() };
+        }
       },
       setResolved(id: string, resolved: boolean) {
         const c = state.comments?.[id];
@@ -99,11 +112,20 @@ export const textEditorGrammar = {
       },
       addReply(id: string, reply: AddReplyInput) {
         const c = state.comments?.[id];
-        if (c) c.replies.push({ id: reply.id, author: me, created: reply.created ?? Date.now(), text: reply.text });
+        if (!c) return;
+        c.replies.push({
+          id: reply.id,
+          author: me,
+          created: reply.created ?? Date.now(),
+          text: reply.text,
+          ...(reply.mentions && reply.mentions.length > 0 ? { mentions: reply.mentions } : {}),
+        });
       },
-      setReplyText(id: string, replyId: string, text: string) {
+      setReplyText(id: string, replyId: string, text: string, mentions?: string[]) {
         const r = state.comments?.[id]?.replies.find(x => x.id === replyId);
-        if (r) r.text = text;
+        if (!r) return;
+        r.text = text;
+        if (mentions) r.mentions = mentions;
       },
       deleteReply(id: string, replyId: string) {
         const c = state.comments?.[id];

@@ -27,6 +27,8 @@ import { placeAddButton } from '../comments/add-button.js';
 import { commentStyles } from '../comments/styles.js';
 import './comment-margin.js';
 import { CommentMargin } from './comment-margin.js';
+import { commentMarginTemplate } from '../comments/margin-template.js';
+import { Person } from '../comments/people.js';
 import {
   AgentSelection,
   TextEditorEphemeralState,
@@ -129,6 +131,22 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
 
   @consume({ context: profilesStoreContext, subscribe: true })
   profilesStore!: ProfilesStore;
+
+  /** Everyone with a profile in the group, for mentions and assignment. */
+  private _people = new StoreSubscriber(
+    this,
+    () => this.profilesStore.allProfiles,
+    () => [this.profilesStore]
+  );
+
+  private people(): Person[] {
+    const v = this._people.value;
+    if (!v || v.status !== 'complete') return [];
+    return Array.from(v.value.entries())
+      .filter(([, profile]) => !!profile?.entry) // a profile still loading
+      .map(([key, profile]) => ({ key: encodeHashToBase64(key), name: profile.entry.nickname }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
 
   /** Nickname for an author key, for the markdown copy. */
   private nameOf = async (author: string): Promise<string | undefined> => {
@@ -502,24 +520,7 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
   private renderMargin() {
     const c = this.comments;
     if (!this.showComments || c.total === 0) return html``;
-    return html`<div class="nb-divider" title="Drag to resize" @pointerdown=${(e: PointerEvent) => c.startResize(e)}></div>
-    <comment-margin
-      style=${styleMap({ width: `${c.marginWidth}px` })}
-      .cards=${c.cards()}
-      .activeId=${c.activeId}
-      .myPubKeyB64=${c.myPubKeyB64}
-      .showResolved=${c.showResolved}
-      .counts=${c.counts}
-      @comment-activate=${(e: CustomEvent) => c.activate(e.detail.id)}
-      @comment-change=${(e: CustomEvent) => c.setText(e.detail.id, e.detail.text)}
-      @comment-delete=${(e: CustomEvent) => c.remove(e.detail.id)}
-      @comment-resolve=${(e: CustomEvent) => c.resolve(e.detail.id, e.detail.resolved)}
-      @comment-reply=${(e: CustomEvent) => c.reply(e.detail.id, e.detail.text)}
-      @reply-change=${(e: CustomEvent) => c.setReplyText(e.detail.id, e.detail.replyId, e.detail.text)}
-      @reply-delete=${(e: CustomEvent) => c.removeReply(e.detail.id, e.detail.replyId)}
-      @toggle-resolved=${(e: CustomEvent) => c.setShowResolved(e.detail.show)}
-      @copy-markdown=${() => c.copyCriticMarkup(this.nameOf)}
-    ></comment-margin>`;
+    return commentMarginTemplate(c, this.people(), this.nameOf);
   }
 
   onTextInserted(from: number, text: string) {

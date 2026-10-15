@@ -6,6 +6,7 @@ import { TextEditorEphemeralState, TextEditorState, textEditorGrammar } from '..
 import { textOf } from '../text';
 import { CommentRange, Segment, segments } from './ranges';
 import { commentsView, CommentView, visibleRanges } from './model';
+import { CommentFilter } from './filters';
 import { toCriticMarkup } from './criticmarkup';
 import { CommentCounts, countComments } from './counts';
 
@@ -51,6 +52,8 @@ export class CommentsController implements ReactiveController {
   activeId: string | null = null;
 
   showResolved = false;
+
+  filter: CommentFilter = 'all';
 
   view: CommentView[] = [];
 
@@ -100,8 +103,9 @@ export class CommentsController implements ReactiveController {
   /** Re-derive from the doc and repaint; also used after the host re-renders its text. */
   recompute() {
     if (!this.doc) return;
-    this.view = commentsView(this.doc, this.showResolved);
-    this.ranges = visibleRanges(this.doc, this.showResolved);
+    const filter = { filter: this.filter, me: this.myPubKeyB64 };
+    this.view = commentsView(this.doc, this.showResolved, filter);
+    this.ranges = visibleRanges(this.doc, this.showResolved, filter);
     this.segs = segments(this.ranges);
     this.counts = countComments(this.doc.comments);
     this.total = this.counts.open + this.counts.resolved;
@@ -136,8 +140,18 @@ export class CommentsController implements ReactiveController {
     return id;
   }
 
-  setText(id: string, text: string) {
-    this.change(g => g.setCommentText(id, text));
+  setFilter(filter: CommentFilter) {
+    this.filter = filter;
+    this.recompute();
+  }
+
+  /** `agent` null unassigns. */
+  assign(id: string, agent: string | null) {
+    this.change(g => g.setAssignee(id, agent));
+  }
+
+  setText(id: string, text: string, mentions?: string[]) {
+    this.change(g => g.setCommentText(id, text, mentions));
   }
 
   remove(id: string) {
@@ -149,12 +163,12 @@ export class CommentsController implements ReactiveController {
     this.change(g => g.setResolved(id, resolved));
   }
 
-  reply(id: string, text: string) {
-    this.change(g => g.addReply(id, { id: crypto.randomUUID(), text }));
+  reply(id: string, text: string, mentions?: string[]) {
+    this.change(g => g.addReply(id, { id: crypto.randomUUID(), text, mentions }));
   }
 
-  setReplyText(id: string, replyId: string, text: string) {
-    this.change(g => g.setReplyText(id, replyId, text));
+  setReplyText(id: string, replyId: string, text: string, mentions?: string[]) {
+    this.change(g => g.setReplyText(id, replyId, text, mentions));
   }
 
   removeReply(id: string, replyId: string) {

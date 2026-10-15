@@ -63,6 +63,16 @@ shows resolved ones), and deleted by their author. The margin's copy button
 puts the markdown on the clipboard with the comments inlined as CriticMarkup,
 authors shown by nickname.
 
+Type `@` in a comment or reply to mention someone: a list of the group's
+members pops up, filtered as you type (arrow keys and Enter, or a click). The
+person icon on a card assigns the comment to someone. The panel's filters show
+**All**, **Assigned to me**, or **Mentions & mine** (comments you wrote,
+replied to, or are mentioned in). In Moss, being mentioned or assigned raises a
+notification that opens the note. Each person's own client notices these by
+watching every note's comments, so no zome change is involved; for a note you
+don't have open, the notification arrives when the other person's session next
+commits (within 30 seconds).
+
 How it works:
 
 - The note's text is an Automerge `Text` (`body`) in the Syn document, and each

@@ -9,8 +9,7 @@ import {
   AppWebsocketConnectionOptions,
   CellType,
   EntryHash,
-  ProvisionedCell,
-} from "@holochain/client";
+  ProvisionedCell, decodeHashFromBase64, encodeHashToBase64 } from "@holochain/client";
 import {
   ProfilesClient,
   Profile,
@@ -80,6 +79,8 @@ import { NoteMeta, NoteWorkspace, Notebook, noteMetaB64ToRaw, noteMetaToB64 } fr
 import { textOf } from "./text";
 import { TextEditorState } from "./grammar";
 import { exportComments } from "./comments/export";
+import { NotificationWatcher } from "./notification-watcher";
+import { frameNotification, PendingNotification } from "./comments/notifications";
 import { deserializeExport, exportNotes, noteTextFromExport } from "./export.js";
 import { NotebooksStore, notebooksContext } from "./store.js";
 import { renderAsyncStatus } from "./utils.js";
@@ -289,6 +290,11 @@ export class NotebooksApp extends LitElement {
     };
   }
 
+  /** Delivers mention and assignment notifications; set in Moss, absent elsewhere. */
+  notifier: ((items: PendingNotification[]) => Promise<void> | void) | undefined;
+
+  private _notificationWatcher: NotificationWatcher | undefined;
+
   async connectToHolochain() {
     const { view, profilesClient, client, weaveClient } = await this.buildClient();
     this._synStore = new SynStore(new SynClient(client as unknown as ConstructorParameters<typeof SynClient>[0], "notebooks"), true);
@@ -298,6 +304,28 @@ export class NotebooksApp extends LitElement {
     const dnaHash = (appInfo?.cell_info.notebooks[0].value as ProvisionedCell).cell_id[0];
     this._notebooksStore = new NotebooksStore(dnaHash, weaveClient)
     this._profilesStore = new ProfilesStore(profilesClient);
+
+    const myPubKey = this._synStore.client.client.myPubKey;
+    if (weaveClient) {
+      this.notifier = async (items) => {
+        const notifications = [];
+        for (const p of items) {
+          let name = "Someone";
+          try {
+            const store = this._profilesStore.profiles.get(decodeHashFromBase64(p.from));
+            const profile = store ? await toPromise(store) : undefined;
+            if (profile) name = profile.entry.nickname;
+          } catch (e) {
+            // no profile: keep the generic name
+          }
+          notifications.push(frameNotification(p, name, dnaHash, myPubKey));
+        }
+        await weaveClient.notifyFrame(notifications);
+      };
+    }
+    this._notificationWatcher?.stop();
+    this._notificationWatcher = new NotificationWatcher(this._synStore, encodeHashToBase64(myPubKey), () => this.notifier);
+    this._notificationWatcher.start();
 
     this._myProfile = new StoreSubscriber(
       this,

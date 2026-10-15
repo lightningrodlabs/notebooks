@@ -43,7 +43,7 @@ window.__margin = () => window.__dq(el => el.tagName.toLowerCase() === 'comment-
 window.__hlText = () => window.__dqAll(el => el.classList && el.classList.contains('nb-comment')).map(e => e.textContent).join('');
 window.__depth2Text = () => window.__dqAll(el => el.classList && el.classList.contains('nb-depth-2')).map(e => e.textContent).join('');
 window.__cards = () => { const m = window.__margin(); return m ? Array.from(m.shadowRoot.querySelectorAll('.card')) : []; };
-window.__cardTexts = () => window.__cards().map(c => { const t = c.querySelector('textarea.body'); return t ? t.value : (c.querySelector('.text') || {}).textContent; });
+window.__cardTexts = () => window.__cards().map(c => { const t = c.querySelector('mention-box.body'); return t ? t.text : (c.querySelector('.text') || {}).textContent; });
 window.__cardByText = (s) => window.__cards().find(c => (window.__cardTexts()[window.__cards().indexOf(c)] || '').includes(s));
 window.__deepActive = () => { let a = document.activeElement; while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement; return a; };
 window.__highlightPoint = () => { const el = window.__dqAll(e => e.classList && e.classList.contains('nb-comment')).find(e => e.getBoundingClientRect().width > 0); if (!el) return null;
@@ -75,7 +75,7 @@ async function commentOn(page, needle, comment) {
   const btn = await waitUntil(() => page.eval(`!!window.__dq(el => el.classList && el.classList.contains('nb-add-comment'))`), 10000, 200, `${page.name} + button`);
   if (!btn) throw new Error(`${page.name}: no + Comment button for "${needle}"`);
   await page.eval(`(() => { window.__dq(el => el.classList && el.classList.contains('nb-add-comment')).click(); return true; })()`);
-  const focused = await waitUntil(() => page.eval(`(() => { const a = window.__deepActive(); return !!(a && a.tagName === 'TEXTAREA' && a.classList.contains('body')); })()`), 10000, 200, `${page.name} card focus`);
+  const focused = await waitUntil(() => page.eval(`(() => { const a = window.__deepActive(); return !!(a && a.tagName === 'TEXTAREA' && a.getRootNode().host && a.getRootNode().host.classList.contains('body')); })()`), 10000, 200, `${page.name} card focus`);
   if (!focused) throw new Error(`${page.name}: the new card did not take focus`);
   await typeText(page, comment);
   await delay(500);
@@ -85,6 +85,8 @@ async function commentOn(page, needle, comment) {
 async function main() {
   console.log('=== notebooks comments e2e ===');
   const [A, B] = await startStack(['A', 'B'], { headful: HEADFUL });
+  // Outside Moss there is no notifier; record what would have been sent.
+  await A.eval(`(() => { window.__notes = []; window.__app().notifier = items => { window.__notes.push(...items); }; return true; })()`);
   for (const p of pages) await p.eval(COMMENT_HELPERS);
 
   console.log('5. A creates a markdown note and types two lines');
@@ -129,9 +131,9 @@ async function main() {
 
   console.log('10. B replies to A\'s comment');
   await B.eval(`(() => { window.__cardByText('Looks wrong').click(); return true; })()`);
-  const replyBox = await waitUntil(() => B.eval(`!!window.__cardByText('Looks wrong').querySelector('.reply-box textarea')`), 10000, 200, 'reply box');
+  const replyBox = await waitUntil(() => B.eval(`!!window.__cardByText('Looks wrong').querySelector('.reply-box mention-box')`), 10000, 200, 'reply box');
   check(replyBox, 'activating a card shows its reply box');
-  await B.eval(`(() => { window.__cardByText('Looks wrong').querySelector('.reply-box textarea').focus(); return true; })()`);
+  await B.eval(`(() => { window.__cardByText('Looks wrong').querySelector('.reply-box mention-box').focus(); return true; })()`);
   await typeText(B, 'agreed');
   await B.typeChar('\n');
   const replied = await waitUntil(() => A.eval(`(() => { const c = window.__cardByText('Looks wrong'); return !!c && Array.from(c.querySelectorAll('.reply .text')).some(e => e.textContent === 'agreed'); })()`), 30000, 500, 'A sees reply');
@@ -166,8 +168,13 @@ async function main() {
   await delay(5000);
   const importedHashes = await B.eval(`(async () => (await window.__app().importNotebooks(${JSON.stringify(exportJson)})).map(h => Array.from(h)))()`);
   check(importedHashes.length === JSON.parse(exportJson).notes.length, `B imported every note in A's export (${importedHashes.length})`);
-  const bNotes = JSON.parse(await B.eval(`(async () => JSON.stringify(await window.__app().collectNotebooks()))()`));
-  const reimported = bNotes.find(n => n.meta.title === 'comments note' && n.workspaces[0].comments.length === 2 && n.meta.author !== exported.meta.author);
+  // A just-created note's workspace can take a moment to become readable.
+  let reimported;
+  await waitUntil(async () => {
+    const bNotes = JSON.parse(await B.eval(`(async () => JSON.stringify(await window.__app().collectNotebooks()))()`));
+    reimported = bNotes.find(n => n.meta.title === 'comments note' && n.workspaces[0]?.comments?.length === 2 && n.meta.author !== exported.meta.author);
+    return !!reimported;
+  }, 30000, 1000, 'imported note readable');
   const byId = cs => [...cs].sort((x, y) => x.id.localeCompare(y.id));
   check(!!reimported && reimported.workspaces[0].note === exported.workspaces[0].note, 'the imported note has the same text');
   check(!!reimported && JSON.stringify(byId(reimported.workspaces[0].comments)) === JSON.stringify(byId(exported.workspaces[0].comments)),
@@ -181,10 +188,14 @@ async function main() {
     const made = await B.eval(`(async () => (await window.__app().importNotebooks(${JSON.stringify(json)})).length)()`);
     check(made === expect.length, `${file}: B created ${made} of ${expect.length} notes`);
   }
-  const afterOld = JSON.parse(await B.eval(`(async () => JSON.stringify(await window.__app().collectNotebooks()))()`));
+  let afterOld = [];
+  await waitUntil(async () => {
+    afterOld = JSON.parse(await B.eval(`(async () => JSON.stringify(await window.__app().collectNotebooks()))()`));
+    return ['Old shopping list', 'Meeting notes', 'Rich'].every(t => afterOld.some(x => x.meta.title === t && x.workspaces[0]));
+  }, 30000, 1000, 'old imports readable');
   for (const [title, text, type] of [['Old shopping list', '# Old shopping list\n\n- eggs\n- milk\n', 'markdown'], ['Meeting notes', '# Meeting notes\n\nAgreed to ship on Friday.\n', 'markdown'], ['Rich', '# Rich\n\n**bold** text\n', 'richtext']]) {
     const n = afterOld.find(x => x.meta.title === title);
-    check(!!n && n.workspaces[0].note === text && (n.meta.editorType || 'markdown') === type, `old export "${title}" imported with its text as a ${type} note`);
+    check(!!n && n.workspaces[0]?.note === text && (n.meta.editorType || 'markdown') === type, `old export "${title}" imported with its text as a ${type} note`);
   }
   // Open the re-imported comments note and check the panel shows what A had.
   const reHash = importedHashes[JSON.parse(exportJson).notes.findIndex(n => n.meta.title === 'comments note')];
@@ -233,6 +244,57 @@ async function main() {
   await B.eval(`window.__toggle()`);
   const closed = await waitUntil(() => B.eval(`window.__cards().length === 0`), 10000, 300, 'B closes the panel');
   check(closed, 'the toggle closes the panel again');
+
+  console.log('15. B mentions A through the pop-up and assigns the comment to A');
+  await B.eval(`window.__toggle()`);
+  await waitUntil(() => B.eval(`window.__cards().length === 1`), 10000, 300, 'B panel open');
+  await B.eval(`(() => { window.__cards()[0].click(); return true; })()`);
+  await waitUntil(() => B.eval(`!!window.__cards()[0].querySelector('.reply-box mention-box')`), 10000, 200, 'B reply box');
+  await B.eval(`(() => { window.__cards()[0].querySelector('.reply-box mention-box').focus(); return true; })()`);
+  await typeText(B, 'cc @agent-');
+  const popup = await waitUntil(() => B.eval(`(() => { const m = window.__cards()[0].querySelector('.reply-box mention-box'); const items = m.shadowRoot.querySelectorAll('.pop li'); return items.length > 0 && Array.from(items).some(li => li.textContent.includes('agent-A')); })()`), 10000, 200, 'mention pop-up');
+  check(popup, 'typing @ in the reply box pops up matching people');
+  // Pick agent-A with the arrow keys, then Enter inserts, then Enter sends.
+  const order = await B.eval(`(() => Array.from(window.__cards()[0].querySelector('.reply-box mention-box').shadowRoot.querySelectorAll('.pop li')).map(li => li.textContent.trim()))()`);
+  for (let i = 0; i < order.findIndex(t => t.includes('agent-A')); i++) {
+    await B.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', windowsVirtualKeyCode: 40, key: 'ArrowDown', code: 'ArrowDown' });
+    await B.send('Input.dispatchKeyEvent', { type: 'keyUp', windowsVirtualKeyCode: 40, key: 'ArrowDown', code: 'ArrowDown' });
+  }
+  await B.typeChar('\n');
+  const inserted = await B.eval(`window.__cards()[0].querySelector('.reply-box mention-box').text`);
+  check(inserted === 'cc @agent-A ', `choosing from the pop-up inserts the name (got ${JSON.stringify(inserted)})`);
+  await B.typeChar('\n');
+  const mentionShown = await waitUntil(() => A.eval(`(() => { const c = window.__cards()[0]; return !!c && Array.from(c.querySelectorAll('.reply .mention')).some(s => s.textContent === '@agent-A'); })()`), 30000, 500, 'A sees the mention');
+  check(mentionShown, 'A sees B\'s reply with the mention set off');
+  // Assign through the card's menu.
+  await B.eval(`(() => { const card = window.__cards()[0]; card.querySelector('sl-dropdown sl-icon-button').click(); return true; })()`);
+  await delay(500);
+  const assigned = await B.eval(`(() => { const items = window.__cards()[0].querySelectorAll('sl-menu-item'); const it = Array.from(items).find(i => i.textContent.includes('agent-A')); if (!it) return false; it.click(); return true; })()`);
+  check(assigned, 'the assign menu lists agent-A');
+  const chip = await waitUntil(() => A.eval(`(() => { const c = window.__cards()[0]; return !!c && !!c.querySelector('.assignee'); })()`), 30000, 500, 'A sees the assignment');
+  check(chip, 'A sees the comment marked as assigned');
+
+  console.log('16. A is notified of both, once');
+  const notified = await waitUntil(() => A.eval(`window.__notes.some(n => n.kind === 'mention') && window.__notes.some(n => n.kind === 'assigned')`), 30000, 500, 'notifications');
+  check(notified, 'A gets a mention notification and an assignment notification');
+  await delay(3000);
+  const counts = JSON.parse(await A.eval(`JSON.stringify({ mention: window.__notes.filter(n => n.kind === 'mention').length, assigned: window.__notes.filter(n => n.kind === 'assigned').length, title: (window.__notes[0] || {}).title })`));
+  check(counts.mention === 1 && counts.assigned === 1, `each is reported once (got ${JSON.stringify(counts)})`);
+  check(counts.title === 'rich note', 'the notification names the note');
+
+  console.log('17. filters');
+  const filterTo = (page, value) => page.eval(`(() => { const g = window.__margin().shadowRoot.querySelector('sl-radio-group.filters'); const b = g.querySelector('sl-radio-button[value="${value}"]'); b.click(); return true; })()`);
+  if (!(await A.eval(`!!window.__margin()`))) await A.eval(`window.__toggle()`);
+  await waitUntil(() => A.eval(`!!window.__margin()`), 5000, 200, 'A panel');
+  await filterTo(A, 'assigned');
+  check(await waitUntil(() => A.eval(`window.__cards().length === 1`), 5000, 200, 'A assigned'), 'A: "Assigned to me" shows the assigned comment');
+  await filterTo(B, 'assigned');
+  check(await waitUntil(() => B.eval(`window.__cards().length === 0 && /Nothing assigned to you/.test(window.__margin().shadowRoot.querySelector('.empty').textContent)`), 5000, 200, 'B assigned'), 'B: "Assigned to me" is empty and says so');
+  check(await B.eval(`window.__hlText() === ''`), 'B: filtered-out comments lose their highlight');
+  await filterTo(B, 'mine');
+  check(await waitUntil(() => B.eval(`window.__cards().length === 1`), 5000, 200, 'B mine'), 'B: "Mentions & mine" shows the comment B replied to');
+  await filterTo(B, 'all');
+  check(await waitUntil(() => B.eval(`window.__cards().length === 1 && window.__hlText() === 'two'`), 5000, 200, 'B all'), 'B: "All" brings it and its highlight back');
 
   const errs = pages.flatMap(p => p.errors.map(e => `[${p.name}] ${e}`)).filter(e => !/timed out in \d+ ms: call_zome/i.test(e));
   console.log(`\npage errors: ${errs.length}`);
