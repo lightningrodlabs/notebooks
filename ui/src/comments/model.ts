@@ -23,6 +23,13 @@ export function commentsView(doc: Automerge.Doc<TextEditorState>, showResolved: 
   });
 }
 
+/** The ranges to paint: resolved comments only count while they are shown. */
+export function visibleRanges(doc: Automerge.Doc<TextEditorState>, showResolved: boolean): CommentRange[] {
+  if (showResolved) return commentRanges(doc);
+  const records = doc.comments ?? {};
+  return commentRanges(doc).filter(r => !records[r.id]?.resolved);
+}
+
 /** The innermost (shortest) comment range containing `offset`, or null. */
 export function commentAt(ranges: CommentRange[], offset: number): string | null {
   let best: CommentRange | null = null;

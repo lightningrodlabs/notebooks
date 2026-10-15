@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as Automerge from '@automerge/automerge';
-import { commentsView, commentAt } from './model';
+import { commentsView, commentAt, visibleRanges } from './model';
 import { TextEditorState } from '../grammar';
 import { Comment, markName } from './types';
 
@@ -43,5 +43,12 @@ describe('commentAt', () => {
   });
   it('is null outside every range (end is exclusive)', () => {
     expect(commentAt(ranges, 10)).toBeNull();
+  });
+});
+
+describe('visibleRanges', () => {
+  it('drops the ranges of resolved comments when they are hidden', () => {
+    expect(visibleRanges(doc(), false).map(r => r.id)).toEqual(['early', 'late']);
+    expect(visibleRanges(doc(), true).map(r => r.id)).toEqual(['early', 'done', 'late']);
   });
 });

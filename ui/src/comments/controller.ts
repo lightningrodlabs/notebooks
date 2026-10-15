@@ -4,8 +4,8 @@ import { encodeHashToBase64 } from '@holochain/client';
 import { SliceStore } from '@holochain-syn/core';
 import { TextEditorEphemeralState, TextEditorState, textEditorGrammar } from '../grammar';
 import { textOf } from '../text';
-import { commentRanges, CommentRange, Segment, segments } from './ranges';
-import { commentsView, CommentView } from './model';
+import { CommentRange, Segment, segments } from './ranges';
+import { commentsView, CommentView, visibleRanges } from './model';
 import { toCriticMarkup } from './criticmarkup';
 
 export interface MarginCard extends CommentView {
@@ -73,7 +73,7 @@ export class CommentsController implements ReactiveController {
   recompute() {
     if (!this.doc) return;
     this.view = commentsView(this.doc, this.showResolved);
-    this.ranges = commentRanges(this.doc);
+    this.ranges = visibleRanges(this.doc, this.showResolved);
     this.segs = segments(this.ranges);
     this.total = this.doc.comments ? Object.keys(this.doc.comments).length : 0;
     this.host.paint(this.segs, this.activeId);
