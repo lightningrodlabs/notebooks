@@ -34,3 +34,20 @@ describe('migrationChange', () => {
     expect(d.body).toBeUndefined();
   });
 });
+
+describe('migrationChange on divergent bases', () => {
+  it('produces distinct changes that still merge instead of a duplicate-seq error', () => {
+    const base = legacy();
+    const a = Automerge.change(Automerge.clone(base, 'aaaa'), s => { s.text!.push('A'); });
+    const b = Automerge.change(Automerge.clone(base, 'bbbb'), s => { s.text!.push('B'); });
+    const ca = migrationChange(a)!;
+    const cb = migrationChange(b)!;
+    expect(Automerge.decodeChange(ca).actor).not.toBe(Automerge.decodeChange(cb).actor);
+    const [a2] = Automerge.applyChanges(a, [ca]);
+    const [b2] = Automerge.applyChanges(b, [cb]);
+    expect(() => Automerge.applyChanges(Automerge.clone(a2), [cb])).not.toThrow();
+    const m = Automerge.merge(Automerge.clone(a2), Automerge.clone(b2));
+    expect(typeof m.body).toBe('string');
+    expect(m.text).toBeUndefined();
+  });
+});
