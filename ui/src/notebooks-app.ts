@@ -77,6 +77,7 @@ import { createNote } from "./index.js";
 import { appletServices } from "./we-applet.js";
 import { NoteMeta, NoteWorkspace, Notebook, noteMetaB64ToRaw, noteMetaToB64 } from "./types.js";
 import { textOf } from "./text";
+import { mainView } from "./views";
 import { TextEditorState } from "./grammar";
 import { exportComments } from "./comments/export";
 import { NotificationWatcher } from "./notification-watcher";
@@ -191,11 +192,9 @@ export class NotebooksApp extends LitElement {
         case "applet-view":
           switch (weaveClient.renderInfo.view.type) {
             case "main":
-              // here comes your rendering logic for the main view
+              // A WAL here means Moss opened us for one note, e.g. from a notification.
               return {
-                view: {
-                  type: "main",
-                },
+                view: mainView(weaveClient.renderInfo.view.wal),
                 profilesClient: weaveClient.renderInfo.profilesClient as any,
                 client: weaveClient.renderInfo.appletClient as unknown as AppClient,
                 weaveClient
