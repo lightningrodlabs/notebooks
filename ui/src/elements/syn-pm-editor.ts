@@ -7,11 +7,15 @@ import {
   encodeHashToBase64,
 } from '@holochain/client';
 import { derived, StoreSubscriber } from '@holochain-open-dev/stores';
+import { wrapPathInSvg } from '@holochain-open-dev/elements';
+import { mdiCommentPlusOutline } from '@mdi/js';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
+import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import './agent-cursor.js';
 
 // ProseMirror imports
-import { EditorView } from 'prosemirror-view';
+import { EditorView, Decoration, DecorationSet } from 'prosemirror-view';
 import { EditorState, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import { Schema, Node as PMNode } from 'prosemirror-model';
 import { schema as basicSchema } from 'prosemirror-schema-basic';
@@ -28,6 +32,36 @@ import {
 } from '../grammar.js';
 import { cursorToPosition } from '../utils.js';
 import { textOf } from '../text.js';
+import { CommentsController, CommentsHost } from '../comments/controller.js';
+import { Segment } from '../comments/ranges.js';
+import { commentAt } from '../comments/model.js';
+import { commentStyles } from '../comments/styles.js';
+import './comment-margin.js';
+import { CommentMargin } from './comment-margin.js';
+
+const commentsKey = new PluginKey<DecorationSet>('nb-comments');
+
+interface CommentsMeta {
+  segs: Segment[];
+  activeId: string | null;
+  /** markdown offset → ProseMirror position, valid for the doc being decorated */
+  toPm: (offset: number) => number;
+}
+
+function buildCommentDecorations(doc: PMNode, meta: CommentsMeta): DecorationSet {
+  const max = doc.content.size;
+  const decos: Decoration[] = [];
+  for (const seg of meta.segs) {
+    const from = Math.max(0, Math.min(meta.toPm(seg.start), max));
+    const to = Math.max(0, Math.min(meta.toPm(seg.end), max));
+    if (from < to) {
+      const active = meta.activeId !== null && seg.ids.includes(meta.activeId);
+      const cls = `nb-comment nb-depth-${Math.min(seg.ids.length, 3)}${active ? ' nb-comment-active' : ''}`;
+      decos.push(Decoration.inline(from, to, { class: cls, 'data-comment-ids': seg.ids.join(' ') }));
+    }
+  }
+  return DecorationSet.create(doc, decos);
+}
 
 /**
  * <syn-pm-editor>
@@ -35,7 +69,7 @@ import { textOf } from '../text.js';
  * Works like syn-md-editor but uses ProseMirror for rich text editing.
  */
 @customElement('syn-pm-editor')
-export class SynPmEditor extends LitElement {
+export class SynPmEditor extends LitElement implements CommentsHost {
   @property({ type: Object })
   slice!: SliceStore<TextEditorState, TextEditorEphemeralState>;
 
@@ -64,6 +98,16 @@ export class SynPmEditor extends LitElement {
   private schema: Schema;
 
   @query('#editor') private editorEl!: HTMLDivElement;
+
+  @query('.nb-row') private rowEl!: HTMLDivElement;
+
+  @query('comment-margin') private marginEl!: CommentMargin | null;
+
+  /** Comments: derived state, mutations and margin cards (see comments/controller.ts). */
+  comments = new CommentsController(this);
+
+  /** Where the floating "+ Comment" button sits while there is a selection, relative to the editor container. */
+  @state() private _addButton: { left: number; top: number } | null = null;
 
   private isUpdatingFromSyn = false;
 
@@ -154,6 +198,7 @@ export class SynPmEditor extends LitElement {
             liftListItem(this.schema.nodes.list_item)(state, dispatch),
         }),
         this.createSynPlugin(),
+        this.createCommentsPlugin(),
       ],
     });
 
@@ -818,6 +863,116 @@ export class SynPmEditor extends LitElement {
     });
   }
 
+  // ---- comments (CommentsHost) ----
+
+  private createCommentsPlugin(): Plugin<DecorationSet> {
+    const self = this;
+    return new Plugin<DecorationSet>({
+      key: commentsKey,
+      state: {
+        init: () => DecorationSet.empty,
+        apply(tr, prev) {
+          const meta = tr.getMeta(commentsKey) as CommentsMeta | undefined;
+          if (meta) return buildCommentDecorations(tr.doc, meta);
+          if (tr.docChanged) return prev.map(tr.mapping, tr.doc);
+          return prev;
+        },
+      },
+      props: {
+        decorations(state) {
+          return commentsKey.getState(state) ?? DecorationSet.empty;
+        },
+        handleClick(_view, pos) {
+          self.docToText(self.view!.state.doc);
+          const offset = self.proseMirrorPosToMarkdownPos(pos);
+          self.comments.activate(commentAt(self.comments.ranges, offset));
+          return false;
+        },
+      },
+    });
+  }
+
+  /** Markdown offset → ProseMirror position against the maps `docToText` last built. */
+  private offsetToPm(offset: number): number {
+    const pm = this.markdownPosToProseMirrorPos(offset);
+    return Math.max(0, Math.min(pm, this.view ? this.view.state.doc.content.size : 0));
+  }
+
+  paint(segs: Segment[], activeId: string | null) {
+    if (!this.view) return;
+    // The maps only describe the doc they were built from: refresh them, and
+    // skip painting while the editor still shows older text than Syn (the
+    // sync subscriber repaints once it has replaced the doc).
+    const shown = this.docToText(this.view.state.doc);
+    if (this._state.value && shown !== textOf(this._state.value)) return;
+    const meta: CommentsMeta = { segs, activeId, toPm: o => this.offsetToPm(o) };
+    this.view.dispatch(this.view.state.tr.setMeta(commentsKey, meta).setMeta('remote', true));
+  }
+
+  anchorTop(offset: number): number | null {
+    if (!this.view || !this.rowEl) return null;
+    this.docToText(this.view.state.doc);
+    try {
+      const coords = this.view.coordsAtPos(this.offsetToPm(offset));
+      return coords.top - this.rowEl.getBoundingClientRect().top;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  commentSelection(): { from: number; to: number } | null {
+    if (!this.view) return null;
+    const { from, to, empty } = this.view.state.selection;
+    if (empty) return null;
+    this.docToText(this.view.state.doc);
+    const a = this.proseMirrorPosToMarkdownPos(from);
+    const b = this.proseMirrorPosToMarkdownPos(to);
+    return a < b ? { from: a, to: b } : null;
+  }
+
+  private updateAddButton() {
+    if (!this.view || this.view.state.selection.empty) {
+      if (this._addButton) this._addButton = null;
+      return;
+    }
+    try {
+      const coords = this.view.coordsAtPos(this.view.state.selection.to);
+      const rect = this.editorEl.getBoundingClientRect();
+      this._addButton = { left: coords.left - rect.left, top: coords.bottom - rect.top + 4 };
+    } catch (e) {
+      this._addButton = null;
+    }
+  }
+
+  private async addCommentFromSelection() {
+    const id = this.comments.createFromSelection();
+    this._addButton = null;
+    if (!id) return;
+    await this.updateComplete;
+    this.marginEl?.focusCard(id);
+  }
+
+  private renderMargin() {
+    const c = this.comments;
+    if (c.total === 0) return html``;
+    return html`<comment-margin
+      .cards=${c.cards()}
+      .activeId=${c.activeId}
+      .myPubKeyB64=${c.myPubKeyB64}
+      .showResolved=${c.showResolved}
+      .total=${c.total}
+      @comment-activate=${(e: CustomEvent) => c.activate(e.detail.id)}
+      @comment-change=${(e: CustomEvent) => c.setText(e.detail.id, e.detail.text)}
+      @comment-delete=${(e: CustomEvent) => c.remove(e.detail.id)}
+      @comment-resolve=${(e: CustomEvent) => c.resolve(e.detail.id, e.detail.resolved)}
+      @comment-reply=${(e: CustomEvent) => c.reply(e.detail.id, e.detail.text)}
+      @reply-change=${(e: CustomEvent) => c.setReplyText(e.detail.id, e.detail.replyId, e.detail.text)}
+      @reply-delete=${(e: CustomEvent) => c.removeReply(e.detail.id, e.detail.replyId)}
+      @toggle-resolved=${(e: CustomEvent) => c.setShowResolved(e.detail.show)}
+      @copy-markdown=${() => c.copyCriticMarkup()}
+    ></comment-margin>`;
+  }
+
   private createSynPlugin(): Plugin {
     const self = this;
 
@@ -1024,6 +1179,8 @@ export class SynPmEditor extends LitElement {
           
           this.view.dispatch(tr);
           this.isUpdatingFromSyn = false;
+          // The replacement above threw the comment decorations away with the old doc.
+          this.comments.repaint();
         }
       }
     );
@@ -1031,6 +1188,7 @@ export class SynPmEditor extends LitElement {
 
   onSelectionChanged(ranges: Array<{ from: number; to: number }>) {
     if (this.isUpdatingFromSyn) return;
+    this.updateAddButton();
     
     // Convert ProseMirror positions to markdown positions before storing in Syn
     const markdownFrom = this.proseMirrorPosToMarkdownPos(ranges[0].from);
@@ -1297,6 +1455,8 @@ export class SynPmEditor extends LitElement {
     if (this._state.value === undefined) return html``;
 
     return html`
+      <div class="nb-row">
+      <div class="nb-text">
       <div class="editor-container" style="position: relative; overflow: auto; flex: 1; background-color: white; display: flex; flex-direction: column;">
         <div id="editor"></div>
         ${Object.entries(this._delayedCursors)
@@ -1304,6 +1464,16 @@ export class SynPmEditor extends LitElement {
           .map(([pubKeyB64, position]) =>
             this.renderCursor(decodeHashFromBase64(pubKeyB64), position)
           )}
+        ${this._addButton ? html`<sl-button class="nb-add-comment" size="small" variant="primary" circle
+            style=${styleMap({ left: `${this._addButton.left}px`, top: `${this._addButton.top}px` })}
+            title="Add comment"
+            @mousedown=${(e: MouseEvent) => e.preventDefault()}
+            @click=${() => this.addCommentFromSelection()}>
+            <sl-icon .src=${wrapPathInSvg(mdiCommentPlusOutline)}></sl-icon>
+          </sl-button>` : ''}
+      </div>
+      </div>
+      ${this.renderMargin()}
       </div>
       ${this._showSecretButton ? html`
           <div style="display: flex; justify-content: center; padding: 12px; background-color: #f8f9fa; border-bottom: 2px solid #e9ecef;">
@@ -1339,7 +1509,7 @@ export class SynPmEditor extends LitElement {
     `;
   }
 
-  static styles = css`
+  static styles = [commentStyles, css`
     :host {
       display: flex;
       flex: 1;
@@ -1647,5 +1817,5 @@ export class SynPmEditor extends LitElement {
 
     .ProseMirror p { margin: 0;}
   
-  `;
+  `];
 }
