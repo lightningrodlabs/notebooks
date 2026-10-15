@@ -647,9 +647,9 @@ export class MarkdownNote extends LitElement {
             ><sl-icon .src=${wrapPathInSvg(mdiArrowLeft)}></sl-icon></sl-button>`:""}
           
             <sl-button-group  label="View Options">
-            <sl-button variant=${this._view === View.Edit ? "primary" : "neutral"} @click=${() => { this.updateView(View.Edit); }}><sl-icon .src=${wrapPathInSvg(mdiPencil)} label="Edit"></sl-icon></sl-button>
-            <sl-button variant=${this._view === View.Both ? "primary" : "neutral"} @click=${() => { this.updateView(View.Both); }}><sl-icon .src=${wrapPathInSvg(mdiBookOpenOutline)} label="Both"></sl-icon></sl-button>
-            <sl-button variant=${this._view === View.View ? "primary" : "neutral"} @click=${() => { this.updateView(View.View); }}><sl-icon .src=${wrapPathInSvg(mdiEye)} label="View"></sl-icon></sl-button>
+            <sl-button size="small" variant=${this._view === View.Edit ? "primary" : "neutral"} @click=${() => { this.updateView(View.Edit); }}><sl-icon .src=${wrapPathInSvg(mdiPencil)} label="Edit"></sl-icon></sl-button>
+            <sl-button size="small" variant=${this._view === View.Both ? "primary" : "neutral"} @click=${() => { this.updateView(View.Both); }}><sl-icon .src=${wrapPathInSvg(mdiBookOpenOutline)} label="Both"></sl-icon></sl-button>
+            <sl-button size="small" variant=${this._view === View.View ? "primary" : "neutral"} @click=${() => { this.updateView(View.View); }}><sl-icon .src=${wrapPathInSvg(mdiEye)} label="View"></sl-icon></sl-button>
             </sl-button-group>
 
             ${this._view !== View.View ? html`
@@ -658,6 +658,7 @@ export class MarkdownNote extends LitElement {
               style="margin-left: 16px;"
             >
             <sl-button
+              size="small"
               ?disabled=${!this._editorHistoryState.canUndo}
               @click=${() => {
                 this.triggerUndo();
@@ -667,6 +668,7 @@ export class MarkdownNote extends LitElement {
             </sl-button>
 
             <sl-button
+              size="small"
               ?disabled=${!this._editorHistoryState.canRedo}
               @click=${() => {
                 this.triggerRedo();
@@ -707,6 +709,7 @@ export class MarkdownNote extends LitElement {
             >${this._workspaceName}</sl-badge
           >
           <sl-button
+            size="small"
             style="margin-left: 16px;"
             @click=${() => {
               this._renderDrawer = !this._renderDrawer;

@@ -594,6 +594,7 @@ export class RichtextNote extends LitElement {
             >${this._workspaceName}</sl-badge
           >
           <sl-button
+            size="small"
             style="margin-left: 16px;"
             @click=${() => {
               this._renderDrawer = !this._renderDrawer;
