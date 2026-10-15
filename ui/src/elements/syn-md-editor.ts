@@ -10,6 +10,9 @@ import {
 } from '@holochain/client';
 import { sharedStyles, wrapPathInSvg } from '@holochain-open-dev/elements';
 import { derived, StoreSubscriber } from '@holochain-open-dev/stores';
+import { consume } from '@lit/context';
+import { ProfilesStore, profilesStoreContext } from '@holochain-open-dev/profiles';
+import { toPromise } from '@holochain-open-dev/stores';
 import { styleMap } from 'lit/directives/style-map.js';
 import { query } from 'lit/decorators.js';
 import { mdiCommentPlusOutline } from '@mdi/js';
@@ -122,6 +125,29 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
 
   /** Comments: derived state, mutations and margin cards (see comments/controller.ts). */
   comments = new CommentsController(this);
+
+  @consume({ context: profilesStoreContext, subscribe: true })
+  profilesStore!: ProfilesStore;
+
+  /** Nickname for an author key, for the markdown copy. */
+  private nameOf = async (author: string): Promise<string | undefined> => {
+    if (!this.profilesStore) return undefined;
+    const store = this.profilesStore.profiles.get(decodeHashFromBase64(author));
+    if (!store) return undefined;
+    const profile = await toPromise(store);
+    return profile?.entry.nickname;
+  };
+
+  /** Whether the margin is shown; the note shell owns it and listens for `show-comments`. */
+  @property({ type: Boolean })
+  showComments = false;
+
+  /** Card to focus once the margin is on screen (it may only appear after the shell re-renders). */
+  private _pendingFocus: string | null = null;
+
+  private requestShowComments() {
+    this.dispatchEvent(new CustomEvent('show-comments', { bubbles: true, composed: true }));
+  }
 
   @query('.nb-row') private rowEl!: HTMLDivElement;
 
@@ -317,6 +343,10 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
 
   updated(changed: Map<string | number | symbol, unknown>) {
     if (changed.has('slice') && this.editor) this.bindSlice();
+    if (this._pendingFocus && this.marginEl) {
+      this.marginEl.focusCard(this._pendingFocus);
+      this._pendingFocus = null;
+    }
   }
 
   firstUpdated() {
@@ -389,12 +419,16 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
         }));
         this.onSelectionChanged(transformedRanges);
         this.updateAddButton(ranges[0]);
+        // A click into commented text activates that comment and opens the
+        // margin. CodeMirror swallows the native click, so the mouse-driven
+        // caret move is the signal; keyboard moves only change the active card.
+        const { from, to } = transformedRanges[0];
+        if (from === to && (e.origin === '*mouse' || e.origin === '+move')) {
+          const id = commentAt(this.comments.ranges, from);
+          this.comments.activate(id);
+          if (id && e.origin === '*mouse') this.requestShowComments();
+        }
       }
-    });
-
-    this.editor.getWrapperElement().addEventListener('click', (e: MouseEvent) => {
-      const pos = this.editor.coordsChar({ left: e.clientX, top: e.clientY }, 'window');
-      this.comments.activate(commentAt(this.comments.ranges, this.editor.indexFromPos(pos)));
     });
   }
 
@@ -456,17 +490,18 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
     this._addButton = { left: coords.left - rect.left, top: coords.bottom - rect.top + 4 };
   }
 
-  private async addCommentFromSelection() {
+  private addCommentFromSelection() {
     const id = this.comments.createFromSelection();
     this._addButton = null;
     if (!id) return;
-    await this.updateComplete;
-    this.marginEl?.focusCard(id);
+    this._pendingFocus = id;
+    this.requestShowComments();
+    this.requestUpdate();
   }
 
   private renderMargin() {
     const c = this.comments;
-    if (c.total === 0) return html``;
+    if (!this.showComments || c.total === 0) return html``;
     return html`<comment-margin
       .cards=${c.cards()}
       .activeId=${c.activeId}
@@ -481,7 +516,7 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
       @reply-change=${(e: CustomEvent) => c.setReplyText(e.detail.id, e.detail.replyId, e.detail.text)}
       @reply-delete=${(e: CustomEvent) => c.removeReply(e.detail.id, e.detail.replyId)}
       @toggle-resolved=${(e: CustomEvent) => c.setShowResolved(e.detail.show)}
-      @copy-markdown=${() => c.copyCriticMarkup()}
+      @copy-markdown=${() => c.copyCriticMarkup(this.nameOf)}
     ></comment-margin>`;
   }
 

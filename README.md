@@ -55,9 +55,13 @@ Each new agent that you create this way will get assigned its own port and get c
 
 Notes support Google-Docs-style comments in both editors. Select some text and
 press the **+ Comment** button that appears beside the selection; the comment
-opens as a card in a margin to the right of the text. Cards can be replied to,
-resolved and reopened (the **Resolved** switch in the margin header shows
-resolved ones), and deleted by their author.
+opens as a card in a margin to the right of the text. The margin is hidden by
+default: the toolbar button with the comment count toggles it, and it opens by
+itself when you click into highlighted text or add a comment. Cards can be
+replied to, resolved and reopened (the **Resolved** switch in the margin header
+shows resolved ones), and deleted by their author. The margin's copy button
+puts the markdown on the clipboard with the comments inlined as CriticMarkup,
+authors shown by nickname.
 
 How it works:
 
@@ -70,9 +74,9 @@ How it works:
   replies) live beside the text in the same document, so they sync in real
   time and are versioned with the note. There is no DNA change.
 - The markdown stays pure: comments are never written into the text. The JSON
-  export carries them (`workspaces[].comments`), and the margin's copy button
-  puts the markdown on the clipboard with comments as
-  [CriticMarkup](http://criticmarkup.com/) (`{==text==}{>>@author: comment<<}`).
+  export carries them (`workspaces[].comments`); the clipboard copy uses
+  [CriticMarkup](http://criticmarkup.com/) (`{==text==}{>>@author: comment<<}`,
+  replies after `//`).
 - Notes created before this feature stored the text as a list of characters;
   they are migrated to a `Text` the first time someone opens them.
 

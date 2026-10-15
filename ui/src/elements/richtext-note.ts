@@ -56,12 +56,13 @@ import {
   pipe,
   StoreSubscriber,
   subscribe,
+  get,
 } from "@holochain-open-dev/stores";
 import { SlChangeEvent, SlDialog, SlDrawer, SlRadioGroup } from "@shoelace-style/shoelace";
 import { msg } from "@lit/localize";
 import { decode } from "@msgpack/msgpack";
 import { Marked } from "@ts-stack/markdown";
-import { mdiArrowLeft, mdiBookOpenOutline, mdiEye, mdiPencil, mdiClose, mdiDotsGrid } from "@mdi/js";
+import { mdiArrowLeft, mdiBookOpenOutline, mdiEye, mdiPencil, mdiClose, mdiDotsGrid, mdiCommentOutline } from "@mdi/js";
 import { isWeaveContext, WAL } from "@theweave/api";
 import {
   TextEditorEphemeralState,
@@ -504,6 +505,31 @@ export class RichtextNote extends LitElement {
     migrateSession(sessionStore);
   }
 
+
+  /** Comment margin visibility: toggled from the toolbar, opened by the editor on a highlight click or a new comment. */
+  @state()
+  _showComments = false;
+
+  private commentCount(sessionStore: SessionStore<TextEditorState, TextEditorEphemeralState>): number {
+    const doc = get(sessionStore.docState);
+    return doc?.comments ? Object.keys(doc.comments).length : 0;
+  }
+
+  renderCommentsToggle(sessionStore: SessionStore<TextEditorState, TextEditorEphemeralState>) {
+    const n = this.commentCount(sessionStore);
+    return html`<sl-button
+      class="nb-comments-toggle"
+      style="margin-left: 8px;"
+      size="small"
+      variant=${this._showComments ? "primary" : "default"}
+      title=${this._showComments ? msg("Hide comments") : msg("Show comments")}
+      @click=${() => { this._showComments = !this._showComments; }}
+    >
+      <sl-icon slot="prefix" .src=${wrapPathInSvg(mdiCommentOutline)}></sl-icon>
+      ${n}
+    </sl-button>`;
+  }
+
   renderNoteWorkspace(
     sessionStore: SessionStore<TextEditorState, TextEditorEphemeralState>,
     state: TextEditorState
@@ -575,6 +601,7 @@ export class RichtextNote extends LitElement {
           >
             ${msg("Version Control")}
           </sl-button>
+          ${this.renderCommentsToggle(sessionStore)}
           <slot name="toolbar-action"></slot>
         </div>
         <div class="row" style="flex: 1;">
@@ -586,6 +613,8 @@ export class RichtextNote extends LitElement {
 
                 <syn-pm-editor
                 .slice=${sessionStore}
+                  .showComments=${this._showComments}
+                  @show-comments=${() => { this._showComments = true; }}
                 ></syn-pm-editor>
 
               </div>

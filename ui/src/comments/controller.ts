@@ -138,13 +138,35 @@ export class CommentsController implements ReactiveController {
     this.change(g => g.deleteReply(id, replyId));
   }
 
-  criticMarkup(): string {
-    if (!this.doc) return '';
-    return toCriticMarkup(textOf(this.doc), Object.values(this.doc.comments ?? {}), this.ranges);
+  /** Every author key in the document (comments and replies). */
+  authors(): string[] {
+    const out = new Set<string>();
+    for (const c of Object.values(this.doc?.comments ?? {})) {
+      out.add(c.author);
+      for (const r of c.replies) out.add(r.author);
+    }
+    return [...out];
   }
 
-  async copyCriticMarkup(): Promise<void> {
-    await navigator.clipboard.writeText(this.criticMarkup());
+  criticMarkup(names: Map<string, string> = new Map()): string {
+    if (!this.doc) return '';
+    return toCriticMarkup(textOf(this.doc), Object.values(this.doc.comments ?? {}), this.ranges, names);
+  }
+
+  /** Copy the markdown with comments; `nameOf` turns an author key into a display name. */
+  async copyCriticMarkup(nameOf?: (author: string) => Promise<string | undefined>): Promise<void> {
+    const names = new Map<string, string>();
+    if (nameOf) {
+      for (const a of this.authors()) {
+        try {
+          const n = await nameOf(a);
+          if (n) names.set(a, n);
+        } catch (e) {
+          // no profile: the key is shown instead
+        }
+      }
+    }
+    await navigator.clipboard.writeText(this.criticMarkup(names));
   }
 
   /** The margin's cards, anchored through the host's geometry. Call after the host has rendered. */

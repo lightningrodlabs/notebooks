@@ -102,5 +102,12 @@ export class Page {
     });
   }
 
+  /** A real left click at viewport coordinates: mouse move, press and release, as a person would. */
+  async click(x, y) {
+    await this.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+    await this.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+    await this.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+  }
+
   close() { try { this.ws.close(); } catch {} }
 }

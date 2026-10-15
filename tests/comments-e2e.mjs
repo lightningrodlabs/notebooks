@@ -45,6 +45,9 @@ window.__cards = () => { const m = window.__margin(); return m ? Array.from(m.sh
 window.__cardTexts = () => window.__cards().map(c => { const t = c.querySelector('textarea.body'); return t ? t.value : (c.querySelector('.text') || {}).textContent; });
 window.__cardByText = (s) => window.__cards().find(c => (window.__cardTexts()[window.__cards().indexOf(c)] || '').includes(s));
 window.__deepActive = () => { let a = document.activeElement; while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement; return a; };
+window.__highlightPoint = () => { const el = window.__dqAll(e => e.classList && e.classList.contains('nb-comment')).find(e => e.getBoundingClientRect().width > 0); if (!el) return null;
+  const r = el.getBoundingClientRect(); return { x: r.left + Math.min(4, r.width / 2), y: r.top + r.height / 2 }; };
+window.__toggle = () => { const b = window.__dq(e => e.classList && e.classList.contains('nb-comments-toggle')); if (!b) return null; b.click(); return b.textContent.trim(); };
 true`;
 
 async function typeText(page, text) {
@@ -99,8 +102,14 @@ async function main() {
   console.log('7. A comments on "gamma delta"');
   await commentOn(A, 'gamma delta', 'Looks wrong');
   check((await A.eval(`window.__hlText()`)) === 'gamma delta', 'A highlights exactly the selected span');
-  const bSees = await waitUntil(() => B.eval(`window.__hlText() === 'gamma delta' && window.__cardTexts().some(t => (t || '').includes('Looks wrong'))`), 30000, 500, 'B sees the comment');
-  check(bSees, 'B sees the highlight and the card text live');
+  const bHl = await waitUntil(() => B.eval(`window.__hlText() === 'gamma delta'`), 30000, 500, 'B sees the highlight');
+  check(bHl, 'B sees the highlight live');
+  check((await B.eval(`window.__cards().length`)) === 0, 'B\'s comment panel starts closed');
+  const point = await B.eval(`JSON.stringify(window.__highlightPoint())`).then(JSON.parse);
+  check(!!point, 'B has a visible highlight to click');
+  if (point) await B.click(point.x, point.y);
+  const bSees = await waitUntil(() => B.eval(`window.__cardTexts().some(t => (t || '').includes('Looks wrong'))`), 15000, 300, 'B panel opens on click');
+  check(bSees, 'clicking the highlight opens B\'s panel with the card text');
   check((await B.eval(`(window.__cards()[0].querySelector('.quote') || {}).textContent || ''`)).includes('gamma delta'), 'the card quotes the commented text');
 
   console.log('8. B comments on an overlapping span "delta\\nepsilon"');
@@ -190,8 +199,15 @@ async function main() {
   check((await A.eval(`window.__hlText()`)) === 'two', 'A highlights "two" in rich text');
   await openNote(B, rtBytes, 'syn-pm-editor');
   await B.eval(COMMENT_HELPERS);
-  const rtSeen = await waitUntil(() => B.eval(`window.__hlText() === 'two' && window.__cardTexts().some(t => (t || '').includes('rich'))`), 60000, 500, 'B sees rich comment');
-  check(rtSeen, 'B sees the rich-text comment and its highlight');
+  const rtHl = await waitUntil(() => B.eval(`window.__hlText() === 'two'`), 60000, 500, 'B sees rich highlight');
+  check(rtHl, 'B sees the rich-text highlight');
+  const toggleLabel = await B.eval(`window.__toggle()`);
+  check(toggleLabel === '1', `the toolbar toggle shows the comment count (got ${JSON.stringify(toggleLabel)})`);
+  const rtSeen = await waitUntil(() => B.eval(`window.__cardTexts().some(t => (t || '').includes('rich'))`), 15000, 300, 'B toggles the panel');
+  check(rtSeen, 'the toggle opens B\'s panel with the rich-text comment');
+  await B.eval(`window.__toggle()`);
+  const closed = await waitUntil(() => B.eval(`window.__cards().length === 0`), 10000, 300, 'B closes the panel');
+  check(closed, 'the toggle closes the panel again');
 
   const errs = pages.flatMap(p => p.errors.map(e => `[${p.name}] ${e}`)).filter(e => !/timed out in \d+ ms: call_zome/i.test(e));
   console.log(`\npage errors: ${errs.length}`);

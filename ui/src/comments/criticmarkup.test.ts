@@ -23,3 +23,11 @@ describe('toCriticMarkup', () => {
     expect(toCriticMarkup('ab', [withReply], [{ id: 'a', start: 0, end: 1 }])).toBe('{==a==}{>>@uhCAka: A // @uhCAkr: R<<}b');
   });
 });
+
+describe('toCriticMarkup with display names', () => {
+  it('uses the given name for an author and falls back to the key', () => {
+    const names = new Map([['uhCAka', 'Ann']]);
+    const out = toCriticMarkup('ab', [c('a', 'A'), c('b', 'B')], [{ id: 'a', start: 0, end: 1 }, { id: 'b', start: 1, end: 2 }], names);
+    expect(out).toBe('{==a==}{>>@Ann: A<<}{==b==}{>>@uhCAkb: B<<}');
+  });
+});

@@ -7,6 +7,9 @@ import {
   encodeHashToBase64,
 } from '@holochain/client';
 import { derived, StoreSubscriber } from '@holochain-open-dev/stores';
+import { consume } from '@lit/context';
+import { ProfilesStore, profilesStoreContext } from '@holochain-open-dev/profiles';
+import { toPromise } from '@holochain-open-dev/stores';
 import { wrapPathInSvg } from '@holochain-open-dev/elements';
 import { mdiCommentPlusOutline } from '@mdi/js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
@@ -105,6 +108,29 @@ export class SynPmEditor extends LitElement implements CommentsHost {
 
   /** Comments: derived state, mutations and margin cards (see comments/controller.ts). */
   comments = new CommentsController(this);
+
+  @consume({ context: profilesStoreContext, subscribe: true })
+  profilesStore!: ProfilesStore;
+
+  /** Nickname for an author key, for the markdown copy. */
+  private nameOf = async (author: string): Promise<string | undefined> => {
+    if (!this.profilesStore) return undefined;
+    const store = this.profilesStore.profiles.get(decodeHashFromBase64(author));
+    if (!store) return undefined;
+    const profile = await toPromise(store);
+    return profile?.entry.nickname;
+  };
+
+  /** Whether the margin is shown; the note shell owns it and listens for `show-comments`. */
+  @property({ type: Boolean })
+  showComments = false;
+
+  /** Card to focus once the margin is on screen (it may only appear after the shell re-renders). */
+  private _pendingFocus: string | null = null;
+
+  private requestShowComments() {
+    this.dispatchEvent(new CustomEvent('show-comments', { bubbles: true, composed: true }));
+  }
 
   /** Where the floating "+ Comment" button sits while there is a selection, relative to the editor container. */
   @state() private _addButton: { left: number; top: number } | null = null;
@@ -885,7 +911,9 @@ export class SynPmEditor extends LitElement implements CommentsHost {
         handleClick(_view, pos) {
           self.docToText(self.view!.state.doc);
           const offset = self.proseMirrorPosToMarkdownPos(pos);
-          self.comments.activate(commentAt(self.comments.ranges, offset));
+          const id = commentAt(self.comments.ranges, offset);
+          self.comments.activate(id);
+          if (id) self.requestShowComments();
           return false;
         },
       },
@@ -944,17 +972,26 @@ export class SynPmEditor extends LitElement implements CommentsHost {
     }
   }
 
-  private async addCommentFromSelection() {
+  private addCommentFromSelection() {
     const id = this.comments.createFromSelection();
     this._addButton = null;
     if (!id) return;
-    await this.updateComplete;
-    this.marginEl?.focusCard(id);
+    this._pendingFocus = id;
+    this.requestShowComments();
+    this.requestUpdate();
+  }
+
+  updated(changed: Map<string | number | symbol, unknown>) {
+    if (changed.has('slice') && this.view) this.subscribeToSynChanges();
+    if (this._pendingFocus && this.marginEl) {
+      this.marginEl.focusCard(this._pendingFocus);
+      this._pendingFocus = null;
+    }
   }
 
   private renderMargin() {
     const c = this.comments;
-    if (c.total === 0) return html``;
+    if (!this.showComments || c.total === 0) return html``;
     return html`<comment-margin
       .cards=${c.cards()}
       .activeId=${c.activeId}
@@ -969,7 +1006,7 @@ export class SynPmEditor extends LitElement implements CommentsHost {
       @reply-change=${(e: CustomEvent) => c.setReplyText(e.detail.id, e.detail.replyId, e.detail.text)}
       @reply-delete=${(e: CustomEvent) => c.removeReply(e.detail.id, e.detail.replyId)}
       @toggle-resolved=${(e: CustomEvent) => c.setShowResolved(e.detail.show)}
-      @copy-markdown=${() => c.copyCriticMarkup()}
+      @copy-markdown=${() => c.copyCriticMarkup(this.nameOf)}
     ></comment-margin>`;
   }
 
@@ -1062,10 +1099,6 @@ export class SynPmEditor extends LitElement implements CommentsHost {
   }
 
   private _sliceUnsubs: Array<() => void> = [];
-
-  updated(changed: Map<string | number | symbol, unknown>) {
-    if (changed.has('slice') && this.view) this.subscribeToSynChanges();
-  }
 
   /** (Re)subscribe the editor to the slice's state and cursors; re-run whenever `slice` changes. */
   private subscribeToSynChanges() {
