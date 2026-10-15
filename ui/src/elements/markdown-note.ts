@@ -69,8 +69,7 @@ import {
   TextEditorEphemeralState,
   TextEditorState,
 } from "../grammar";
-import { isMigrated, textOf } from "../text";
-import { migrateSession } from "../migrate-session";
+import { textOf } from "../text";
 import { countComments } from "../comments/counts";
 import { commentsView } from "../comments/model";
 import { clearRendered, paintRendered, renderedHighlightStyles } from "../comments/rendered-highlights";
@@ -565,18 +564,11 @@ export class MarkdownNote extends LitElement {
   }
 
 
-  /** Legacy notes store the text as a list of characters; move it to a Text once per session, before anyone edits. */
-  private _migratedFor: SessionStore<TextEditorState, TextEditorEphemeralState> | null = null;
-
   updated() {
     if (this._session.value.status !== "complete") return;
     const value = this._session.value.value;
     if (!value) return;
-    const [sessionStore, state] = value;
-    this.paintPreview(sessionStore);
-    if (this._migratedFor === sessionStore || isMigrated(state)) return;
-    this._migratedFor = sessionStore;
-    migrateSession(sessionStore);
+    this.paintPreview(value[0]);
   }
 
   /** Comment highlights over the rendered preview (best effort, by quote). */

@@ -77,8 +77,13 @@ How it works:
   export carries them (`workspaces[].comments`); the clipboard copy uses
   [CriticMarkup](http://criticmarkup.com/) (`{==text==}{>>@author: comment<<}`,
   replies after `//`).
-- Notes created before this feature stored the text as a list of characters;
-  they are migrated to a `Text` the first time someone opens them.
+- The storage shape changed (earlier releases kept the text as a list of
+  characters), so this ships as a new DNA, i.e. a new network. There is no
+  in-app migration: notes come across with **Export** on the old version and
+  **Import** on this one. Import reads export files from every earlier release
+  (v0.0.11 wrote the whole note state, later releases the text itself; see
+  `noteTextFromExport` in `ui/src/export.ts` and the files in
+  `ui/src/fixtures/`), and exports from this release carry their comments.
 
 Code: `ui/src/comments/` (pure modules and the shared controller),
 `ui/src/elements/comment-margin.ts`, and the two editors. Unit tests run with

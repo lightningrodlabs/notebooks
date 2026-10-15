@@ -1,6 +1,5 @@
 import { AgentPubKey, encodeHashToBase64 } from '@holochain/client';
 import * as Automerge from '@automerge/automerge';
-import { isMigrated, migrateText } from './text';
 import { Comment, markName } from './comments/types';
 
 /** A participant's selection: an Automerge cursor into `body` plus the selection length. */
@@ -12,8 +11,6 @@ export interface AgentSelection {
 export type TextEditorState = {
   /** The markdown, as an Automerge Text. */
   body?: string;
-  /** Legacy list of characters; absent once a note is migrated. */
-  text?: string[];
   /** Comment records keyed by id; each one's range is the mark `comment:<id>` on `body`. */
   comments?: Record<string, Comment>;
 };
@@ -45,7 +42,7 @@ export const textEditorGrammar = {
   },
   changes(myPubKey: AgentPubKey, state: TextEditorState, cursors: TextEditorEphemeralState) {
     const me = encodeHashToBase64(myPubKey);
-    if (!isMigrated(state)) migrateText(state);
+    if (typeof state.body !== 'string') state.body = '';
     const len = () => state.body!.length;
     const setCursor = (index: number, characterCount: number) => {
       cursors[me] = { cursor: Automerge.getCursor(state as any, BODY, index), characterCount };

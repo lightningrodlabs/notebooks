@@ -38,9 +38,9 @@ describe('comment operations', () => {
     expect(marks(d)).toEqual([{ name: markName('a'), value: true, start: 6, end: 11 }]);
   });
 
-  it('works on a document created before the comments field existed', () => {
-    const legacy = { state: Automerge.from<TextEditorState>({ text: 'hello world'.split('') }), eph: Automerge.from<TextEditorEphemeralState>({}) };
-    const d = apply(legacy, g => g.addComment({ id: 'a', from: 0, to: 5 }));
+  it('works on a document without a comments map yet', () => {
+    const bare = { state: Automerge.from<TextEditorState>({ body: 'hello world' }), eph: Automerge.from<TextEditorEphemeralState>({}) };
+    const d = apply(bare, g => g.addComment({ id: 'a', from: 0, to: 5 }));
     expect(d.state.body).toBe('hello world');
     expect(d.state.comments!.a.quote).toBe('hello');
     expect(d.state.comments!.a.text).toBe('');

@@ -80,7 +80,7 @@ import { NoteMeta, NoteWorkspace, Notebook, noteMetaB64ToRaw, noteMetaToB64 } fr
 import { textOf } from "./text";
 import { TextEditorState } from "./grammar";
 import { exportComments } from "./comments/export";
-import { deserializeExport, exportNotes } from "./export.js";
+import { deserializeExport, exportNotes, noteTextFromExport } from "./export.js";
 import { NotebooksStore, notebooksContext } from "./store.js";
 import { renderAsyncStatus } from "./utils.js";
 
@@ -313,9 +313,9 @@ export class NotebooksApp extends LitElement {
     this._loading = false;
   }
 
-  async doExport() {
+  /** Every note with all its workspaces, text and comments, as written to an export file. */
+  async collectNotebooks(): Promise<Array<Notebook>> {
     const notes: Array<Notebook> = []
-    this.exporting = true
     const docs = await toPromise(this._synStore.documentsByTag.get("note"))
     for (const docStore of Array.from(docs.values() as IterableIterator<DocumentStore<any,any>|undefined>)) {
       if (!docStore) {
@@ -345,8 +345,35 @@ export class NotebooksApp extends LitElement {
         })
       }
     }
-    exportNotes(notes)
-    this.exporting = false
+    return notes
+  }
+
+  async doExport() {
+    this.exporting = true
+    try {
+      exportNotes(await this.collectNotebooks())
+    } finally {
+      this.exporting = false
+    }
+  }
+
+  /**
+   * Create a note for each note in an export file, from this or any earlier
+   * release (see noteTextFromExport for the shapes). Only the first workspace
+   * of each note is imported, as before. Returns the hashes of the notes created.
+   */
+  async importNotebooks(json: string): Promise<Array<EntryHash>> {
+    const created: Array<EntryHash> = []
+    for (const n of deserializeExport(json)) {
+      try {
+        const noteMeta = noteMetaB64ToRaw(n.meta)
+        const ws = n.workspaces[0]
+        created.push(await createNote(this._synStore, noteMeta.title, noteMeta.attachedToHrl, noteTextFromExport(ws?.note), noteMeta.editorType || "markdown", ws?.comments))
+      } catch (e) {
+        console.error("Error importing note", n?.meta?.title, e)
+      }
+    }
+    return created
   }
 
   onFileSelected = (e: any) => {
@@ -355,16 +382,11 @@ export class NotebooksApp extends LitElement {
 
     reader.addEventListener("load", async () => {
       this.importing = true
-
-      const importedNotebooks = deserializeExport(reader.result as string)
-      if (importedNotebooks.length > 0) {
-        for (const n of importedNotebooks) {
-          const noteMeta = noteMetaB64ToRaw(n.meta)
-          console.log(n)
-          const _noteHash = await createNote(this._synStore, noteMeta.title, noteMeta.attachedToHrl, n.workspaces[0].note, noteMeta.editorType || "markdown", n.workspaces[0].comments);
-        }
+      try {
+        await this.importNotebooks(reader.result as string)
+      } finally {
+        this.importing = false
       }
-      this.importing = false
     }, false);
     reader.readAsText(file);
   };

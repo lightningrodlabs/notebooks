@@ -11,14 +11,15 @@
  *      highlighted text does not move.
  *   5. B replies; A resolves B's comment; the resolved toggle brings it back.
  *   6. B deletes the text under A's comment; A's card becomes an orphan.
- *   7. A legacy note (text stored as a list of characters) opened by both at
- *      once converges on one migrated Text.
+ *   7. A's export imports into B with text and comments intact, and export
+ *      files from earlier releases (v0.0.11 and v0.6 shapes) import too.
  *   8. A rich-text note gets a comment through the ProseMirror editor and B
  *      sees it.
  *
  * Usage:  nix develop --command node tests/comments-e2e.mjs
  * Env:    HEADFUL=1 KEEP=1 RUN_TIMEOUT_MS=900000
  */
+import { readFileSync } from 'node:fs';
 import { delay, waitUntil } from './cdp.mjs';
 import { pages, installCleanup, cleanup, startStack, openNote } from './harness.mjs';
 
@@ -153,23 +154,45 @@ async function main() {
   check(orphan, 'A\'s card survives as an orphan with its quote');
   check(!(await A.eval(`window.__hlText()`)).includes('gamma'), 'the deleted span is no longer highlighted');
 
-  console.log('13. a legacy note opened by both at once migrates cleanly');
-  const legacyText = '# Old note\n\nstored as a list of characters';
-  const legacyBytes = await A.eval(`(async () => { const a = window.__app(); const s = a._synStore;
-    const doc = await s.createDocument({ text: ${JSON.stringify(legacyText)}.split('') },
-      { title: 'legacy', author: s.client.client.myPubKey, timestamp: Date.now(), attachedToHrl: undefined, editorType: 'markdown' });
-    await s.client.tagDocument(doc.documentHash, 'note'); await doc.createWorkspace('main', undefined);
-    return Array.from(doc.documentHash); })()`);
-  await Promise.all([openNote(A, legacyBytes), openNote(B, legacyBytes)]);
-  for (const p of pages) await p.eval(COMMENT_HELPERS);
-  const migrated = await waitUntil(async () => {
-    const r = await Promise.all(pages.map(p => p.eval(`(() => { const e = window.__md(); const s = e && e._state.value; return s ? JSON.stringify({ text: window.__text(), body: typeof s.body, list: 'text' in s }) : null; })()`)));
-    return r.every(x => x && JSON.parse(x).text === legacyText && JSON.parse(x).body === 'string' && JSON.parse(x).list === false);
-  }, 60000, 500, 'migration');
-  check(migrated, 'both agents end on the same migrated Text with no character list left');
-  await typeAt(A, 'end', ' plus');
-  const legacyTyped = await waitUntil(async () => (await B.eval(`window.__text()`)) === legacyText + ' plus', 30000, 500, 'typing after migration');
-  check(legacyTyped, 'typing into the migrated note still syncs');
+  console.log('13. A exports; B imports that file and files from earlier releases');
+  // Commit A's session first: an export reads each workspace's committed tip.
+  await A.eval(`(async () => { const n = window.__dq(e => e.tagName.toLowerCase() === 'markdown-note'); await n._session.value.value[0].commitChanges(); return true; })()`);
+  await delay(2000);
+  const exportJson = await A.eval(`(async () => JSON.stringify({ version: '1', notes: await window.__app().collectNotebooks() }))()`);
+  const exported = JSON.parse(exportJson).notes.find(n => n.meta.title === 'comments note');
+  check(!!exported && exported.workspaces[0].comments.length === 2, 'A\'s export carries the note with both comments');
+  // Import is done from the main view, as a person would from Settings.
+  await B.eval(`(() => { window.__app().view = { type: 'main' }; return true; })()`);
+  await delay(5000);
+  const importedHashes = await B.eval(`(async () => (await window.__app().importNotebooks(${JSON.stringify(exportJson)})).map(h => Array.from(h)))()`);
+  check(importedHashes.length === JSON.parse(exportJson).notes.length, `B imported every note in A's export (${importedHashes.length})`);
+  const bNotes = JSON.parse(await B.eval(`(async () => JSON.stringify(await window.__app().collectNotebooks()))()`));
+  const reimported = bNotes.find(n => n.meta.title === 'comments note' && n.workspaces[0].comments.length === 2 && n.meta.author !== exported.meta.author);
+  const byId = cs => [...cs].sort((x, y) => x.id.localeCompare(y.id));
+  check(!!reimported && reimported.workspaces[0].note === exported.workspaces[0].note, 'the imported note has the same text');
+  check(!!reimported && JSON.stringify(byId(reimported.workspaces[0].comments)) === JSON.stringify(byId(exported.workspaces[0].comments)),
+    'the imported note has the same comments, replies, resolution and ranges');
+  const fixtures = new URL('../ui/src/fixtures/', import.meta.url);
+  for (const [file, expect] of [
+    ['export-v0.0.11.json', [['Old shopping list', '# Old shopping list\n\n- eggs\n- milk\n', 'markdown']]],
+    ['export-v0.6.json', [['Meeting notes', '# Meeting notes\n\nAgreed to ship on Friday.\n', 'markdown'], ['Rich', '# Rich\n\n**bold** text\n', 'richtext']]],
+  ]) {
+    const json = readFileSync(new URL(file, fixtures), 'utf8');
+    const made = await B.eval(`(async () => (await window.__app().importNotebooks(${JSON.stringify(json)})).length)()`);
+    check(made === expect.length, `${file}: B created ${made} of ${expect.length} notes`);
+  }
+  const afterOld = JSON.parse(await B.eval(`(async () => JSON.stringify(await window.__app().collectNotebooks()))()`));
+  for (const [title, text, type] of [['Old shopping list', '# Old shopping list\n\n- eggs\n- milk\n', 'markdown'], ['Meeting notes', '# Meeting notes\n\nAgreed to ship on Friday.\n', 'markdown'], ['Rich', '# Rich\n\n**bold** text\n', 'richtext']]) {
+    const n = afterOld.find(x => x.meta.title === title);
+    check(!!n && n.workspaces[0].note === text && (n.meta.editorType || 'markdown') === type, `old export "${title}" imported with its text as a ${type} note`);
+  }
+  // Open the re-imported comments note and check the panel shows what A had.
+  const reHash = importedHashes[JSON.parse(exportJson).notes.findIndex(n => n.meta.title === 'comments note')];
+  await openNote(B, reHash);
+  await B.eval(COMMENT_HELPERS);
+  await B.eval(`window.__toggle()`);
+  const reHeader = await waitUntil(() => B.eval(`(() => { const m = window.__margin(); return !!m && m.shadowRoot.querySelector('.header span').textContent.trim() === '1 open · 1 resolved'; })()`), 30000, 500, 'imported panel');
+  check(reHeader, 'the imported note opens with its comments: 1 open · 1 resolved');
 
   console.log('14. a rich-text note gets a comment through ProseMirror');
   // The app's createNote resets the new-note form, which only exists on the main view.

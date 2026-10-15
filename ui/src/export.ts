@@ -18,12 +18,28 @@ const download = (filename: string, text: string) => {
 
 
 
+export const serializeExport = (notes: Array<Notebook>): string =>
+    JSON.stringify({ version: EXPORT_FORMAT_VERSION, notes })
+
 const _exportNotes = (fileName:string, notes: Array<Notebook>) => {
-    const exportObject = {
-        version: EXPORT_FORMAT_VERSION,
-        notes,
+    download(fileName, serializeExport(notes))
+}
+
+/**
+ * A workspace's text as written by any release. v0.0.11 wrote the whole note
+ * state (`{ text: "..." }`, Automerge 1's Text serialized as a string); every
+ * later release writes the text itself. The character-list and `body` shapes
+ * are accepted too, in case a state object turns up from elsewhere.
+ */
+export const noteTextFromExport = (note: unknown): string => {
+    if (typeof note === "string") return note
+    if (note && typeof note === "object") {
+        const n = note as { text?: unknown; body?: unknown }
+        if (typeof n.body === "string") return n.body
+        if (typeof n.text === "string") return n.text
+        if (Array.isArray(n.text)) return n.text.join("")
     }
-    download(fileName, JSON.stringify(exportObject))
+    return ""
 }
 
 export const exportNote = (state: Notebook) => {

@@ -65,18 +65,19 @@ margin offers edit/delete only to the author.
 
 ## 4. Migration
 
-`ui/src/text.ts` provides `textOf(state)` (reads `body`, else joins `text`),
-`isMigrated(state)` and `migrateText(state)` (inside a change: `body =
-text.join('')`, `delete text`). Read-only consumers (rendered note, note list,
-diff viewer, export) use `textOf`, because old commits stay in history
-forever. The note shells (`markdown-note`, `richtext-note`) run the migration
-once when the session store is ready and `body` is absent, before an editor
-mounts, so editors only ever see `body`. `createNote` writes `body` directly.
+**Revised 2026-10-15: no in-app migration.** The release ships as a new DNA
+(a new network), so no note in the old shape ever exists alongside this
+version, and clients on different versions never meet. Notes move across by
+exporting on the old version and importing on this one. `importNotebooks`
+accepts every export shape earlier releases wrote: v0.0.11 wrote the whole note
+state (`note: { text: "..." }`, Automerge 1's Text serialized as a string);
+v0.0.12 onward write the text itself (`note: "..."`). Exports from this release
+add `comments` per workspace (§9). `ui/src/text.ts` keeps only `textOf(state)`
+(the body, or empty).
 
-Race: two peers joining an unmigrated note at the same moment both write
-`body`; Automerge keeps one by last-writer-wins. Both contain identical text,
-so at most a few keystrokes typed into the losing copy during that second are
-lost. Accepted.
+The original design (migrating each note to a Text the first time an updated
+client opened it) was implemented and then removed: on the shared network it
+broke every client still on the previous version.
 
 ## 5. Anchoring and resolution (`ui/src/comments/`)
 
