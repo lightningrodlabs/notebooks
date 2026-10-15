@@ -302,6 +302,9 @@ export class CommentMargin extends LitElement {
       flex: 1;
     }
     .empty {
+      /* The cards box is pulled up under the header and would cover this. */
+      position: relative;
+      z-index: 2;
       padding: 16px 4px;
       color: var(--sl-color-neutral-600);
     }
