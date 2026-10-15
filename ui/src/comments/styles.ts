@@ -20,9 +20,21 @@ export const commentStyles = css`
   .nb-row {
     display: flex;
     flex-direction: row;
-    align-items: flex-start;
+    align-items: stretch;
     position: relative;
     flex: 1;
+    min-height: 100%;
+  }
+  .nb-divider {
+    flex: none;
+    width: 6px;
+    cursor: col-resize;
+    background: var(--sl-color-neutral-200);
+    touch-action: none;
+  }
+  .nb-divider:hover,
+  .nb-divider:active {
+    background: var(--sl-color-primary-300);
   }
   .nb-text {
     flex: 1;

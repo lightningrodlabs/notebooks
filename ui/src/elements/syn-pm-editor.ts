@@ -38,6 +38,7 @@ import { textOf } from '../text.js';
 import { CommentsController, CommentsHost } from '../comments/controller.js';
 import { Segment } from '../comments/ranges.js';
 import { commentAt } from '../comments/model.js';
+import { placeAddButton } from '../comments/add-button.js';
 import { commentStyles } from '../comments/styles.js';
 import './comment-margin.js';
 import { CommentMargin } from './comment-margin.js';
@@ -965,8 +966,8 @@ export class SynPmEditor extends LitElement implements CommentsHost {
     }
     try {
       const coords = this.view.coordsAtPos(this.view.state.selection.to);
-      const rect = this.editorEl.getBoundingClientRect();
-      this._addButton = { left: coords.left - rect.left, top: coords.bottom - rect.top + 4 };
+      const container = this.editorEl.parentElement as HTMLElement; // .editor-container, the scrolling box the button is positioned in
+      this._addButton = placeAddButton(coords, container.getBoundingClientRect(), container.scrollTop, container.scrollLeft);
     } catch (e) {
       this._addButton = null;
     }
@@ -992,7 +993,9 @@ export class SynPmEditor extends LitElement implements CommentsHost {
   private renderMargin() {
     const c = this.comments;
     if (!this.showComments || c.total === 0) return html``;
-    return html`<comment-margin
+    return html`<div class="nb-divider" title="Drag to resize" @pointerdown=${(e: PointerEvent) => c.startResize(e)}></div>
+    <comment-margin
+      style=${styleMap({ width: `${c.marginWidth}px` })}
       .cards=${c.cards()}
       .activeId=${c.activeId}
       .myPubKeyB64=${c.myPubKeyB64}
@@ -1569,6 +1572,8 @@ export class SynPmEditor extends LitElement implements CommentsHost {
       display: flex;
       flex: 1;
       position: relative;
+      min-height: 100%;
+      box-sizing: border-box;
     }
     .cursor {
       position: absolute;

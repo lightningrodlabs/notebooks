@@ -691,6 +691,10 @@ export class RichtextNote extends LitElement {
   static styles = [
     sharedStyles,
     css`
+      /* The shared style only caps the height; the editor needs the pane's full height to fill it. */
+      .flex-scrollable-y {
+        height: 100%;
+      }
       .active::part(base) {
         background-color: var(--sl-color-primary-600);
         color: white;

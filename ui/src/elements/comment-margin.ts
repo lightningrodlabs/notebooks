@@ -80,8 +80,15 @@ export class CommentMargin extends LitElement {
     for (const card of Array.from(this.shadowRoot?.querySelectorAll<HTMLElement>('.card') ?? [])) {
       this.heights.set(card.dataset.card!, card.offsetHeight);
     }
+    // Anchors are measured from the top of the editor row, which is also this
+    // element's top; the cards box starts below the sticky header, so pull it
+    // up by the header's height and keep every card below the header.
+    const header = this.shadowRoot?.querySelector<HTMLElement>('.header');
+    const headerHeight = header?.offsetHeight ?? 0;
+    const cardsBox = this.shadowRoot?.querySelector<HTMLElement>('.cards');
+    if (cardsBox) cardsBox.style.marginTop = `-${headerHeight}px`;
     const tops = fitCards(
-      anchored.map(c => ({ id: c.id, anchorTop: c.anchorTop!, height: this.heights.get(c.id) ?? FALLBACK_HEIGHT })),
+      anchored.map(c => ({ id: c.id, anchorTop: Math.max(c.anchorTop!, headerHeight), height: this.heights.get(c.id) ?? FALLBACK_HEIGHT })),
       this.activeId,
       GAP
     );
@@ -92,6 +99,8 @@ export class CommentMargin extends LitElement {
       tops.set(o.id, top);
       bottom = top + (this.heights.get(o.id) ?? FALLBACK_HEIGHT);
     }
+    // Cards are absolutely positioned, so the column must claim their height itself.
+    this.style.minHeight = `${Math.max(0, bottom) + GAP}px`;
     let changed = tops.size !== this.tops.size;
     for (const [id, top] of tops) if (this.tops.get(id) !== top) changed = true;
     if (changed) this.tops = tops;
@@ -192,8 +201,9 @@ export class CommentMargin extends LitElement {
       position: relative;
       font-size: 13px;
       line-height: 1.4;
-      padding-left: 12px;
+      padding: 0 8px;
       box-sizing: border-box;
+      background: var(--sl-color-neutral-50);
     }
     .header {
       position: sticky;
@@ -202,8 +212,8 @@ export class CommentMargin extends LitElement {
       display: flex;
       gap: 8px;
       align-items: center;
-      padding: 4px 0 8px;
-      background: white;
+      padding: 6px 4px 8px;
+      background: var(--sl-color-neutral-50);
       border-bottom: 1px solid var(--sl-color-neutral-200);
       font-size: 12px;
       color: var(--sl-color-neutral-600);

@@ -23,6 +23,7 @@ import { textOf } from '../text.js';
 import { CommentsController, CommentsHost } from '../comments/controller.js';
 import { Segment } from '../comments/ranges.js';
 import { commentAt } from '../comments/model.js';
+import { placeAddButton } from '../comments/add-button.js';
 import { commentStyles } from '../comments/styles.js';
 import './comment-margin.js';
 import { CommentMargin } from './comment-margin.js';
@@ -486,8 +487,7 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
     }
     const end = a > h ? range.anchor : range.head;
     const coords = this.editor.charCoords(end, 'window');
-    const rect = this.textEl.getBoundingClientRect();
-    this._addButton = { left: coords.left - rect.left, top: coords.bottom - rect.top + 4 };
+    this._addButton = placeAddButton(coords, this.textEl.getBoundingClientRect(), this.textEl.scrollTop, this.textEl.scrollLeft);
   }
 
   private addCommentFromSelection() {
@@ -502,7 +502,9 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
   private renderMargin() {
     const c = this.comments;
     if (!this.showComments || c.total === 0) return html``;
-    return html`<comment-margin
+    return html`<div class="nb-divider" title="Drag to resize" @pointerdown=${(e: PointerEvent) => c.startResize(e)}></div>
+    <comment-margin
+      style=${styleMap({ width: `${c.marginWidth}px` })}
       .cards=${c.cards()}
       .activeId=${c.activeId}
       .myPubKeyB64=${c.myPubKeyB64}
@@ -614,6 +616,8 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
         display: flex;
         flex: 1;
         position: relative;
+        min-height: 100%;
+        box-sizing: border-box;
       }
       .cursor {
         position: absolute;

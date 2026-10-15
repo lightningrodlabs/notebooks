@@ -26,6 +26,21 @@ export interface CommentsHost extends ReactiveControllerHost {
 
 type Ops = ReturnType<typeof textEditorGrammar.changes>;
 
+const WIDTH_KEY = 'nb-comment-margin-width';
+const MIN_WIDTH = 200;
+const MAX_WIDTH = 640;
+const DEFAULT_WIDTH = 280;
+
+function storedWidth(): number {
+  try {
+    const n = Number(localStorage.getItem(WIDTH_KEY));
+    if (n >= MIN_WIDTH && n <= MAX_WIDTH) return n;
+  } catch (e) {
+    // storage unavailable: use the default
+  }
+  return DEFAULT_WIDTH;
+}
+
 /**
  * Shared by both editors: derives comments, ranges and segments from the live
  * Automerge doc, tracks the active comment, and funnels every mutation through
@@ -44,6 +59,9 @@ export class CommentsController implements ReactiveController {
 
   /** Total including resolved ones, for the header. */
   total = 0;
+
+  /** Width of the margin column in px; dragged with the divider, remembered per browser. */
+  marginWidth = storedWidth();
 
   private doc: Automerge.Doc<TextEditorState> | undefined;
 
@@ -167,6 +185,32 @@ export class CommentsController implements ReactiveController {
       }
     }
     await navigator.clipboard.writeText(this.criticMarkup(names));
+  }
+
+  /** Pointer-down on the divider between text and margin: drag left to widen the margin. */
+  startResize(e: PointerEvent) {
+    const divider = e.currentTarget as HTMLElement;
+    const startX = e.clientX;
+    const startWidth = this.marginWidth;
+    const move = (ev: PointerEvent) => {
+      this.marginWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, startWidth + (startX - ev.clientX)));
+      this.host.requestUpdate();
+    };
+    const up = () => {
+      divider.removeEventListener('pointermove', move);
+      divider.removeEventListener('pointerup', up);
+      divider.removeEventListener('pointercancel', up);
+      try {
+        localStorage.setItem(WIDTH_KEY, String(this.marginWidth));
+      } catch (err) {
+        // storage unavailable: the width lasts for this session
+      }
+    };
+    divider.setPointerCapture(e.pointerId);
+    divider.addEventListener('pointermove', move);
+    divider.addEventListener('pointerup', up);
+    divider.addEventListener('pointercancel', up);
+    e.preventDefault();
   }
 
   /** The margin's cards, anchored through the host's geometry. Call after the host has rendered. */
