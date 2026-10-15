@@ -36,7 +36,6 @@ import "@shoelace-style/shoelace/dist/components/input/input.js";
 import "@shoelace-style/shoelace/dist/components/radio-group/radio-group.js";
 import "@shoelace-style/shoelace/dist/components/radio-button/radio-button.js";
 import "@holochain-syn/core/dist/elements/syn-document-context.js";
-import { textEditorGrammar } from "@holochain-syn/text-editor";
 import {
   AppletServices,
   WAL,
@@ -75,6 +74,7 @@ import "./elements/all-notes.js";
 import { createNote } from "./index.js";
 import { appletServices } from "./we-applet.js";
 import { NoteMeta, NoteWorkspace, Notebook, noteMetaB64ToRaw, noteMetaToB64 } from "./types.js";
+import { textOf } from "./text";
 import { deserializeExport, exportNotes } from "./export.js";
 import { NotebooksStore, notebooksContext } from "./store.js";
 import { renderAsyncStatus } from "./utils.js";
@@ -326,7 +326,7 @@ export class NotebooksApp extends LitElement {
           } else {
             const name = await toPromise(wsStore.name)
             const note = await toPromise(wsStore.latestSnapshot) as any
-            const text = Array.isArray(note.text) ? note.text.join('') : note.text as string
+            const text = textOf(note)
             workspaces.push({ name, note: text })
           }
         }

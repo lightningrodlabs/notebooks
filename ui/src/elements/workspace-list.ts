@@ -27,7 +27,7 @@ import { AgentPubKey, EntryHash } from "@holochain/client";
 import {
   TextEditorEphemeralState,
   TextEditorState,
-} from "@holochain-syn/text-editor";
+} from "../grammar";
 
 @localized()
 @customElement("workspace-list")

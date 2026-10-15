@@ -1,6 +1,11 @@
 import { CommentRange, segments } from './ranges';
 import { Comment } from './types';
 
+function note(c: Comment, tag = ''): string {
+  const replies = c.replies.map(r => ` // @${r.author}: ${r.text}`).join('');
+  return `{>>@${c.author}${tag}: ${c.text}${replies}<<}`;
+}
+
 /**
  * Markdown with comments as CriticMarkup: `{==text==}{>>@author: comment<<}`.
  * Overlapping comments become adjacent pieces, each carrying every comment
@@ -25,9 +30,4 @@ export function toCriticMarkup(body: string, comments: Comment[], ranges: Commen
     out += '\n\n' + orphans.map(c => note(c, ` (detached, was "${c.quote}")`)).join('\n');
   }
   return out;
-}
-
-function note(c: Comment, tag = ''): string {
-  const replies = c.replies.map(r => ` // @${r.author}: ${r.text}`).join('');
-  return `{>>@${c.author}${tag}: ${c.text}${replies}<<}`;
 }

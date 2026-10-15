@@ -26,6 +26,7 @@ import {
   TextEditorEphemeralState,
   TextEditorState,
 } from "../grammar";
+import { textOf } from "../text";
 import { NoteMeta } from "../types.js";
 
 const WORKSPACE_NOT_FOUND = "The requested workspace was not found";
@@ -107,7 +108,7 @@ export class RenderedNote extends LitElement {
             <div class="flex-scrollable-container">
               <div class="flex-scrollable-y">
                 <div class="markd">
-                  ${unsafeHTML(Marked.parse(Array.isArray(state.text) ? state.text.join("") : state.text as unknown as string))}
+                  ${unsafeHTML(Marked.parse(textOf(state)))}
                 </div>
               </div>
             </div>

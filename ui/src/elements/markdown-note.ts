@@ -68,6 +68,7 @@ import {
   TextEditorEphemeralState,
   TextEditorState,
 } from "../grammar";
+import { isMigrated, migrateText, textOf } from "../text";
 import { NoteMeta } from "../types.js";
 import { notebooksContext, NotebooksStore } from "../store";
 import { renderAsyncStatus } from "../utils.js";
@@ -367,7 +368,7 @@ export class MarkdownNote extends LitElement {
               </div>
 
               <div class="commit-content">
-                ${unsafeHTML(Marked.parse(state.text.join('')))}
+                ${unsafeHTML(Marked.parse(textOf(state)))}
               </div>
             </sl-card>
           </div>
@@ -558,6 +559,20 @@ export class MarkdownNote extends LitElement {
     this._editorHistoryState = event.detail;
   }
 
+
+  /** Legacy notes store the text as a list of characters; move it to a Text once per session, before anyone edits. */
+  private _migratedFor: SessionStore<TextEditorState, TextEditorEphemeralState> | null = null;
+
+  updated() {
+    if (this._session.value.status !== "complete") return;
+    const value = this._session.value.value;
+    if (!value) return;
+    const [sessionStore, state] = value;
+    if (this._migratedFor === sessionStore || isMigrated(state)) return;
+    this._migratedFor = sessionStore;
+    sessionStore.change((s) => migrateText(s));
+  }
+
   renderNoteWorkspace(
     sessionStore: SessionStore<TextEditorState, TextEditorEphemeralState>,
     state: TextEditorState
@@ -700,7 +715,7 @@ export class MarkdownNote extends LitElement {
                 <div style="margin: 8px">
                   <sl-card style="width: 100%">
                   <div class="markd">
-                    ${unsafeHTML(Marked.parse(state.text.join('')))}
+                    ${unsafeHTML(Marked.parse(textOf(state)))}
                   </div>
                   </sl-card>
                 </div>

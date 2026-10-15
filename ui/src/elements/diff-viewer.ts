@@ -4,7 +4,8 @@ import { consume } from '@lit/context';
 import { ActionHash } from '@holochain/client';
 import { Commit, DocumentStore, synDocumentContext } from '@holochain-syn/core';
 import { EntryRecord } from '@holochain-open-dev/utils';
-import { TextEditorState, TextEditorEphemeralState } from '@holochain-syn/text-editor';
+import { TextEditorState, TextEditorEphemeralState } from '../grammar.js';
+import { textOf } from '../text.js';
 import { msg } from '@lit/localize';
 import { wrapPathInSvg } from '@holochain-open-dev/elements';
 import { mdiFileCompare } from '@mdi/js';
@@ -389,10 +390,10 @@ export class DiffViewer extends LitElement {
       const selectedState = (await this.documentStore.resolveCommitState(
         selectedCommit as EntryRecord<Commit>
       )) as TextEditorState;
-      const selectedText = selectedState.text.join('');
+      const selectedText = textOf(selectedState);
 
       // Use the provided current state or empty string as fallback
-      const currentText = this.currentState ? this.currentState.text.join('') : '';
+      const currentText = textOf(this.currentState);
 
       // Store the texts and compute diff
       this._originalText = selectedText;

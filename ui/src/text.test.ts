@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import * as Automerge from '@automerge/automerge';
-import { textOf, isMigrated, migrateText } from './text';
+import { textOf, isMigrated, migrateText, TextShapes } from './text';
 
-const legacy = () => Automerge.from({ text: '# T\n\nhi'.split('') });
+const legacy = () => Automerge.from<TextShapes>({ text: '# T\n\nhi'.split('') });
 
 describe('textOf', () => {
   it('joins the legacy character list', () => {

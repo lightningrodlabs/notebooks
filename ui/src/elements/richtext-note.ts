@@ -67,6 +67,7 @@ import {
   TextEditorEphemeralState,
   TextEditorState,
 } from "../grammar";
+import { isMigrated, migrateText, textOf } from "../text";
 import { NoteMeta } from "../types.js";
 import { notebooksContext, NotebooksStore } from "../store";
 import { renderAsyncStatus } from "../utils.js";
@@ -343,7 +344,7 @@ export class RichtextNote extends LitElement {
               </div>
 
               <div class="commit-content" style="white-space: pre-wrap; word-wrap: break-word;">
-                ${state.text.join('')}
+                ${textOf(state)}
               </div>
             </sl-card>
           </div>
@@ -486,6 +487,20 @@ export class RichtextNote extends LitElement {
   copyWALToClipboard(documentHash: EntryHash) {
     const attachment: WAL = { hrl: [this.notebooksStore.dnaHash, documentHash], context: {} }
     this.notebooksStore.weaveClient?.assets.assetToPocket(attachment)
+  }
+
+
+  /** Legacy notes store the text as a list of characters; move it to a Text once per session, before anyone edits. */
+  private _migratedFor: SessionStore<TextEditorState, TextEditorEphemeralState> | null = null;
+
+  updated() {
+    if (this._session.value.status !== "complete") return;
+    const value = this._session.value.value;
+    if (!value) return;
+    const [sessionStore, state] = value;
+    if (this._migratedFor === sessionStore || isMigrated(state)) return;
+    this._migratedFor = sessionStore;
+    sessionStore.change((s) => migrateText(s));
   }
 
   renderNoteWorkspace(

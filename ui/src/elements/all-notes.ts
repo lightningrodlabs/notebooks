@@ -31,6 +31,7 @@ import { ActionHash, AgentPubKey, encodeHashToBase64, EntryHash, HoloHash, Times
 import SlCheckbox from "@shoelace-style/shoelace/dist/components/checkbox/checkbox.js";
 import { SortDirection } from "./column-label.js";
 import { TextEditorEphemeralState, TextEditorState } from "../grammar.js";
+import { textOf } from "../text.js";
 
 enum SortColumn {
   Created,
@@ -202,7 +203,7 @@ export class AllNotes extends LitElement {
     const modifiedDate = note.modified ? new Date(note.modified) : undefined
     let title = note.title
     // @ts-ignore
-    const match = /^(#+ +)*(.*)/.exec(note.state.text.join(''));
+    const match = /^(#+ +)*(.*)/.exec(textOf(note.state));
     if (match) {
       title = match[2]
     }
