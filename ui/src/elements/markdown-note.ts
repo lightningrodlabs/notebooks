@@ -69,7 +69,8 @@ import {
   TextEditorEphemeralState,
   TextEditorState,
 } from "../grammar";
-import { isMigrated, migrateText, textOf } from "../text";
+import { isMigrated, textOf } from "../text";
+import { migrateSession } from "../migrate-session";
 import { commentsView } from "../comments/model";
 import { clearRendered, paintRendered, renderedHighlightStyles } from "../comments/rendered-highlights";
 import { NoteMeta } from "../types.js";
@@ -574,7 +575,7 @@ export class MarkdownNote extends LitElement {
     this.paintPreview(sessionStore);
     if (this._migratedFor === sessionStore || isMigrated(state)) return;
     this._migratedFor = sessionStore;
-    sessionStore.change((s) => migrateText(s));
+    migrateSession(sessionStore);
   }
 
   /** Comment highlights over the rendered preview (best effort, by quote). */

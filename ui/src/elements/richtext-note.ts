@@ -67,7 +67,8 @@ import {
   TextEditorEphemeralState,
   TextEditorState,
 } from "../grammar";
-import { isMigrated, migrateText, textOf } from "../text";
+import { isMigrated, textOf } from "../text";
+import { migrateSession } from "../migrate-session";
 import { NoteMeta } from "../types.js";
 import { notebooksContext, NotebooksStore } from "../store";
 import { renderAsyncStatus } from "../utils.js";
@@ -500,7 +501,7 @@ export class RichtextNote extends LitElement {
     const [sessionStore, state] = value;
     if (this._migratedFor === sessionStore || isMigrated(state)) return;
     this._migratedFor = sessionStore;
-    sessionStore.change((s) => migrateText(s));
+    migrateSession(sessionStore);
   }
 
   renderNoteWorkspace(
