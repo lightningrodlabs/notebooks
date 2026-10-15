@@ -83,3 +83,16 @@ keystrokes were lost, commits blew the budget, or a tab logged an unexpected
 error. Live-sync timeouts are reported as their own percentage and fail the run
 above `SYNC_FAIL_PCT`, because they do not corrupt the document -- they just
 stop collaboration feeling real-time.
+
+
+## `comments-e2e.mjs` — two-agent comments test
+
+Same stack as above (`harness.mjs` holds the shared setup), two agents. Agent A
+types a note, comments on a span, B sees it live and comments on an overlapping
+span; A types above both; B replies; A resolves; B deletes the commented text
+and A's card becomes an orphan; a legacy character-list note opened by both at
+once migrates to one Text; a rich-text note gets a comment through ProseMirror.
+
+```bash
+nix develop --command node tests/comments-e2e.mjs
+```

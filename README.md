@@ -51,6 +51,36 @@ npm start
 
 Each new agent that you create this way will get assigned its own port and get connected to the other agents.
 
+## Comments
+
+Notes support Google-Docs-style comments in both editors. Select some text and
+press the **+ Comment** button that appears beside the selection; the comment
+opens as a card in a margin to the right of the text. Cards can be replied to,
+resolved and reopened (the **Resolved** switch in the margin header shows
+resolved ones), and deleted by their author.
+
+How it works:
+
+- The note's text is an Automerge `Text` (`body`) in the Syn document, and each
+  comment's range is an Automerge mark named `comment:<id>` on it. Marks move
+  with concurrent edits, overlapping comments from different people coexist,
+  and a comment whose text is deleted stays in the margin as "original text was
+  deleted" with its quote.
+- Comment records (`comments[id]`: author, time, text, quote, resolved,
+  replies) live beside the text in the same document, so they sync in real
+  time and are versioned with the note. There is no DNA change.
+- The markdown stays pure: comments are never written into the text. The JSON
+  export carries them (`workspaces[].comments`), and the margin's copy button
+  puts the markdown on the clipboard with comments as
+  [CriticMarkup](http://criticmarkup.com/) (`{==text==}{>>@author: comment<<}`).
+- Notes created before this feature stored the text as a list of characters;
+  they are migrated to a `Text` the first time someone opens them.
+
+Code: `ui/src/comments/` (pure modules and the shared controller),
+`ui/src/elements/comment-margin.ts`, and the two editors. Unit tests run with
+`npm run test:ui`; `tests/comments-e2e.mjs` drives two real agents through the
+whole flow (see `tests/README.md`).
+
 ## Package
 
 To package the web happ:

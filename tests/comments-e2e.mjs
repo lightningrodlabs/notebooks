@@ -1,0 +1,221 @@
+#!/usr/bin/env node
+/**
+ * Two-agent end-to-end test of comments, on the real stack (see harness.mjs):
+ * real conductors, real dev servers, headless Chrome, real key events.
+ *
+ *   1. A creates a markdown note and types two lines; B joins.
+ *   2. A selects a span, presses "+ Comment", types a comment; B sees the
+ *      highlight and the card.
+ *   3. B comments on an overlapping span; both see the overlap depth.
+ *   4. A types at the top of the note while both comments exist; the
+ *      highlighted text does not move.
+ *   5. B replies; A resolves B's comment; the resolved toggle brings it back.
+ *   6. B deletes the text under A's comment; A's card becomes an orphan.
+ *   7. A legacy note (text stored as a list of characters) opened by both at
+ *      once converges on one migrated Text.
+ *   8. A rich-text note gets a comment through the ProseMirror editor and B
+ *      sees it.
+ *
+ * Usage:  nix develop --command node tests/comments-e2e.mjs
+ * Env:    HEADFUL=1 KEEP=1 RUN_TIMEOUT_MS=900000
+ */
+import { delay, waitUntil } from './cdp.mjs';
+import { pages, installCleanup, cleanup, startStack, openNote } from './harness.mjs';
+
+const HEADFUL = !!process.env.HEADFUL;
+const KEEP = !!process.env.KEEP;
+const RUN_TIMEOUT_MS = Number(process.env.RUN_TIMEOUT_MS ?? 15 * 60_000);
+installCleanup(KEEP);
+
+const CPS = 12;
+const failures = [];
+function check(cond, what) {
+  console.log(`   ${cond ? 'ok  ' : 'FAIL'} ${what}`);
+  if (!cond) failures.push(what);
+}
+
+// ---------------------------------------------------------------- page glue
+const COMMENT_HELPERS = `
+window.__md = () => window.__dq(el => el.tagName.toLowerCase() === 'syn-md-editor');
+window.__pm = () => window.__dq(el => el.tagName.toLowerCase() === 'syn-pm-editor');
+window.__margin = () => window.__dq(el => el.tagName.toLowerCase() === 'comment-margin');
+window.__hlText = () => window.__dqAll(el => el.classList && el.classList.contains('nb-comment')).map(e => e.textContent).join('');
+window.__depth2Text = () => window.__dqAll(el => el.classList && el.classList.contains('nb-depth-2')).map(e => e.textContent).join('');
+window.__cards = () => { const m = window.__margin(); return m ? Array.from(m.shadowRoot.querySelectorAll('.card')) : []; };
+window.__cardTexts = () => window.__cards().map(c => { const t = c.querySelector('textarea.body'); return t ? t.value : (c.querySelector('.text') || {}).textContent; });
+window.__cardByText = (s) => window.__cards().find(c => (window.__cardTexts()[window.__cards().indexOf(c)] || '').includes(s));
+window.__deepActive = () => { let a = document.activeElement; while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement; return a; };
+true`;
+
+async function typeText(page, text) {
+  const gap = 1000 / CPS;
+  for (const ch of text) { await page.typeChar(ch); await delay(gap); }
+}
+
+/** Put the caret in CodeMirror and type like a person. */
+async function typeAt(page, where, text) {
+  await page.eval(`(() => { const cm = window.__cm(); const doc = cm.editor.getDoc(); cm.editor.focus();
+    ${where === 'start' ? `doc.setCursor({ line: 0, ch: 0 });` : `doc.setCursor({ line: doc.lastLine(), ch: doc.getLine(doc.lastLine()).length });`}
+    return true; })()`);
+  await typeText(page, text);
+}
+
+/** Select `needle` in the markdown editor (as a mouse selection would), press "+ Comment", type the comment. */
+async function commentOn(page, needle, comment) {
+  const ok = await page.eval(`(() => { const cm = window.__cm(); const doc = cm.editor.getDoc();
+    const text = doc.getValue(); const i = text.indexOf(${JSON.stringify(needle)}); if (i < 0) return false;
+    cm.editor.focus();
+    doc.setSelection(cm.editor.posFromIndex(i), cm.editor.posFromIndex(i + ${needle.length}), { origin: '*mouse' });
+    return true; })()`);
+  if (!ok) throw new Error(`${page.name}: "${needle}" not in the text`);
+  const btn = await waitUntil(() => page.eval(`!!window.__dq(el => el.classList && el.classList.contains('nb-add-comment'))`), 10000, 200, `${page.name} + button`);
+  if (!btn) throw new Error(`${page.name}: no + Comment button for "${needle}"`);
+  await page.eval(`(() => { window.__dq(el => el.classList && el.classList.contains('nb-add-comment')).click(); return true; })()`);
+  const focused = await waitUntil(() => page.eval(`(() => { const a = window.__deepActive(); return !!(a && a.tagName === 'TEXTAREA' && a.classList.contains('body')); })()`), 10000, 200, `${page.name} card focus`);
+  if (!focused) throw new Error(`${page.name}: the new card did not take focus`);
+  await typeText(page, comment);
+  await delay(500);
+}
+
+// ---------------------------------------------------------------- main
+async function main() {
+  console.log('=== notebooks comments e2e ===');
+  const [A, B] = await startStack(['A', 'B'], { headful: HEADFUL });
+  for (const p of pages) await p.eval(COMMENT_HELPERS);
+
+  console.log('5. A creates a markdown note and types two lines');
+  const noteBytes = await A.eval(`(async () => { const a = window.__app();
+    await a.createNote('comments note', 'markdown'); return Array.from(a.view.noteHash); })()`);
+  if (!(await waitUntil(() => A.eval(`!!window.__cm()`), 60000, 500, 'A editor'))) throw new Error('A: no editor');
+  await delay(2000);
+  await typeAt(A, 'end', 'alpha beta gamma delta\nepsilon zeta eta theta\n');
+
+  console.log('6. B joins the note');
+  await openNote(B, noteBytes);
+  await B.eval(COMMENT_HELPERS);
+  const synced = await waitUntil(async () => (await A.eval(`window.__text()`)) === (await B.eval(`window.__text()`)) && (await B.eval(`window.__text()`)).includes('theta'), 60000, 500, 'B sees the text');
+  check(synced, 'B converged on the typed text');
+
+  console.log('7. A comments on "gamma delta"');
+  await commentOn(A, 'gamma delta', 'Looks wrong');
+  check((await A.eval(`window.__hlText()`)) === 'gamma delta', 'A highlights exactly the selected span');
+  const bSees = await waitUntil(() => B.eval(`window.__hlText() === 'gamma delta' && window.__cardTexts().some(t => (t || '').includes('Looks wrong'))`), 30000, 500, 'B sees the comment');
+  check(bSees, 'B sees the highlight and the card text live');
+  check((await B.eval(`(window.__cards()[0].querySelector('.quote') || {}).textContent || ''`)).includes('gamma delta'), 'the card quotes the commented text');
+
+  console.log('8. B comments on an overlapping span "delta\\nepsilon"');
+  await commentOn(B, 'delta\nepsilon', 'Mine too');
+  const overlap = await waitUntil(async () => (await A.eval(`window.__depth2Text()`)) === 'delta' && (await B.eval(`window.__depth2Text()`)) === 'delta', 30000, 500, 'overlap depth');
+  check(overlap, 'both agents paint the overlap "delta" at depth 2');
+  check((await A.eval(`window.__hlText()`)) === 'gamma deltaepsilon', 'A paints the union of both ranges');
+
+  console.log('9. A types at the top while both comments exist');
+  await typeAt(A, 'start', 'XYZ ');
+  const stable = await waitUntil(async () =>
+    (await A.eval(`window.__text()`)) === (await B.eval(`window.__text()`)) &&
+    (await A.eval(`window.__hlText()`)) === 'gamma deltaepsilon' &&
+    (await B.eval(`window.__hlText()`)) === 'gamma deltaepsilon', 30000, 500, 'ranges follow the text');
+  check(stable, 'highlights stay on the same words after an insert before them');
+
+  console.log('10. B replies to A\'s comment');
+  await B.eval(`(() => { window.__cardByText('Looks wrong').click(); return true; })()`);
+  const replyBox = await waitUntil(() => B.eval(`!!window.__cardByText('Looks wrong').querySelector('.reply-box textarea')`), 10000, 200, 'reply box');
+  check(replyBox, 'activating a card shows its reply box');
+  await B.eval(`(() => { window.__cardByText('Looks wrong').querySelector('.reply-box textarea').focus(); return true; })()`);
+  await typeText(B, 'agreed');
+  await B.typeChar('\n');
+  const replied = await waitUntil(() => A.eval(`(() => { const c = window.__cardByText('Looks wrong'); return !!c && Array.from(c.querySelectorAll('.reply .text')).some(e => e.textContent === 'agreed'); })()`), 30000, 500, 'A sees reply');
+  check(replied, 'A sees B\'s reply');
+
+  console.log('11. A resolves B\'s comment, then shows resolved comments');
+  await A.eval(`(() => { const c = window.__cardByText('Mine too'); c.querySelector('sl-icon-button[label="Resolve"]').click(); return true; })()`);
+  const resolved = await waitUntil(async () => (await A.eval(`window.__cards().length`)) === 1 && (await B.eval(`window.__cards().length`)) === 1 && (await B.eval(`window.__depth2Text()`)) === '', 30000, 500, 'resolved hidden');
+  check(resolved, 'a resolved comment leaves both margins and its highlight goes');
+  await A.eval(`(() => { const m = window.__margin(); const sw = m.shadowRoot.querySelector('sl-switch'); sw.click(); return true; })()`);
+  const shown = await waitUntil(() => A.eval(`window.__cards().some(c => c.classList.contains('resolved'))`), 10000, 300, 'resolved shown');
+  check(shown, 'the Resolved toggle shows it again, greyed');
+
+  console.log('12. B deletes the text under A\'s comment');
+  await B.eval(`(() => { const cm = window.__cm(); const doc = cm.editor.getDoc(); const t = doc.getValue();
+    const i = t.indexOf('gamma delta'); doc.replaceRange('', cm.editor.posFromIndex(i), cm.editor.posFromIndex(i + 'gamma delta'.length), '+delete'); return true; })()`);
+  const orphan = await waitUntil(() => A.eval(`(() => { const c = window.__cardByText('Looks wrong'); return !!c && !!c.querySelector('.quote.orphan'); })()`), 30000, 500, 'orphan card');
+  check(orphan, 'A\'s card survives as an orphan with its quote');
+  check(!(await A.eval(`window.__hlText()`)).includes('gamma'), 'the deleted span is no longer highlighted');
+
+  console.log('13. a legacy note opened by both at once migrates cleanly');
+  const legacyText = '# Old note\n\nstored as a list of characters';
+  const legacyBytes = await A.eval(`(async () => { const a = window.__app(); const s = a._synStore;
+    const doc = await s.createDocument({ text: ${JSON.stringify(legacyText)}.split('') },
+      { title: 'legacy', author: s.client.client.myPubKey, timestamp: Date.now(), attachedToHrl: undefined, editorType: 'markdown' });
+    await s.client.tagDocument(doc.documentHash, 'note'); await doc.createWorkspace('main', undefined);
+    return Array.from(doc.documentHash); })()`);
+  await Promise.all([openNote(A, legacyBytes), openNote(B, legacyBytes)]);
+  for (const p of pages) await p.eval(COMMENT_HELPERS);
+  const migrated = await waitUntil(async () => {
+    const r = await Promise.all(pages.map(p => p.eval(`(() => { const e = window.__md(); const s = e && e._state.value; return s ? JSON.stringify({ text: window.__text(), body: typeof s.body, list: 'text' in s }) : null; })()`)));
+    return r.every(x => x && JSON.parse(x).text === legacyText && JSON.parse(x).body === 'string' && JSON.parse(x).list === false);
+  }, 60000, 500, 'migration');
+  check(migrated, 'both agents end on the same migrated Text with no character list left');
+  await typeAt(A, 'end', ' plus');
+  const legacyTyped = await waitUntil(async () => (await B.eval(`window.__text()`)) === legacyText + ' plus', 30000, 500, 'typing after migration');
+  check(legacyTyped, 'typing into the migrated note still syncs');
+
+  console.log('14. a rich-text note gets a comment through ProseMirror');
+  // The app's createNote resets the new-note form, which only exists on the main view.
+  await A.eval(`(() => { window.__app().view = { type: 'main' }; return true; })()`);
+  if (!(await waitUntil(() => A.eval(`!!window.__dq(el => el.id === 'note-form')`), 30000, 500, 'A main view'))) throw new Error('A: main view never rendered');
+  // Leaving the previous note commits in the background; a document written
+  // meanwhile can hit a source-chain "head has moved" error that the app shows
+  // as "Error creating the note". Give it a moment and retry once.
+  await delay(5000);
+  const rtBytes = await A.eval(`(async () => { const a = window.__app();
+    for (let i = 0; i < 2; i++) { await a.createNote('rich note', 'richtext'); if (a.view.noteHash) return Array.from(a.view.noteHash); await new Promise(r => setTimeout(r, 3000)); }
+    throw new Error('createNote failed twice'); })()`);
+  if (!(await waitUntil(() => A.eval(`!!window.__pm() && !!window.__pm().view`), 60000, 500, 'A pm editor'))) throw new Error('A: no pm editor');
+  await delay(2000);
+  await A.eval(`(() => { const v = window.__pm().view; v.focus(); const end = v.state.doc.content.size - 1;
+    v.dispatch(v.state.tr.setSelection(v.state.selection.constructor.create(v.state.doc, end))); return true; })()`);
+  await typeText(A, 'one two three');
+  await delay(1000);
+  const selected = await A.eval(`(() => { const v = window.__pm().view; let from = -1;
+    v.state.doc.descendants((n, pos) => { if (n.isText && from < 0) { const i = n.text.indexOf('two'); if (i >= 0) from = pos + i; } });
+    if (from < 0) return false;
+    v.dispatch(v.state.tr.setSelection(v.state.selection.constructor.create(v.state.doc, from, from + 3))); return true; })()`);
+  check(selected, 'selected "two" in the rich-text editor');
+  const rtBtn = await waitUntil(() => A.eval(`!!window.__dq(el => el.classList && el.classList.contains('nb-add-comment'))`), 10000, 200, '+ button (rich)');
+  check(rtBtn, 'the + Comment button appears on a rich-text selection');
+  await A.eval(`(() => { window.__dq(el => el.classList && el.classList.contains('nb-add-comment')).click(); return true; })()`);
+  await waitUntil(() => A.eval(`(() => { const a = window.__deepActive(); return !!(a && a.tagName === 'TEXTAREA'); })()`), 10000, 200, 'rich card focus');
+  await typeText(A, 'rich');
+  check((await A.eval(`window.__hlText()`)) === 'two', 'A highlights "two" in rich text');
+  await openNote(B, rtBytes, 'syn-pm-editor');
+  await B.eval(COMMENT_HELPERS);
+  const rtSeen = await waitUntil(() => B.eval(`window.__hlText() === 'two' && window.__cardTexts().some(t => (t || '').includes('rich'))`), 60000, 500, 'B sees rich comment');
+  check(rtSeen, 'B sees the rich-text comment and its highlight');
+
+  const errs = pages.flatMap(p => p.errors.map(e => `[${p.name}] ${e}`)).filter(e => !/timed out in \d+ ms: call_zome/i.test(e));
+  console.log(`\npage errors: ${errs.length}`);
+  errs.slice(0, 12).forEach(e => console.log('   ', e.slice(0, 160)));
+  check(errs.length === 0, 'no unexpected page errors');
+
+  console.log('\n==============================');
+  if (failures.length) { failures.forEach(f => console.log('FAIL:', f)); process.exitCode = 1; }
+  else console.log('PASS: comments e2e');
+}
+
+const watchdog = setTimeout(() => {
+  console.error(`\nERROR: run exceeded RUN_TIMEOUT_MS (${RUN_TIMEOUT_MS} ms)`);
+  process.exitCode = 1;
+  finish();
+}, RUN_TIMEOUT_MS);
+
+function finish() {
+  clearTimeout(watchdog);
+  if (KEEP) console.log('KEEP=1: leaving conductors, dev servers and Chrome running');
+  else cleanup();
+  setTimeout(() => process.exit(process.exitCode ?? 0), 5000).unref();
+}
+
+main()
+  .catch(e => { console.error('\nERROR:', e.message); process.exitCode = 1; })
+  .finally(finish);
