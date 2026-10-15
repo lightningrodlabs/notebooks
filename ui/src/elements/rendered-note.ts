@@ -7,6 +7,7 @@ import {
   WorkspaceStore,
   synDocumentContext,
   stateFromDocument,
+  freeDocLater,
 } from "@holochain-syn/core";
 import * as Automerge from "@automerge/automerge";
 
@@ -103,15 +104,26 @@ export class RenderedNote extends LitElement {
     () => [this.documentStore, this.workspaceName]
   );
 
+  /** The doc last painted; each resolved doc is a wasm handle that must be freed when superseded. */
+  private _paintedDoc: Automerge.Doc<TextEditorState> | undefined;
+
   updated() {
     const container = this.shadowRoot?.querySelector(".markd") as HTMLElement | null;
     const doc = this._doc.value.status === "complete" ? (this._doc.value.value as Automerge.Doc<TextEditorState>) : undefined;
+    if (doc !== this._paintedDoc) {
+      if (this._paintedDoc) freeDocLater(this._paintedDoc);
+      this._paintedDoc = doc;
+    }
     paintRendered(this, container, textOf(doc), doc ? commentsView(doc, false) : []);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     clearRendered(this);
+    if (this._paintedDoc) {
+      freeDocLater(this._paintedDoc);
+      this._paintedDoc = undefined;
+    }
   }
 
   renderLoading() {

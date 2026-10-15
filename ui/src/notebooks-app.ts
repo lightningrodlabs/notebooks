@@ -24,6 +24,7 @@ import {
   DocumentStore,
   WorkspaceStore,
   stateFromDocument,
+  freeDoc,
 } from "@holochain-syn/core";
 
 import "@holochain-open-dev/elements/dist/elements/display-error.js";
@@ -335,6 +336,7 @@ export class NotebooksApp extends LitElement {
               ? await docStore.resolveCommitState(tip)
               : stateFromDocument(record.entry)) as Automerge.Doc<TextEditorState>
             workspaces.push({ name, note: textOf(doc), comments: exportComments(doc) })
+            freeDoc(doc) // wasm docs are never reclaimed by the GC
           }
         }
         notes.push({

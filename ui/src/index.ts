@@ -1,6 +1,6 @@
 import * as Automerge from "@automerge/automerge";
 import { encode } from "@msgpack/msgpack";
-import { SynStore } from "@holochain-syn/core";
+import { SynStore, freeDoc } from "@holochain-syn/core";
 import { EntryHash } from "@holochain/client";
 import { Hrl } from "@theweave/api";
 import { ExportedComment, initialStateWithComments } from "./comments/export";
@@ -25,9 +25,11 @@ export async function createNote(
     attachedToHrl,
     editorType,
   } as NoteMeta;
+  const initialState = encode(Automerge.save(doc));
+  freeDoc(doc); // wasm docs are never reclaimed by the GC
   const documentRecord = await synStore.client.createDocument({
     meta: encode(meta),
-    initial_state: encode(Automerge.save(doc)),
+    initial_state: initialState,
     nonce: crypto.getRandomValues(new Uint8Array(32)),
   });
   const documentStore = synStore.documents.get(documentRecord.entryHash);
