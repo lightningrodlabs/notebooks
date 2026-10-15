@@ -1061,9 +1061,20 @@ export class SynPmEditor extends LitElement implements CommentsHost {
     return changes;
   }
 
+  private _sliceUnsubs: Array<() => void> = [];
+
+  updated(changed: Map<string | number | symbol, unknown>) {
+    if (changed.has('slice') && this.view) this.subscribeToSynChanges();
+  }
+
+  /** (Re)subscribe the editor to the slice's state and cursors; re-run whenever `slice` changes. */
   private subscribeToSynChanges() {
+    for (const u of this._sliceUnsubs) u();
+    this._sliceUnsubs = [];
+    this.lastStateText = '';
+    this.comments.bind();
     // Subscribe to ephemeral (cursors) with debounce
-    this.slice.ephemeral.subscribe((cursors) => {
+    this._sliceUnsubs.push(this.slice.ephemeral.subscribe((cursors) => {
       // Initialize on first call
       if (!this._delayedCursors || Object.keys(this._delayedCursors).length === 0) {
         this._delayedCursors = cursors;
@@ -1079,11 +1090,11 @@ export class SynPmEditor extends LitElement implements CommentsHost {
         this._delayedCursors = cursors;
         this._showCursors = true;
       }, 500);
-    });
+    }));
     
     // Subscribe to state separately from ephemeral (cursors)
     // This way cursor changes don't trigger document rebuilds
-    this.slice.docState.subscribe((state) => {
+    this._sliceUnsubs.push(this.slice.docState.subscribe((state) => {
       if (!this.view) return;
 
       const stateText = textOf(state);
@@ -1183,7 +1194,7 @@ export class SynPmEditor extends LitElement implements CommentsHost {
           this.comments.repaint();
         }
       }
-    );
+    ));
   }
 
   onSelectionChanged(ranges: Array<{ from: number; to: number }>) {
@@ -1211,6 +1222,8 @@ export class SynPmEditor extends LitElement implements CommentsHost {
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    for (const u of this._sliceUnsubs) u();
+    this._sliceUnsubs = [];
     window.removeEventListener('keydown', this._boundHandleKeyDown);
     window.removeEventListener('keyup', this._boundHandleKeyUp);
     this._stopAutoTyping();

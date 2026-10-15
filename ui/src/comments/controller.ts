@@ -54,15 +54,21 @@ export class CommentsController implements ReactiveController {
   }
 
   hostConnected() {
-    this.unsubscribe = this.host.slice.docState.subscribe(doc => {
-      this.doc = doc;
-      this.recompute();
-    });
+    this.bind();
   }
 
   hostDisconnected() {
     this.unsubscribe?.();
     this.unsubscribe = undefined;
+  }
+
+  /** (Re)subscribe to the host's current slice; call again when the host's `slice` property changes. */
+  bind() {
+    this.unsubscribe?.();
+    this.unsubscribe = this.host.slice.docState.subscribe(doc => {
+      this.doc = doc;
+      this.recompute();
+    });
   }
 
   get myPubKeyB64(): string {

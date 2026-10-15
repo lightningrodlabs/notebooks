@@ -270,17 +270,13 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
     this.emitHistoryState();
   }
 
-  firstUpdated() {
-    this.editor = this.editorEl.editor;
-    this.editor.setOption('lineWrapping', true)
-    this.editor.addKeyMap(this._editorHistoryKeyMap);
-    this.emitHistoryState();
+  /** Subscribe the CodeMirror instance to the slice's state; re-run whenever `slice` changes. */
+  private _sliceUnsub: (() => void) | undefined;
 
-    setTimeout(() => {
-      this.editor.getInputField().click();
-    }, 500);
-
-    derived([this.slice.docState, this.slice.ephemeral], i => i).subscribe(
+  private bindSlice() {
+    if (!this.editor) return;
+    this._sliceUnsub?.();
+    this._sliceUnsub = derived([this.slice.docState, this.slice.ephemeral], i => i).subscribe(
       ([state, cursors]) => {
         const stateText = textOf(state);
         const myAgentSelection =
@@ -312,6 +308,24 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
         }
       }
     );
+    this.comments.bind();
+  }
+
+  updated(changed: Map<string | number | symbol, unknown>) {
+    if (changed.has('slice') && this.editor) this.bindSlice();
+  }
+
+  firstUpdated() {
+    this.editor = this.editorEl.editor;
+    this.editor.setOption('lineWrapping', true)
+    this.editor.addKeyMap(this._editorHistoryKeyMap);
+    this.emitHistoryState();
+
+    setTimeout(() => {
+      this.editor.getInputField().click();
+    }, 500);
+
+    this.bindSlice();
 
     this.editor.on('beforeChange', (_:any, e: TextEditorChange) => {
       if (e.origin === 'setValue') return;
@@ -382,6 +396,8 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
 
   disconnectedCallback() {
     this.editor?.removeKeyMap(this._editorHistoryKeyMap);
+    this._sliceUnsub?.();
+    this._sliceUnsub = undefined;
     super.disconnectedCallback();
   }
 
