@@ -11,6 +11,18 @@ export interface Quote {
   start: number;
 }
 
+function commonPrefixLen(a: string, b: string): number {
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i += 1;
+  return i;
+}
+
+function commonSuffixLen(a: string, b: string): number {
+  let i = 0;
+  while (i < a.length && i < b.length && a[a.length - 1 - i] === b[b.length - 1 - i]) i += 1;
+  return i;
+}
+
 export function makeQuote(text: string, start: number, end: number, context = 32): Quote {
   return {
     exact: text.slice(start, end),
@@ -48,16 +60,4 @@ export function stripInlineMarkdown(s: string): string {
     .replace(/^[ \t]*#{1,6}[ \t]+/gm, '')
     .replace(/^[ \t]*>[ \t]?/gm, '')
     .replace(/[*_`~]+/g, '');
-}
-
-function commonPrefixLen(a: string, b: string): number {
-  let i = 0;
-  while (i < a.length && i < b.length && a[i] === b[i]) i++;
-  return i;
-}
-
-function commonSuffixLen(a: string, b: string): number {
-  let i = 0;
-  while (i < a.length && i < b.length && a[a.length - 1 - i] === b[b.length - 1 - i]) i++;
-  return i;
 }

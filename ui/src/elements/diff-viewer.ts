@@ -4,11 +4,11 @@ import { consume } from '@lit/context';
 import { ActionHash } from '@holochain/client';
 import { Commit, DocumentStore, synDocumentContext } from '@holochain-syn/core';
 import { EntryRecord } from '@holochain-open-dev/utils';
-import { TextEditorState, TextEditorEphemeralState } from '../grammar.js';
-import { textOf } from '../text.js';
 import { msg } from '@lit/localize';
 import { wrapPathInSvg } from '@holochain-open-dev/elements';
 import { mdiFileCompare } from '@mdi/js';
+import { TextEditorState, TextEditorEphemeralState } from '../grammar.js';
+import { textOf } from '../text.js';
 
 @customElement('diff-viewer')
 export class DiffViewer extends LitElement {

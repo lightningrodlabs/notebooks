@@ -31,7 +31,7 @@ export interface Segment {
 export function segments(ranges: CommentRange[]): Segment[] {
   const bounds = Array.from(new Set(ranges.flatMap(r => [r.start, r.end]))).sort((a, b) => a - b);
   const out: Segment[] = [];
-  for (let i = 0; i + 1 < bounds.length; i++) {
+  for (let i = 0; i + 1 < bounds.length; i += 1) {
     const start = bounds[i];
     const end = bounds[i + 1];
     const ids = ranges.filter(r => r.start <= start && r.end >= end && r.start < r.end).map(r => r.id);

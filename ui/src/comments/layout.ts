@@ -17,11 +17,11 @@ export function fitCards(cards: CardInput[], activeId: string | null, gap = 30):
   if (c.length === 0) return new Map();
   let a = c.findIndex(x => x.id === activeId);
   if (a === -1) a = Math.floor(c.length / 2);
-  for (let i = a - 1; i >= 0; i--) {
+  for (let i = a - 1; i >= 0; i -= 1) {
     const maxTop = c[i + 1].top - gap - c[i].height;
     if (c[i].top > maxTop) c[i].top = maxTop;
   }
-  for (let i = a + 1; i < c.length; i++) {
+  for (let i = a + 1; i < c.length; i += 1) {
     const minTop = c[i - 1].top + c[i - 1].height + gap;
     if (c[i].top < minTop) c[i].top = minTop;
   }

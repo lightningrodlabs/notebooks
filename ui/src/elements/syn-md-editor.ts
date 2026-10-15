@@ -11,7 +11,8 @@ import {
 import { sharedStyles } from '@holochain-open-dev/elements';
 import { derived, StoreSubscriber } from '@holochain-open-dev/stores';
 import { styleMap } from 'lit/directives/style-map.js';
-import { elemIdToPosition } from '../utils.js';
+import { cursorToPosition } from '../utils.js';
+import { textOf } from '../text.js';
 import {
   AgentSelection,
   TextEditorEphemeralState,
@@ -37,9 +38,9 @@ type TextEditorChange = {
   cancel(): void;
 };
 
+/** A position in the body that survives other people's edits: an Automerge cursor. */
 type HistoryAnchor = {
-  beforeId: string | null;
-  afterId: string | null;
+  cursor: Automerge.Cursor | null;
 };
 
 type EditorChangePatch = {
@@ -152,44 +153,22 @@ export class SynMarkdownEditor extends LitElement {
     );
   }
 
-  private historyText() {
-    return this._state.value?.text ?? [];
-  }
-
-  private createHistoryAnchorForText(text: string[], index: number): HistoryAnchor {
-    return {
-      beforeId:
-        index > 0 ? Automerge.getObjectId(text, index - 1) || null : null,
-      afterId:
-        index < text.length ? Automerge.getObjectId(text, index) || null : null,
-    };
+  private createHistoryAnchorForDoc(doc: TextEditorState, index: number): HistoryAnchor {
+    try {
+      return { cursor: Automerge.getCursor(doc as any, ['body'], index) };
+    } catch (e) {
+      return { cursor: null };
+    }
   }
 
   private createHistoryAnchor(index: number): HistoryAnchor {
-    return this.createHistoryAnchorForText(this.historyText(), index);
+    const doc = this._state.value;
+    return doc ? this.createHistoryAnchorForDoc(doc, index) : { cursor: null };
   }
 
-  private resolveHistoryAnchorForText(text: string[], anchor: HistoryAnchor) {
-    if (!anchor.beforeId && !anchor.afterId) return 0;
-
-    if (anchor.beforeId) {
-      const position = elemIdToPosition(false, anchor.beforeId, text);
-      if (position !== undefined) return position;
-    }
-
-    if (anchor.afterId) {
-      const position = elemIdToPosition(true, anchor.afterId, text);
-      if (position !== undefined) return position;
-    }
-
-    if (anchor.beforeId && !anchor.afterId) return text.length;
-    if (!anchor.beforeId && anchor.afterId) return 0;
-
-    return undefined;
-  }
-
-  private resolveHistoryAnchor(anchor: HistoryAnchor) {
-    return this.resolveHistoryAnchorForText(this.historyText(), anchor);
+  private resolveHistoryAnchorForDoc(doc: TextEditorState, anchor: HistoryAnchor): number | undefined {
+    if (!anchor.cursor) return 0;
+    return cursorToPosition(doc as any, anchor.cursor);
   }
 
   applyChange(change: EditorChangePatch | undefined) {
@@ -198,12 +177,10 @@ export class SynMarkdownEditor extends LitElement {
     let inverseChange: EditorChangePatch | undefined;
 
     this.slice.change((state, eph) => {
-      const from = this.resolveHistoryAnchorForText(state.text, change.anchor);
+      const from = this.resolveHistoryAnchorForDoc(state, change.anchor);
       if (from === undefined) return;
 
-      const deletedText = state.text
-        .slice(from, from + change.deleteCount)
-        .join('');
+      const deletedText = textOf(state).slice(from, from + change.deleteCount);
       const grammar = textEditorGrammar.changes(this.slice.myPubKey, state, eph);
 
       if (change.deleteCount > 0) {
@@ -216,7 +193,7 @@ export class SynMarkdownEditor extends LitElement {
 
       if (change.deleteCount > 0 || change.insertText.length > 0) {
         inverseChange = {
-          anchor: this.createHistoryAnchorForText(state.text, from),
+          anchor: this.createHistoryAnchorForDoc(state, from),
           deleteCount: change.insertText.length,
           insertText: deletedText,
         };
@@ -280,7 +257,7 @@ export class SynMarkdownEditor extends LitElement {
 
     derived([this.slice.docState, this.slice.ephemeral], i => i).subscribe(
       ([state, cursors]) => {
-        const stateText = state.text.join('');
+        const stateText = textOf(state);
         const myAgentSelection =
           cursors[encodeHashToBase64(this.slice.myPubKey)];
 
@@ -290,12 +267,8 @@ export class SynMarkdownEditor extends LitElement {
           // console.log("Done setting State Text")
         }
         if (myAgentSelection) {
-          if (state.toString().length > 0) {
-            const position = elemIdToPosition(
-              myAgentSelection.left,
-              myAgentSelection.position,
-              state.text
-            )!;
+          if (stateText.length > 0) {
+            const position = cursorToPosition(state, myAgentSelection.cursor) ?? 0;
 
             this.editor.doc.setSelection(
               this.editor.posFromIndex(position),
@@ -405,11 +378,8 @@ export class SynMarkdownEditor extends LitElement {
   }
 
   renderCursor(agent: AgentPubKey, agentSelection: AgentSelection) {
-    const position = elemIdToPosition(
-      agentSelection.left,
-      agentSelection.position,
-      this._state.value.text
-    )!;
+    const position = cursorToPosition(this._state.value, agentSelection.cursor);
+    if (position === undefined) return html``;
     if (!this.editor) return html``;
 
     if (this.editorEl.value.length < position) return html``;

@@ -26,7 +26,8 @@ import {
   TextEditorState,
   textEditorGrammar,
 } from '../grammar.js';
-import { elemIdToPosition } from '../utils.js';
+import { cursorToPosition } from '../utils.js';
+import { textOf } from '../text.js';
 
 /**
  * <syn-pm-editor>
@@ -128,7 +129,7 @@ export class SynPmEditor extends LitElement {
 
   private initializeEditor() {
     const synState = this._state.value;
-    const initialText = synState ? synState.text.join('') : '';
+    const initialText = textOf(synState);
 
     // Create initial doc
     const doc = this.createDocFromText(initialText);
@@ -930,7 +931,7 @@ export class SynPmEditor extends LitElement {
     this.slice.docState.subscribe((state) => {
       if (!this.view) return;
 
-      const stateText = state.text.join('');
+      const stateText = textOf(state);
       
       // Only rebuild if the text actually changed
       if (stateText === this.lastStateText) {
@@ -1240,7 +1241,7 @@ export class SynPmEditor extends LitElement {
     
     // Get the current document text and verify it matches Syn state
     const markdown = this.getPlainText();
-    const stateText = this._state.value.text.join('');
+    const stateText = textOf(this._state.value);
     
     // If document and state are out of sync, don't render cursor (will flicker)
     if (markdown !== stateText) {
@@ -1248,11 +1249,7 @@ export class SynPmEditor extends LitElement {
       return html``;
     }
     
-    const position = elemIdToPosition(
-      agentSelection.left,
-      agentSelection.position,
-      this._state.value.text
-    );
+    const position = cursorToPosition(this._state.value, agentSelection.cursor);
     
     if (position === null || position === undefined) return html``;
     
