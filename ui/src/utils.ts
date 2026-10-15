@@ -5,17 +5,18 @@ import hljs from 'highlight.js';
 import * as Automerge from '@automerge/automerge';
 import { html, TemplateResult } from "lit";
 import { AsyncStatus } from "@holochain-open-dev/stores";
+import { TextEditorState } from "./grammar";
 
-export function elemIdToPosition(
-  left: boolean,
-  elemId: string,
-  text: string[]
+/** Resolve an Automerge cursor into `body` to an index, or undefined when it cannot be resolved. */
+export function cursorToPosition(
+  doc: Automerge.Doc<TextEditorState>,
+  cursor: Automerge.Cursor
 ): number | undefined {
-  for (let i = 0; i < text.length; i += 1) {
-    if (Automerge.getObjectId(text, i) === elemId) return left ? i : i + 1;
+  try {
+    return Automerge.getCursorPosition(doc, ['body'], cursor);
+  } catch (e) {
+    return undefined;
   }
-
-  return undefined;
 }
 
 

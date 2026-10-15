@@ -12,9 +12,7 @@ export async function createNote(
   editorType: EditorType = "markdown",
 ): Promise<EntryHash> {
   // Create initial state with text if provided
-  const initialState = text !== undefined 
-    ? { text: text.split('') }
-    : textEditorGrammar.initialState();
+  const initialState = { ...textEditorGrammar.initialState(), body: text ?? '' };
 
   const documentStore = await synStore.createDocument(
     initialState,
