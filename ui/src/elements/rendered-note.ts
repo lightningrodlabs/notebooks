@@ -6,7 +6,9 @@ import {
   DocumentStore,
   WorkspaceStore,
   synDocumentContext,
+  stateFromDocument,
 } from "@holochain-syn/core";
+import * as Automerge from "@automerge/automerge";
 
 import "@shoelace-style/shoelace/dist/components/spinner/spinner.js";
 import "@shoelace-style/shoelace/dist/components/card/card.js";
@@ -76,10 +78,35 @@ export class RenderedNote extends LitElement {
     () => [this.documentStore, this.workspaceName]
   );
 
+  /**
+   * The latest committed state as a real Automerge doc (latestState is a
+   * plain snapshot without marks), for the comment highlights.
+   */
+  _doc = new StoreSubscriber(
+    this,
+    () =>
+      pipe(
+        this.documentStore.allWorkspaces,
+        (map) => mapAndJoin(map as unknown as HoloHashMap<Uint8Array, WorkspaceStore<TextEditorState, TextEditorEphemeralState>>, (w) => w.name),
+        (allWorkspaces) => {
+          const workspace = Array.from(
+            allWorkspaces.entries() as IterableIterator<[EntryHash, string]>
+          ).find(([_hash, name]) => name === this.workspaceName);
+          if (!workspace) throw new Error(WORKSPACE_NOT_FOUND);
+          return this.documentStore.workspaces.get(workspace[0])!.tip;
+        },
+        (tip) =>
+          tip
+            ? this.documentStore.resolveCommitState(tip)
+            : pipe(this.documentStore.record, (record) => stateFromDocument(record.entry))
+      ),
+    () => [this.documentStore, this.workspaceName]
+  );
+
   updated() {
     const container = this.shadowRoot?.querySelector(".markd") as HTMLElement | null;
-    const state = this._state.value.status === "complete" ? this._state.value.value : undefined;
-    paintRendered(this, container, textOf(state), state ? commentsView(state as any, false) : []);
+    const doc = this._doc.value.status === "complete" ? (this._doc.value.value as Automerge.Doc<TextEditorState>) : undefined;
+    paintRendered(this, container, textOf(doc), doc ? commentsView(doc, false) : []);
   }
 
   disconnectedCallback() {

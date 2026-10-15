@@ -11,7 +11,7 @@ export interface CommentRange {
 
 /** Every comment's current range, read from the body's marks, sorted by start then end. */
 export function commentRanges(doc: Automerge.Doc<TextEditorState>): CommentRange[] {
-  if (typeof doc.body !== 'string') return [];
+  if (typeof doc.body !== 'string' || !Automerge.isAutomerge(doc)) return [];
   const out: CommentRange[] = [];
   for (const m of Automerge.marks(doc, ['body'])) {
     const id = idOfMark(m.name);

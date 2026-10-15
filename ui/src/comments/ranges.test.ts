@@ -40,3 +40,9 @@ describe('segments', () => {
     ]);
   });
 });
+
+describe('commentRanges on a plain snapshot', () => {
+  it('returns nothing instead of throwing for a materialized (non-Automerge) state', () => {
+    expect(commentRanges({ body: 'hello', comments: {} } as any)).toEqual([]);
+  });
+});

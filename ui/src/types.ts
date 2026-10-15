@@ -1,5 +1,6 @@
 import { AgentPubKey, AgentPubKeyB64, decodeHashFromBase64, encodeHashToBase64 } from "@holochain/client";
 import { Hrl, HrlB64 } from "@theweave/api";
+import { ExportedComment } from "./comments/export";
 
 export type EditorType = "markdown" | "richtext";
 
@@ -48,6 +49,8 @@ export const noteMetaB64ToRaw = (noteMetaB64: NoteMetaB64) : NoteMeta => {
 export interface NoteWorkspace {
   name: string,
   note: string,
+  /** Absent in exports made before comments existed. */
+  comments?: ExportedComment[],
 }
 
 export interface Notebook {

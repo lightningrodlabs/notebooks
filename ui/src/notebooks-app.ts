@@ -1,4 +1,5 @@
 import { LitElement, css, html } from "lit";
+import * as Automerge from "@automerge/automerge";
 import { customElement, property, query, state } from "lit/decorators.js";
 import {
   ActionHash,
@@ -22,6 +23,7 @@ import {
   SynClient,
   DocumentStore,
   WorkspaceStore,
+  stateFromDocument,
 } from "@holochain-syn/core";
 
 import "@holochain-open-dev/elements/dist/elements/display-error.js";
@@ -75,6 +77,8 @@ import { createNote } from "./index.js";
 import { appletServices } from "./we-applet.js";
 import { NoteMeta, NoteWorkspace, Notebook, noteMetaB64ToRaw, noteMetaToB64 } from "./types.js";
 import { textOf } from "./text";
+import { TextEditorState } from "./grammar";
+import { exportComments } from "./comments/export";
 import { deserializeExport, exportNotes } from "./export.js";
 import { NotebooksStore, notebooksContext } from "./store.js";
 import { renderAsyncStatus } from "./utils.js";
@@ -325,9 +329,12 @@ export class NotebooksApp extends LitElement {
             console.warn("Workspace store is undefined, skipping")
           } else {
             const name = await toPromise(wsStore.name)
-            const note = await toPromise(wsStore.latestSnapshot) as any
-            const text = textOf(note)
-            workspaces.push({ name, note: text })
+            // Snapshots are plain objects without marks: resolve the tip's doc to read comment ranges.
+            const tip = await toPromise(wsStore.tip)
+            const doc = (tip
+              ? await docStore.resolveCommitState(tip)
+              : stateFromDocument(record.entry)) as Automerge.Doc<TextEditorState>
+            workspaces.push({ name, note: textOf(doc), comments: exportComments(doc) })
           }
         }
         notes.push({
@@ -352,7 +359,7 @@ export class NotebooksApp extends LitElement {
         for (const n of importedNotebooks) {
           const noteMeta = noteMetaB64ToRaw(n.meta)
           console.log(n)
-          const _noteHash = await createNote(this._synStore, noteMeta.title, noteMeta.attachedToHrl, n.workspaces[0].note, noteMeta.editorType || "markdown");
+          const _noteHash = await createNote(this._synStore, noteMeta.title, noteMeta.attachedToHrl, n.workspaces[0].note, noteMeta.editorType || "markdown", n.workspaces[0].comments);
         }
       }
       this.importing = false
