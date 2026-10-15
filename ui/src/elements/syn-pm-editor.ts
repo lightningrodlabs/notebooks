@@ -1199,7 +1199,9 @@ export class SynPmEditor extends LitElement implements CommentsHost {
 
   onSelectionChanged(ranges: Array<{ from: number; to: number }>) {
     if (this.isUpdatingFromSyn) return;
-    this.updateAddButton();
+    // Called from appendTransaction, where view.state is still the previous
+    // state: read the selection once the dispatch has applied the new one.
+    queueMicrotask(() => this.updateAddButton());
     
     // Convert ProseMirror positions to markdown positions before storing in Syn
     const markdownFrom = this.proseMirrorPosToMarkdownPos(ranges[0].from);
