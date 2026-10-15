@@ -230,8 +230,10 @@ export class CommentMargin extends LitElement {
       flex: 1;
     }
     .cards {
+      /* No height of its own: cards are absolutely positioned and the host
+         claims their height (relayout), so a full-height box here would push
+         the panel past the pane by whatever sits above it. */
       position: relative;
-      min-height: 100%;
     }
     .card {
       position: absolute;
