@@ -128,7 +128,7 @@ export class CommentMargin extends LitElement {
         <agent-mention .agentPubKey=${decodeHashFromBase64(r.author)} size="18"></agent-mention>
         <sl-relative-time .date=${new Date(r.created)}></sl-relative-time>
         ${mine
-          ? html`<sl-icon-button .src=${wrapPathInSvg(mdiDelete)} label=${msg('Delete reply')}
+          ? html`<sl-icon-button .src=${wrapPathInSvg(mdiDelete)} label=${msg('Delete reply')} title=${msg('Delete reply')}
               @click=${() => this.emit('reply-delete', { id: cardId, replyId: r.id })}></sl-icon-button>`
           : nothing}
       </div>
@@ -151,9 +151,10 @@ export class CommentMargin extends LitElement {
         <span style="flex: 1"></span>
         <sl-icon-button .src=${wrapPathInSvg(c.resolved ? mdiRestore : mdiCheck)}
           label=${c.resolved ? msg('Reopen') : msg('Resolve')}
+          title=${c.resolved ? msg('Reopen comment') : msg('Resolve comment')}
           @click=${(e: Event) => { e.stopPropagation(); this.emit('comment-resolve', { id: c.id, resolved: !c.resolved }); }}></sl-icon-button>
         ${mine
-          ? html`<sl-icon-button .src=${wrapPathInSvg(mdiDelete)} label=${msg('Delete comment')}
+          ? html`<sl-icon-button .src=${wrapPathInSvg(mdiDelete)} label=${msg('Delete comment')} title=${msg('Delete comment')}
               @click=${(e: Event) => { e.stopPropagation(); this.emit('comment-delete', { id: c.id }); }}></sl-icon-button>`
           : nothing}
       </div>
@@ -184,7 +185,7 @@ export class CommentMargin extends LitElement {
         <span>${this.total === 1 ? msg('1 comment') : `${this.total} ${msg('comments')}`}</span>
         <sl-switch size="small" ?checked=${this.showResolved}
           @sl-change=${(e: Event) => this.emit('toggle-resolved', { show: (e.currentTarget as HTMLInputElement).checked })}>${msg('Resolved')}</sl-switch>
-        <sl-icon-button .src=${wrapPathInSvg(mdiContentCopy)} label=${msg('Copy as markdown with comments')}
+        <sl-icon-button .src=${wrapPathInSvg(mdiContentCopy)} label=${msg('Copy as markdown with comments')} title=${msg('Copy as markdown with comments')}
           @click=${() => this.emit('copy-markdown')}></sl-icon-button>
       </div>
       <div class="cards">
