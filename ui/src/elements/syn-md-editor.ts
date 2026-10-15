@@ -509,7 +509,7 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
       .activeId=${c.activeId}
       .myPubKeyB64=${c.myPubKeyB64}
       .showResolved=${c.showResolved}
-      .total=${c.total}
+      .counts=${c.counts}
       @comment-activate=${(e: CustomEvent) => c.activate(e.detail.id)}
       @comment-change=${(e: CustomEvent) => c.setText(e.detail.id, e.detail.text)}
       @comment-delete=${(e: CustomEvent) => c.remove(e.detail.id)}

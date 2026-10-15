@@ -7,6 +7,7 @@ import { textOf } from '../text';
 import { CommentRange, Segment, segments } from './ranges';
 import { commentsView, CommentView, visibleRanges } from './model';
 import { toCriticMarkup } from './criticmarkup';
+import { CommentCounts, countComments } from './counts';
 
 export interface MarginCard extends CommentView {
   /** px from the top of the editor row, or null for a comment whose text was deleted. */
@@ -57,8 +58,11 @@ export class CommentsController implements ReactiveController {
 
   segs: Segment[] = [];
 
-  /** Total including resolved ones, for the header. */
+  /** Total including resolved ones: whether there is anything to show at all. */
   total = 0;
+
+  /** Open and resolved counts, for the header. */
+  counts: CommentCounts = { open: 0, resolved: 0 };
 
   /** Width of the margin column in px; dragged with the divider, remembered per browser. */
   marginWidth = storedWidth();
@@ -99,7 +103,8 @@ export class CommentsController implements ReactiveController {
     this.view = commentsView(this.doc, this.showResolved);
     this.ranges = visibleRanges(this.doc, this.showResolved);
     this.segs = segments(this.ranges);
-    this.total = this.doc.comments ? Object.keys(this.doc.comments).length : 0;
+    this.counts = countComments(this.doc.comments);
+    this.total = this.counts.open + this.counts.resolved;
     this.host.paint(this.segs, this.activeId);
     this.host.requestUpdate();
   }

@@ -13,6 +13,7 @@ import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/switch/switch.js';
 import '@shoelace-style/shoelace/dist/components/relative-time/relative-time.js';
 import { fitCards } from '../comments/layout';
+import { CommentCounts, headerLabel } from '../comments/counts';
 import { MarginCard } from '../comments/controller';
 import { Reply } from '../comments/types';
 
@@ -43,8 +44,8 @@ export class CommentMargin extends LitElement {
   @property({ type: Boolean })
   showResolved = false;
 
-  @property({ type: Number })
-  total = 0;
+  @property({ type: Object })
+  counts: CommentCounts = { open: 0, resolved: 0 };
 
   @state()
   private tops = new Map<string, number>();
@@ -182,12 +183,18 @@ export class CommentMargin extends LitElement {
   render() {
     return html`
       <div class="header">
-        <span>${this.total === 1 ? msg('1 comment') : `${this.total} ${msg('comments')}`}</span>
+        <span>${headerLabel(this.counts)}</span>
         <sl-switch size="small" ?checked=${this.showResolved}
           @sl-change=${(e: Event) => this.emit('toggle-resolved', { show: (e.currentTarget as HTMLInputElement).checked })}>${msg('Resolved')}</sl-switch>
         <sl-icon-button .src=${wrapPathInSvg(mdiContentCopy)} label=${msg('Copy as markdown with comments')} title=${msg('Copy as markdown with comments')}
           @click=${() => this.emit('copy-markdown')}></sl-icon-button>
       </div>
+      ${this.counts.open === 0 && this.counts.resolved > 0 && !this.showResolved
+        ? html`<div class="empty">
+            ${msg('All comments resolved.')}
+            <button class="link" @click=${() => this.emit('toggle-resolved', { show: true })}>${msg('Show resolved')}</button>
+          </div>`
+        : nothing}
       <div class="cards">
         ${repeat(this.cards, c => c.id, c => this.renderCard(c))}
       </div>
@@ -293,6 +300,20 @@ export class CommentMargin extends LitElement {
     }
     .reply-box textarea {
       flex: 1;
+    }
+    .empty {
+      padding: 16px 4px;
+      color: var(--sl-color-neutral-600);
+    }
+    .link {
+      background: none;
+      border: 0;
+      padding: 0;
+      margin-left: 4px;
+      font: inherit;
+      color: var(--sl-color-primary-600);
+      text-decoration: underline;
+      cursor: pointer;
     }
   `;
 }

@@ -70,6 +70,7 @@ import {
 } from "../grammar";
 import { isMigrated, textOf } from "../text";
 import { migrateSession } from "../migrate-session";
+import { countComments } from "../comments/counts";
 import { NoteMeta } from "../types.js";
 import { notebooksContext, NotebooksStore } from "../store";
 import { renderAsyncStatus } from "../utils.js";
@@ -511,8 +512,8 @@ export class RichtextNote extends LitElement {
   _showComments = false;
 
   private commentCount(sessionStore: SessionStore<TextEditorState, TextEditorEphemeralState>): number {
-    const doc = get(sessionStore.docState);
-    return doc?.comments ? Object.keys(doc.comments).length : 0;
+    // Open comments only: resolved ones are done and should not ask for attention.
+    return countComments(get(sessionStore.docState)?.comments).open;
   }
 
   renderCommentsToggle(sessionStore: SessionStore<TextEditorState, TextEditorEphemeralState>) {

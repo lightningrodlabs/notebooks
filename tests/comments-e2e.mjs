@@ -140,6 +140,8 @@ async function main() {
   await A.eval(`(() => { const c = window.__cardByText('Mine too'); c.querySelector('sl-icon-button[label="Resolve"]').click(); return true; })()`);
   const resolved = await waitUntil(async () => (await A.eval(`window.__cards().length`)) === 1 && (await B.eval(`window.__cards().length`)) === 1 && (await B.eval(`window.__depth2Text()`)) === '', 30000, 500, 'resolved hidden');
   check(resolved, 'a resolved comment leaves both margins and its highlight goes');
+  const header = await A.eval(`window.__margin().shadowRoot.querySelector('.header span').textContent.trim()`);
+  check(header === '1 open · 1 resolved', `the header counts open and resolved (got ${JSON.stringify(header)})`);
   await A.eval(`(() => { const m = window.__margin(); const sw = m.shadowRoot.querySelector('sl-switch'); sw.click(); return true; })()`);
   const shown = await waitUntil(() => A.eval(`window.__cards().some(c => c.classList.contains('resolved'))`), 10000, 300, 'resolved shown');
   check(shown, 'the Resolved toggle shows it again, greyed');
