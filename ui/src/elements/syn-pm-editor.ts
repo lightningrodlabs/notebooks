@@ -1069,9 +1069,14 @@ export class SynPmEditor extends LitElement implements CommentsHost {
 
   /** (Re)subscribe the editor to the slice's state and cursors; re-run whenever `slice` changes. */
   private subscribeToSynChanges() {
+    const rebinding = this._sliceUnsubs.length > 0;
     for (const u of this._sliceUnsubs) u();
     this._sliceUnsubs = [];
     this.lastStateText = '';
+    if (rebinding && this.view) {
+      // A fresh state drops the previous note's undo history; the plugins are reused.
+      this.view.updateState(EditorState.create({ schema: this.schema, doc: this.view.state.doc, plugins: this.view.state.plugins }));
+    }
     this.comments.bind();
     // Subscribe to ephemeral (cursors) with debounce
     this._sliceUnsubs.push(this.slice.ephemeral.subscribe((cursors) => {
@@ -1161,8 +1166,10 @@ export class SynPmEditor extends LitElement implements CommentsHost {
             newDoc.content
           );
           
-          // Mark this transaction as remote so plugin doesn't broadcast cursor position
+          // Mark this transaction as remote so plugin doesn't broadcast cursor position,
+          // and keep it out of the undo history: undo must never revert another person's edit.
           tr.setMeta('remote', true);
+          tr.setMeta('addToHistory', false);
           
           // Convert adjusted markdown positions back to ProseMirror positions in NEW document
           const clampedAnchor = Math.max(0, Math.min(newMarkdownAnchor, stateText.length));

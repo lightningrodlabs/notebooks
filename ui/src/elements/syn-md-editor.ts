@@ -275,6 +275,10 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
 
   private bindSlice() {
     if (!this.editor) return;
+    // History anchors are cursors into the previous note; none of them may be replayed here.
+    this._localChanges = [];
+    this._localChangeCurrentIndex = -1;
+    this.emitHistoryState();
     this._sliceUnsub?.();
     this._sliceUnsub = derived([this.slice.docState, this.slice.ephemeral], i => i).subscribe(
       ([state, cursors]) => {
