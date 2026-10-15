@@ -80,3 +80,19 @@ describe('text grammar on an Automerge Text', () => {
     expect(cursorToPosition(fresh('a').state, 'nope')).toBeUndefined();
   });
 });
+
+describe('my cursor after typing at the end of the text', () => {
+  it('resolves after the typed text, not onto its last character', () => {
+    let d = fresh('fresh');
+    d = apply(d, g => g.insert(5, ' '));
+    expect(cursorToPosition(d.state, d.eph[meB64].cursor)).toBe(6);
+    d = apply(d, g => g.insert(6, 'p'));
+    expect(cursorToPosition(d.state, d.eph[meB64].cursor)).toBe(7);
+    expect(d.state.body).toBe('fresh p');
+  });
+  it('a selection ending at the end of the text resolves there', () => {
+    let d = fresh('abc');
+    d = apply(d, g => g.changeSelection(3, 0));
+    expect(cursorToPosition(d.state, d.eph[meB64].cursor)).toBe(3);
+  });
+});
