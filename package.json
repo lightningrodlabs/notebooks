@@ -23,17 +23,19 @@
     "test:typing": "node tests/typing-perf.mjs",
     "weave-hash": "node scripts/weave-hash.mjs",
     "release:happ": "bash scripts/release-happ.sh",
-    "release:webhapp": "APP_VER=$(node -p \"require('./ui/package.json').version\") && git tag v$APP_VER && git push origin v$APP_VER"
+    "release:webhapp": "APP_VER=$(node -p \"require('./ui/package.json').version\") && git tag v$APP_VER && git push origin v$APP_VER",
+    "test:ui": "vitest run"
   },
   "devDependencies": {
-    "@theweave/cli": "0.16.0-dev.5",
     "@holochain/hc-spin": "^0.700.0",
+    "@theweave/cli": "0.16.0-dev.5",
     "bestzip": "^2.2.0",
     "concurrently": "^6.2.1",
     "cross-env": "^7.0.3",
     "new-port-cli": "^1.0.0",
     "rimraf": "^3.0.2",
-    "vite-plugin-wasm": "^3.5.0"
+    "vite-plugin-wasm": "^3.5.0",
+    "vitest": "^3.2.7"
   },
   "overrides": {
     "@holochain/client": "^0.21.0",
