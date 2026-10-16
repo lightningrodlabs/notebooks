@@ -28,7 +28,7 @@
   },
   "devDependencies": {
     "@holochain/hc-spin": "^0.700.1-rc.0",
-    "@theweave/cli": "0.16.0-rc.2",
+    "@theweave/cli": "^0.16.0-rc.2",
     "bestzip": "^2.2.0",
     "concurrently": "^6.2.1",
     "cross-env": "^7.0.3",
