@@ -11,4 +11,4 @@ name = "syn_integrity"
 derive_more = "0"
 serde = "1"
 
-hc_zome_syn_integrity = { git = "https://github.com/holochain-apps/syn", branch = "main-0.7" }
+hc_zome_syn_integrity = { git = "https://github.com/holochain-apps/syn", tag = "v0.701.1" }

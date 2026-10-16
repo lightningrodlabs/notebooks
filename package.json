@@ -27,8 +27,8 @@
     "test:ui": "vitest run"
   },
   "devDependencies": {
-    "@holochain/hc-spin": "^0.700.0",
-    "@theweave/cli": "0.16.0-dev.5",
+    "@holochain/hc-spin": "^0.700.1-rc.0",
+    "@theweave/cli": "0.16.0-rc.2",
     "bestzip": "^2.2.0",
     "concurrently": "^6.2.1",
     "cross-env": "^7.0.3",
@@ -38,7 +38,7 @@
     "vitest": "^3.2.7"
   },
   "overrides": {
-    "@holochain/client": "^0.21.0",
+    "@holochain/client": "^0.21.1",
     "@automerge/automerge": "^3.4.0"
   },
   "engines": {

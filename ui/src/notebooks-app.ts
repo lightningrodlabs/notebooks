@@ -202,8 +202,6 @@ export class NotebooksApp extends LitElement {
                 client: weaveClient.renderInfo.appletClient as unknown as AppClient,
                 weaveClient
               };
-            case "block":
-              throw new Error("Unknown applet-view block type");
             case "asset":
                             if (!weaveClient.renderInfo.view.recordInfo) {
                 throw new Error(

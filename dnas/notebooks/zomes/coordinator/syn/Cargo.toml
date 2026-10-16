@@ -10,4 +10,4 @@ name = "syn"
 [dependencies]
 derive_more = "0"
 
-hc_zome_syn_coordinator = { git = "https://github.com/holochain-apps/syn", branch = "main-0.7" }
+hc_zome_syn_coordinator = { git = "https://github.com/holochain-apps/syn", tag = "v0.701.1" }

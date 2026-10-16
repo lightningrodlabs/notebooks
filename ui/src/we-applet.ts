@@ -18,7 +18,7 @@ import { NoteMeta } from './types';
 
 // First define your AppletServices that We can call on your applet
 // to do things like search your applet or get information
-// about the available block views etc.
+// about its assets.
 export const appletServices: AppletServices = {
   // Types of attachment that this Applet offers for other Applets to be created
   creatables: {
@@ -27,8 +27,7 @@ export const appletServices: AppletServices = {
       icon_src: wrapPathInSvg(mdiNotebook),
       height: "medium"
     },
-  }, // Types of UI widgets/blocks that this Applet supports
-  blockTypes: {},
+  },
   // bindAsset: async (
   //   appletClient: AppClient,
   //   srcWal: WAL,

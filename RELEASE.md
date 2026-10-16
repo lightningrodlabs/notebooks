@@ -13,6 +13,11 @@ the DNA hash changed, 0.6 and 0.7 conductors cannot read each other's databases,
 and 0.6 and 0.7 agents form disjoint networks. Notes written on the 0.6 line do
 not carry over — use the Export/Import buttons in Settings to move them.
 
+DNA version 0.8.0 (Holochain 0.7.1, syn 0.701.1, profiles 0.702.0) is again a
+new network: 0.7.1 changed the capability-grant format, so these zomes cannot
+start on a 0.7.0 conductor, and the 0.7.0 line (`happ-v0.7.0`) cannot see it.
+It needs Moss 0.16.0-rc.1 or later. Move notes from 0.7.x with Export/Import.
+
 ## Why the happ is frozen (never rebuilt)
 
 The zome wasm embeds the builder's absolute paths (`~/.cargo/...` and source
