@@ -63,8 +63,11 @@ import { SlChangeEvent, SlDialog, SlDrawer, SlRadioGroup } from "@shoelace-style
 import { msg } from "@lit/localize";
 import { decode } from "@msgpack/msgpack";
 import { Marked } from "@ts-stack/markdown";
-import { mdiArrowLeft, mdiBookOpenOutline, mdiEye, mdiPencil, mdiClose, mdiGrid, mdiDotsGrid, mdiUndoVariant, mdiRedoVariant, mdiCommentOutline } from "@mdi/js";
+import { mdiArrowLeft, mdiBookOpenOutline, mdiEye, mdiPencil, mdiClose, mdiGrid, mdiDotsGrid, mdiUndoVariant, mdiRedoVariant, mdiCommentOutline, mdiSourceBranch } from "@mdi/js";
 import { isWeaveContext, WAL } from "@theweave/api";
+import type { Reveal } from "../search.js";
+import "./search-box.js";
+import type { SearchPick } from "./search-box.js";
 import {
   TextEditorEphemeralState,
   TextEditorState,
@@ -122,6 +125,10 @@ export class MarkdownNote extends LitElement {
 
   @property()
   standalone = false
+
+  /** A search hit to show once the editor has the note's text. */
+  @property({ type: Object })
+  reveal: Reveal | undefined
 
   @state()
   _renderDrawer = false
@@ -688,27 +695,41 @@ export class MarkdownNote extends LitElement {
              label=${msg("Copy note to pocket")}>
             </sl-icon>`:""}
           </span>
+          <search-box
+            style="margin-right: 8px;"
+            memory=${`note:${encodeHashToBase64(this.documentStore.documentHash)}`}
+            findKey
+            stayOpen
+            collapsible
+            .minPanelWidth=${360}
+            .placeholder=${msg("Search this note")}
+            .sources=${[{ id: "note", title: "", text: textOf(state) }]}
+            .bounds=${() => this.getBoundingClientRect()}
+            @search-pick=${(e: CustomEvent<SearchPick>) => {
+              if (this._view === View.View) this.updateView(View.Both);
+              if (e.detail.reveal) this.reveal = { ...e.detail.reveal, focus: false };
+            }}
+          ></search-box>
           <session-status
             .sessionstore=${sessionStore}
           ></session-status>
-          <span style="margin: 0 8px">${msg("Participants:")}</span>
           <session-participants
+            style="margin: 0 8px"
+            title=${msg("Participants")}
             direction="row"
             showOffline=true
             .sessionstore=${sessionStore}
           ></session-participants>
-          <span>${msg("Active Workspace:")}</span>
-          <sl-badge variant="primary" pill style="margin-left: 8px"
-            >${this._workspaceName}</sl-badge
-          >
           <sl-button
             size="small"
-            style="margin-left: 16px;"
+            style="margin-left: 8px;"
+            title=${`${msg("Version control")}: ${msg("workspace")} ${this._workspaceName}`}
             @click=${() => {
               this._renderDrawer = !this._renderDrawer;
             }}
           >
-            ${msg("Version Control")}
+            <sl-icon slot="prefix" .src=${wrapPathInSvg(mdiSourceBranch)}></sl-icon>
+            ${this._workspaceName}
           </sl-button>
           ${this.renderCommentsToggle(sessionStore)}
           <slot name="toolbar-action"></slot>
@@ -720,6 +741,7 @@ export class MarkdownNote extends LitElement {
               <div class="flex-scrollable-y">
                 <syn-md-editor
                   .slice=${sessionStore}
+                  .reveal=${this.reveal}
                   .showComments=${this._showComments}
                   @show-comments=${() => { this._showComments = true; }}
                   @history-state-changed=${(event: CustomEvent<EditorHistoryState>) => {

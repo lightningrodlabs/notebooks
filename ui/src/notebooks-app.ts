@@ -78,6 +78,7 @@ import { appletServices } from "./we-applet.js";
 import { NoteMeta, NoteWorkspace, Notebook, noteMetaB64ToRaw, noteMetaToB64 } from "./types.js";
 import { textOf } from "./text";
 import { mainView } from "./views";
+import type { Reveal } from "./search";
 import { TextEditorState } from "./grammar";
 import { exportComments } from "./comments/export";
 import { NotificationWatcher } from "./notification-watcher";
@@ -99,6 +100,8 @@ type View =
   | {
     type: "note";
     noteHash: EntryHash;
+    /** A search hit to select once the note is open. */
+    reveal?: Reveal;
   }
   | {
     type: "standalone-note";
@@ -499,6 +502,7 @@ export class NotebooksApp extends LitElement {
                     @close=${()=>this.view = {
                       type: "main",
                     }}
+                    .reveal=${this.view.type === "note" ? this.view.reveal : undefined}
                     .standalone=${this.view.type === "standalone-note"} 
                     style="flex: 1;">
                   </richtext-note>`;
@@ -507,7 +511,8 @@ export class NotebooksApp extends LitElement {
                   @close=${()=>this.view = {
                     type: "main",
                   }}
-                  .standalone=${this.view.type === "standalone-note"} 
+                  .reveal=${this.view.type === "note" ? this.view.reveal : undefined}
+                    .standalone=${this.view.type === "standalone-note"} 
                   style="flex: 1;">
                 </markdown-note>`;
               },
@@ -534,6 +539,7 @@ export class NotebooksApp extends LitElement {
                   this.view = {
                     type: "note",
                     noteHash: e.detail.noteHash,
+                    reveal: e.detail.reveal,
                   };
                 }}
               ></all-notes>

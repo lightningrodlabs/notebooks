@@ -27,11 +27,13 @@ import "@shoelace-style/shoelace/dist/components/relative-time/relative-time.js"
 import "@shoelace-style/shoelace/dist/components/skeleton/skeleton.js";
 import "@shoelace-style/shoelace/dist/components/checkbox/checkbox.js";
 import { mdiDelete, mdiRestore } from "@mdi/js";
-import { ActionHash, AgentPubKey, encodeHashToBase64, EntryHash, HoloHash, Timestamp, LazyHoloHashMap, HoloHashMap } from "@holochain/client";
+import { ActionHash, AgentPubKey, decodeHashFromBase64, encodeHashToBase64, EntryHash, HoloHash, Timestamp, LazyHoloHashMap, HoloHashMap } from "@holochain/client";
 import SlCheckbox from "@shoelace-style/shoelace/dist/components/checkbox/checkbox.js";
 import { SortDirection } from "./column-label.js";
 import { TextEditorEphemeralState, TextEditorState } from "../grammar.js";
 import { textOf } from "../text.js";
+import "./search-box.js";
+import { SearchPick, SearchSource } from "./search-box.js";
 
 enum SortColumn {
   Created,
@@ -120,6 +122,31 @@ export class AllNotes extends LitElement {
   );
 
 
+  openNote(noteHash: EntryHash, reveal?: SearchPick["reveal"]) {
+    this.dispatchEvent(
+      new CustomEvent("note-selected", {
+        bubbles: true,
+        composed: true,
+        detail: { noteHash, reveal },
+      })
+    )
+  }
+
+  /** Every listed note, in the list's order, for the search box. */
+  searchSources(): SearchSource[] {
+    return this.doSort([...this.noteRows]).map(note => ({
+      id: encodeHashToBase64(note.entryHash),
+      title: this.displayTitle(note),
+      text: textOf(note.state),
+      archived: note.archived,
+    }))
+  }
+
+  displayTitle(note: NoteRow) {
+    const match = /^(#+ +)*(.*)/.exec(textOf(note.state));
+    return match ? match[2] : note.title
+  }
+
   setSort(column: SortColumn, direction:SortDirection) {
     this.sortColumn = column
     this.sortDirection = direction
@@ -201,12 +228,7 @@ export class AllNotes extends LitElement {
   renderNote(note: NoteRow) {
     const createDate = new Date(note.created)
     const modifiedDate = note.modified ? new Date(note.modified) : undefined
-    let title = note.title
-    // @ts-ignore
-    const match = /^(#+ +)*(.*)/.exec(textOf(note.state));
-    if (match) {
-      title = match[2]
-    }
+    const title = this.displayTitle(note)
     return html`
         <div
           class="note-row"
@@ -299,7 +321,7 @@ export class AllNotes extends LitElement {
 
     return html`
       <div class="notes">
-        <div style="display:flex;width:100%;justify-content:flex-end;margin-bottom:10px">
+        <div style="display:flex;width:100%;align-items:center;gap:16px;margin-bottom:10px">
           ${this.error ? html`
           <display-error
             .headline=${msg("Error fetching notes")}
@@ -311,6 +333,15 @@ export class AllNotes extends LitElement {
           >
             show archived
           </sl-checkbox>
+          <span style="flex: 1;"></span>
+          <search-box
+            memory="all-notes"
+            findKey
+            .placeholder=${msg("Search notes")}
+            .sources=${this.searchSources()}
+            .bounds=${() => this.closest(".flex-scrollable-container")?.getBoundingClientRect()}
+            @search-pick=${(e: CustomEvent<SearchPick>) => this.openNote(decodeHashFromBase64(e.detail.id), e.detail.reveal)}
+          ></search-box>
         </div>
         <div class="notes-row notes-header">
           <span class="note-title"> 
@@ -373,6 +404,13 @@ export class AllNotes extends LitElement {
     css`
       .notes {
         flex: 1; 
+        min-width: 0;
+      }
+      /* Narrow: drop the Created and Style columns so the rest fit. */
+      @media (max-width: 860px) {
+        .note-created, .note-style {
+          display: none !important;
+        }
       }
       .notes-header {
         display:flex; align-items:center; justify-content: space-between;

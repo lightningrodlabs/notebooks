@@ -35,6 +35,7 @@ import {
 } from '../grammar.js';
 import { cursorToPosition } from '../utils.js';
 import { textOf } from '../text.js';
+import { findHits, Reveal } from '../search.js';
 import { CommentsController, CommentsHost } from '../comments/controller.js';
 import { Segment } from '../comments/ranges.js';
 import { commentAt } from '../comments/model.js';
@@ -46,6 +47,24 @@ import { commentMarginTemplate } from '../comments/margin-template.js';
 import { Person } from '../comments/people.js';
 
 const commentsKey = new PluginKey<DecorationSet>('nb-comments');
+/** The revealed search hit: set by a transaction carrying [from, to], cleared by the next selection the user makes. */
+const searchHitKey = new PluginKey<DecorationSet>('nb-search-hit');
+
+const searchHitPlugin = new Plugin<DecorationSet>({
+  key: searchHitKey,
+  state: {
+    init: () => DecorationSet.empty,
+    apply(tr, prev) {
+      const hit = tr.getMeta(searchHitKey) as [number, number] | undefined;
+      if (hit) return DecorationSet.create(tr.doc, [Decoration.inline(hit[0], hit[1], { class: 'nb-search-hit' })]);
+      if (tr.selectionSet && !tr.getMeta('remote')) return DecorationSet.empty;
+      return tr.docChanged ? prev.map(tr.mapping, tr.doc) : prev;
+    },
+  },
+  props: {
+    decorations: state => searchHitKey.getState(state),
+  },
+});
 
 interface CommentsMeta {
   segs: Segment[];
@@ -147,6 +166,64 @@ export class SynPmEditor extends LitElement implements CommentsHost {
   /** Card to focus once the margin is on screen (it may only appear after the shell re-renders). */
   private _pendingFocus: string | null = null;
 
+  /** A search hit to select and scroll to once the note's text is in the editor. */
+  @property({ type: Object })
+  reveal: Reveal | undefined;
+
+  private _revealed: Reveal | undefined;
+
+  /**
+   * A hit in the document's displayed text, as ProseMirror positions [from, to).
+   * The displayed text has no markdown syntax, so markdown offsets only map
+   * approximately: when the displayed text has as many occurrences of `query`
+   * as the markdown, take the same one by count (`ordinal`, of `count`);
+   * otherwise take the one closest to `near`.
+   */
+  private findInDoc(query: string, ordinal: number, count: number, near: number): [number, number] | undefined {
+    const plain: string[] = [];
+    const posOf: number[] = [];
+    this.view!.state.doc.descendants((node, pos) => {
+      if (node.isText) {
+        for (let i = 0; i < node.text!.length; i += 1) {
+          plain.push(node.text![i]);
+          posOf.push(pos + i);
+        }
+      } else if (node.isBlock && plain.length > 0) {
+        plain.push('\n');
+        posOf.push(pos);
+      }
+      return true;
+    });
+    const q = query.toLowerCase();
+    if (!q) return undefined;
+    const found = findHits(plain.join(''), q, Infinity).hits.map(h => h.offset);
+    if (found.length === 0) return undefined;
+    const best = found.length === count
+      ? found[ordinal]
+      : found.reduce((a, b) => (Math.abs(posOf[b] - near) < Math.abs(posOf[a] - near) ? b : a));
+    return [posOf[best], posOf[best + q.length - 1] + 1];
+  }
+
+  private applyReveal() {
+    const r = this.reveal;
+    if (!r || r === this._revealed || !this.view) return;
+    // offsetToPm maps against what docToText last built, so build it for the current doc.
+    if (!this.docToText(this.view.state.doc)) return; // the note's text has not arrived yet
+    this._revealed = r;
+    const inMarkdown = findHits(textOf(this._state.value), r.query, Infinity).hits.map(h => h.offset);
+    const ordinal = inMarkdown.filter(o => o < r.offset).length;
+    const range = this.findInDoc(r.query, ordinal, inMarkdown.length, this.offsetToPm(r.offset));
+    if (!range) return;
+    const [from, to] = range;
+    if (r.focus !== false) this.view.focus();
+    this.view.dispatch(this.view.state.tr.setSelection(TextSelection.create(this.view.state.doc, from, to)).setMeta(searchHitKey, [from, to]));
+    requestAnimationFrame(() => {
+      if (!this.view) return;
+      const { node } = this.view.domAtPos(from);
+      (node instanceof Element ? node : node.parentElement)?.scrollIntoView({ block: 'center' });
+    });
+  }
+
   private requestShowComments() {
     this.dispatchEvent(new CustomEvent('show-comments', { bubbles: true, composed: true }));
   }
@@ -244,6 +321,7 @@ export class SynPmEditor extends LitElement implements CommentsHost {
         }),
         this.createSynPlugin(),
         this.createCommentsPlugin(),
+        searchHitPlugin,
       ],
     });
 
@@ -1002,6 +1080,7 @@ export class SynPmEditor extends LitElement implements CommentsHost {
 
   updated(changed: Map<string | number | symbol, unknown>) {
     if (changed.has('slice') && this.view) this.subscribeToSynChanges();
+    this.applyReveal();
     if (this._pendingFocus && this.marginEl) {
       this.marginEl.focusCard(this._pendingFocus);
       this._pendingFocus = null;
@@ -1569,6 +1648,10 @@ export class SynPmEditor extends LitElement implements CommentsHost {
   }
 
   static styles = [commentStyles, css`
+    .nb-search-hit {
+      background: #fde68a;
+      border-radius: 2px;
+    }
     :host {
       display: flex;
       flex: 1;

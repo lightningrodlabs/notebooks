@@ -20,6 +20,7 @@ import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import { cursorToPosition } from '../utils.js';
 import { textOf } from '../text.js';
+import { nearestOccurrence, Reveal } from '../search.js';
 import { CommentsController, CommentsHost } from '../comments/controller.js';
 import { Segment } from '../comments/ranges.js';
 import { commentAt } from '../comments/model.js';
@@ -69,6 +70,14 @@ type LocalHistoryEntry = {
   undo: EditorChangePatch;
   redo: EditorChangePatch;
 };
+
+/** The revealed search hit's highlight; adopted into CodeMirror's shadow root. */
+const searchHitStyles = css`
+  .nb-search-hit {
+    background: #fde68a;
+    border-radius: 2px;
+  }
+`;
 
 @customElement('syn-md-editor')
 export class SynMarkdownEditor extends LitElement implements CommentsHost {
@@ -163,6 +172,40 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
 
   /** Card to focus once the margin is on screen (it may only appear after the shell re-renders). */
   private _pendingFocus: string | null = null;
+
+  /** A search hit to select and scroll to once the note's text is in the editor. */
+  @property({ type: Object })
+  reveal: Reveal | undefined;
+
+  private _revealed: Reveal | undefined;
+
+  /** Highlight on the revealed hit, which shows even while the editor is not focused. */
+  private _searchMark: { clear(): void } | undefined;
+
+  private clearSearchMark() {
+    this._searchMark?.clear();
+    this._searchMark = undefined;
+  }
+
+  private applyReveal() {
+    const r = this.reveal;
+    if (!r || r === this._revealed || !this.editor) return;
+    const text = this.editor.getValue();
+    if (!text) return; // the note's text has not arrived yet
+    this._revealed = r;
+    const range = nearestOccurrence(text, r.query, r.offset);
+    if (!range) return;
+    if (r.focus !== false) this.editor.focus();
+    const from = this.editor.posFromIndex(range[0]);
+    const to = this.editor.posFromIndex(range[1]);
+    // An origin makes beforeSelectionChange publish it as my cursor, so the next sync keeps it.
+    this.editor.setSelection(from, to, { origin: '+search', scroll: false });
+    this.clearSearchMark();
+    this._searchMark = this.editor.markText(from, to, { className: 'nb-search-hit' });
+    requestAnimationFrame(() => {
+      this.editor.getWrapperElement().querySelector('.nb-search-hit')?.scrollIntoView({ block: 'center' });
+    });
+  }
 
   private requestShowComments() {
     this.dispatchEvent(new CustomEvent('show-comments', { bubbles: true, composed: true }));
@@ -362,6 +405,7 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
 
   updated(changed: Map<string | number | symbol, unknown>) {
     if (changed.has('slice') && this.editor) this.bindSlice();
+    this.applyReveal();
     if (this._pendingFocus && this.marginEl) {
       this.marginEl.focusCard(this._pendingFocus);
       this._pendingFocus = null;
@@ -370,11 +414,10 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
 
   firstUpdated() {
     // CodeMirror draws inside <wc-codemirror>'s own shadow root, where this
-    // element's styles do not reach: give it the comment highlight styles.
+    // element's styles do not reach: give it the comment and search highlight styles.
     const cmRoot = this.editorEl.shadowRoot as ShadowRoot | null;
-    if (cmRoot && commentStyles.styleSheet) {
-      cmRoot.adoptedStyleSheets = [...cmRoot.adoptedStyleSheets, commentStyles.styleSheet];
-    }
+    const sheets = [commentStyles.styleSheet, searchHitStyles.styleSheet].filter((x): x is CSSStyleSheet => !!x);
+    if (cmRoot) cmRoot.adoptedStyleSheets = [...cmRoot.adoptedStyleSheets, ...sheets];
     this.editor = this.editorEl.editor;
     this.editor.setOption('lineWrapping', true)
     this.editor.addKeyMap(this._editorHistoryKeyMap);
@@ -435,6 +478,7 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
     });
 
     this.editor.on('beforeSelectionChange', (_:any, e:any) => {
+      if (e.origin !== undefined && e.origin !== '+search') this.clearSearchMark();
       if (e.origin !== undefined) {
         const ranges = e.ranges;
         // @ts-ignore
