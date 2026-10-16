@@ -105,6 +105,10 @@ async function main() {
   console.log('7. A comments on "gamma delta"');
   await commentOn(A, 'gamma delta', 'Looks wrong');
   check((await A.eval(`window.__hlText()`)) === 'gamma delta', 'A highlights exactly the selected span');
+  // Classes alone are not enough: CodeMirror renders in its own shadow root, so check the paint.
+  const paint = await A.eval(`(() => { const el = window.__dqAll(e => e.classList && e.classList.contains('nb-comment'))[0]; return JSON.stringify({ bg: getComputedStyle(el).backgroundColor, active: el.classList.contains('nb-comment-active') }); })()`).then(JSON.parse);
+  check(paint.bg !== 'rgba(0, 0, 0, 0)' && paint.bg !== 'transparent', `the markdown highlight is actually painted (background ${paint.bg})`);
+  check(paint.active, 'the new comment\'s text is painted as the active one');
   const bHl = await waitUntil(() => B.eval(`window.__hlText() === 'gamma delta'`), 30000, 500, 'B sees the highlight');
   check(bHl, 'B sees the highlight live');
   check((await B.eval(`window.__cards().length`)) === 0, 'B\'s comment panel starts closed');

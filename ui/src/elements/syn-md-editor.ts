@@ -369,6 +369,12 @@ export class SynMarkdownEditor extends LitElement implements CommentsHost {
   }
 
   firstUpdated() {
+    // CodeMirror draws inside <wc-codemirror>'s own shadow root, where this
+    // element's styles do not reach: give it the comment highlight styles.
+    const cmRoot = this.editorEl.shadowRoot as ShadowRoot | null;
+    if (cmRoot && commentStyles.styleSheet) {
+      cmRoot.adoptedStyleSheets = [...cmRoot.adoptedStyleSheets, commentStyles.styleSheet];
+    }
     this.editor = this.editorEl.editor;
     this.editor.setOption('lineWrapping', true)
     this.editor.addKeyMap(this._editorHistoryKeyMap);
